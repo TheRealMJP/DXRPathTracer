@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+     <Type Name="SampleFramework12::Array&lt;*&gt;">
+        <Expand>
+            <Item Name="size">size</Item>
+            <ArrayItems>
+                <Size>size</Size>
+                <ValuePointer>data</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <Type Name="SampleFramework12::FixedList&lt;*&gt;">
+        <Expand>
+            <Item Name="count">count</Item>
+            <Item Name="array">array</Item>
+            <ArrayItems>
+                <Size>count</Size>
+                <ValuePointer>array.data</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <Type Name="SampleFramework12::GrowableList&lt;*&gt;">
+        <Expand>
+            <Item Name="count">count</Item>
+            <Item Name="array">array</Item>
+            <ArrayItems>
+                <Size>count</Size>
+                <ValuePointer>array.data</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <Type Name="SampleFramework12::Float2">
+        <DisplayString>{{x={x} y={y} z={z} w={w}}}</DisplayString>
+    </Type>
+
+    <Type Name="SampleFramework12::Float3">
+        <DisplayString>{{x={x} y={y} z={z} w={w}}}</DisplayString>
+    </Type>
+
+    <Type Name="SampleFramework12::Float4">
+        <DisplayString>{{x={x} y={y} z={z} w={w}}}</DisplayString>
+    </Type>
+</AutoVisualizer>

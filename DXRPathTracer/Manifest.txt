@@ -1,0 +1,12 @@
+[References]
+SampleFramework12\v1.02
+
+[Local]
+
+[Content]
+
+Models\Sponza\Sponza.fbx
+Models\SunTemple\SunTemple.fbx
+
+[Externals]
+
