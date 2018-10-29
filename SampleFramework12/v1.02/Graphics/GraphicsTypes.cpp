@@ -506,7 +506,9 @@ void StructuredBuffer::Initialize(const StructuredBufferInit& init)
     Assert_(init.Stride > 0);
     Assert_(init.NumElements > 0);
     if(init.ShaderTable)
+    {
         Assert_(init.Stride % D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT == 0);
+    }
 
     Stride = init.Stride;
     NumElements = init.NumElements;
