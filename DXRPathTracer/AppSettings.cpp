@@ -64,7 +64,7 @@ namespace AppSettings
 
         Settings.AddGroup("Sun And Sky", true);
 
-        Settings.AddGroup("Anti Aliasing", true);
+        Settings.AddGroup("Anti Aliasing", false);
 
         Settings.AddGroup("Scene", true);
 
