@@ -775,7 +775,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
         localRSDesc.pLocalRootSignature = rtEmptyLocalRS;
         const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
 
-        const wchar* exports[] =
+        static const wchar* exports[] =
         {
             L"RaygenShader",
             L"MissShader",
@@ -796,7 +796,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
         localRSDesc.pLocalRootSignature = rtHitGroupLocalRS;
         const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
 
-        const wchar* exports[] =
+        static const wchar* exports[] =
         {
             L"HitGroup",
         };
