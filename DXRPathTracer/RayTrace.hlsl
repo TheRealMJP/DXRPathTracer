@@ -246,7 +246,9 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     }
     else
     {
-        // We're sampling the GGX specular BRDF
+        // We're sampling the GGX specular BRDF by sampling the distribution of visible normals. See this post
+        // for more info: https://schuttejoe.github.io/post/ggximportancesamplingpart2/.
+        // Also see: https://hal.inria.fr/hal-00996995v1/document and https://hal.archives-ouvertes.fr/hal-01509746/document
         if(enableDiffuse)
             brdfSample.x = (brdfSample.x - 0.5f) * 2.0f;
 
