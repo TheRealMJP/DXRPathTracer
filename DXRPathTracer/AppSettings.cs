@@ -64,7 +64,7 @@ public class Settings
         Color GroundAlbedo = new Color(0.25f, 0.25f, 0.25f);
     }
 
-    [ExpandGroup(true)]
+    [ExpandGroup(false)]
     public class AntiAliasing
     {
         [HelpText("MSAA mode to use for rendering")]
