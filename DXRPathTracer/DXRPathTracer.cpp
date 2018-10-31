@@ -577,7 +577,7 @@ void DXRPathTracer::CreateRenderTargets()
         RenderTextureInit rtInit;
         rtInit.Width = width;
         rtInit.Height = height;
-        rtInit.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        rtInit.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
         rtInit.CreateUAV = true;
         rtInit.Name = L"RT Target";
         rtTarget.Initialize(rtInit);
