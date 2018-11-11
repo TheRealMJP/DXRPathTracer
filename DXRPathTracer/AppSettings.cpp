@@ -53,6 +53,7 @@ namespace AppSettings
     BoolSetting EnableSpecular;
     BoolSetting ShowLightCounts;
     BoolSetting AlwaysResetPathTrace;
+    BoolSetting ShowProgressBar;
 
     ConstantBuffer CBuffer;
     const uint32 CBufferRegister = 12;
@@ -148,6 +149,9 @@ namespace AppSettings
         AlwaysResetPathTrace.Initialize("AlwaysResetPathTrace", "Debug", "Always Reset Path Trace", "", false);
         Settings.AddSetting(&AlwaysResetPathTrace);
 
+        ShowProgressBar.Initialize("ShowProgressBar", "Debug", "Show Progress Bar", "", true);
+        Settings.AddSetting(&ShowProgressBar);
+
         ConstantBufferInit cbInit;
         cbInit.Size = sizeof(AppSettingsCBuffer);
         cbInit.Dynamic = true;
@@ -181,7 +185,6 @@ namespace AppSettings
         cbData.EnableNormalMaps = EnableNormalMaps;
         cbData.EnableSpecular = EnableSpecular;
         cbData.ShowLightCounts = ShowLightCounts;
-        cbData.AlwaysResetPathTrace = AlwaysResetPathTrace;
 
         CBuffer.MapAndSetData(cbData);
     }

@@ -183,6 +183,10 @@ public class Settings
         [HelpText("Visualizes the light count for a pixel")]
         bool ShowLightCounts = false;
 
+        [UseAsShaderConstant(false)]
         bool AlwaysResetPathTrace = false;
+
+        [UseAsShaderConstant(false)]
+        bool ShowProgressBar = true;
     }
 }

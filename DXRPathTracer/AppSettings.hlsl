@@ -17,7 +17,6 @@ struct AppSettings_Layout
     bool EnableNormalMaps;
     bool EnableSpecular;
     bool ShowLightCounts;
-    bool AlwaysResetPathTrace;
 };
 
 ConstantBuffer<AppSettings_Layout> AppSettings : register(b12);

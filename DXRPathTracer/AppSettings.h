@@ -77,6 +77,7 @@ namespace AppSettings
     extern BoolSetting EnableSpecular;
     extern BoolSetting ShowLightCounts;
     extern BoolSetting AlwaysResetPathTrace;
+    extern BoolSetting ShowProgressBar;
 
     struct AppSettingsCBuffer
     {
@@ -97,7 +98,6 @@ namespace AppSettings
         bool32 EnableNormalMaps;
         bool32 EnableSpecular;
         bool32 ShowLightCounts;
-        bool32 AlwaysResetPathTrace;
     };
 
     extern ConstantBuffer CBuffer;
