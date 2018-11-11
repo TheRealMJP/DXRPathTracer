@@ -27,5 +27,5 @@ To switch between path-traced rendering and standard (boring) rasterization with
 * Local light sources
 * Area light sampling with soft shadows
 * Non-opaque materials
-* Progress bar/text for the progressive render
+* ~~Progress bar/text for the progressive render~~
 * Mip level selection using ray differentials
