@@ -963,7 +963,7 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::EnableAlbedoMaps,
         &AppSettings::EnableNormalMaps,
         &AppSettings::EnableSpecular,
-		&AppSettings::EnableSky,
+        &AppSettings::EnableSky,
         &AppSettings::EnableSun,
         &AppSettings::SunSize,
         &AppSettings::SunDirection,
