@@ -40,6 +40,9 @@ public class Settings
         [HelpText("Enables the sun light")]
         bool EnableSun = true;
 
+        [HelpText("Enables the sky environment")]
+        bool EnableSky = true;
+
         [HelpText("Controls whether the sun is treated as a disc area light in the real-time shader")]
         bool SunAreaLightApproximation = true;
 
