@@ -15,7 +15,11 @@ struct AppSettings_Layout
     float BloomBlurSigma;
     bool EnableAlbedoMaps;
     bool EnableNormalMaps;
+    bool EnableDiffuse;
     bool EnableSpecular;
+    bool EnableDirect;
+    bool EnableIndirect;
+    bool EnableIndirectSpecular;
     bool ShowLightCounts;
 };
 

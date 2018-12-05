@@ -50,7 +50,11 @@ namespace AppSettings
     BoolSetting EnableVSync;
     BoolSetting EnableAlbedoMaps;
     BoolSetting EnableNormalMaps;
+    BoolSetting EnableDiffuse;
     BoolSetting EnableSpecular;
+    BoolSetting EnableDirect;
+    BoolSetting EnableIndirect;
+    BoolSetting EnableIndirectSpecular;
     BoolSetting ShowLightCounts;
     BoolSetting AlwaysResetPathTrace;
     BoolSetting ShowProgressBar;
@@ -140,8 +144,20 @@ namespace AppSettings
         EnableNormalMaps.Initialize("EnableNormalMaps", "Debug", "Enable Normal Maps", "Enables normal maps", true);
         Settings.AddSetting(&EnableNormalMaps);
 
+        EnableDiffuse.Initialize("EnableDiffuse", "Debug", "Enable Diffuse", "Enables diffuse reflections", true);
+        Settings.AddSetting(&EnableDiffuse);
+
         EnableSpecular.Initialize("EnableSpecular", "Debug", "Enable Specular", "Enables specular reflections", true);
         Settings.AddSetting(&EnableSpecular);
+
+        EnableDirect.Initialize("EnableDirect", "Debug", "Enable Direct", "Enables direct lighting", true);
+        Settings.AddSetting(&EnableDirect);
+
+        EnableIndirect.Initialize("EnableIndirect", "Debug", "Enable Indirect", "Enables indirect lighting", true);
+        Settings.AddSetting(&EnableIndirect);
+
+        EnableIndirectSpecular.Initialize("EnableIndirectSpecular", "Debug", "Enable Indirect Specular", "Enables indirect specular reflections, it produces noisier output", false);
+        Settings.AddSetting(&EnableIndirectSpecular);
 
         ShowLightCounts.Initialize("ShowLightCounts", "Debug", "Show Light Counts", "Visualizes the light count for a pixel", false);
         Settings.AddSetting(&ShowLightCounts);
@@ -183,7 +199,11 @@ namespace AppSettings
         cbData.BloomBlurSigma = BloomBlurSigma;
         cbData.EnableAlbedoMaps = EnableAlbedoMaps;
         cbData.EnableNormalMaps = EnableNormalMaps;
+        cbData.EnableDiffuse = EnableDiffuse;
         cbData.EnableSpecular = EnableSpecular;
+        cbData.EnableDirect = EnableDirect;
+        cbData.EnableIndirect = EnableIndirect;
+        cbData.EnableIndirectSpecular = EnableIndirectSpecular;
         cbData.ShowLightCounts = ShowLightCounts;
 
         CBuffer.MapAndSetData(cbData);
