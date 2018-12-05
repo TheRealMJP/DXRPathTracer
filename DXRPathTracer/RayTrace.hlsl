@@ -141,6 +141,13 @@ void RaygenShader()
 
 static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint pathLength, in uint pixelIdx, in uint sampleSetIdx)
 {
+    if((!AppSettings.EnableDiffuse && !AppSettings.EnableSpecular) || 
+        (!AppSettings.EnableDirect && !AppSettings.EnableIndirect))
+        return 0.0.xxx;
+
+    if(pathLength > 1 && !AppSettings.EnableIndirect)
+        return 0.0.xxx;
+
     float3x3 tangentToWorld = float3x3(hitSurface.Tangent, hitSurface.Bitangent, hitSurface.Normal);
 
     const float3 positionWS = hitSurface.Position;
@@ -172,15 +179,15 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     Texture2D metallicMap = Tex2DTable[material.Metallic];
     const float metallic = metallicMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x;
 
-    const bool enableDiffuse = metallic < 1.0f;
-    const bool enableSpecular = (AppSettings.EnableSpecular && pathLength <= 1);
+    const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f);
+    const bool enableSpecular = (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? true : (pathLength == 1)));
     if(enableDiffuse == false && enableSpecular == false)
         return 0.0f;
 
     Texture2D roughnessMap = Tex2DTable[material.Roughness];
     const float sqrtRoughness = roughnessMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x;
 
-    const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic);
+    const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
     const float3 specularAlbedo = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
     const float roughness = sqrtRoughness * sqrtRoughness;
 
@@ -278,7 +285,10 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     ray.TMin = 0.00001f;
     ray.TMax = FP32Max;
 
-    if(pathLength + 1 < AppSettings.MaxPathLength)
+    if(pathLength == 1 && !AppSettings.EnableDirect)
+        radiance = 0.0.xxx;
+
+    if(AppSettings.EnableIndirect && (pathLength + 1 < AppSettings.MaxPathLength))
     {
         PrimaryPayload payload;
         payload.Radiance = 0.0f;
