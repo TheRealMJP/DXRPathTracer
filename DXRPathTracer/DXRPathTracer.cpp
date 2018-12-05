@@ -24,6 +24,7 @@
 #include <Graphics/DXRHelper.h>
 #include <EnkiTS/TaskScheduler_c.h>
 #include <ImGui/ImGui.h>
+#include <ImGuiHelper.h>
 
 #include "DXRPathTracer.h"
 #include "SharedTypes.h"
@@ -577,7 +578,7 @@ void DXRPathTracer::CreateRenderTargets()
         RenderTextureInit rtInit;
         rtInit.Width = width;
         rtInit.Height = height;
-        rtInit.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        rtInit.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
         rtInit.CreateUAV = true;
         rtInit.Name = L"RT Target";
         rtTarget.Initialize(rtInit);
@@ -958,11 +959,11 @@ void DXRPathTracer::Update(const Timer& timer)
     const Setting* settingsToCheck[] =
     {
         &AppSettings::SqrtNumSamples,
-        &AppSettings::EnableSun,
         &AppSettings::MaxPathLength,
         &AppSettings::EnableAlbedoMaps,
         &AppSettings::EnableNormalMaps,
         &AppSettings::EnableSpecular,
+        &AppSettings::EnableSky,
         &AppSettings::EnableSun,
         &AppSettings::SunSize,
         &AppSettings::SunDirection,
@@ -1384,6 +1385,58 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
     spriteRenderer.RenderText(cmdList, font, fpsText.c_str(), textPos, Float4(1.0f, 1.0f, 0.0f, 1.0f));
 
     spriteRenderer.End();
+
+    // Draw the progress bar
+    const uint32 totalNumSamples = uint32(AppSettings::SqrtNumSamples * AppSettings::SqrtNumSamples);
+    if(rtCurrSampleIdx < totalNumSamples && AppSettings::ShowProgressBar)
+    {
+        float width = float(swapChain.Width());
+        float height = float(swapChain.Height());
+
+        const uint32 barEmptyColor = ImColor(0.0f, 0.0f, 0.0f, 1.0f);
+        const uint32 barFilledColor = ImColor(1.0f, 0.0f, 0.0f, 1.0f);
+        const uint32 barOutlineColor = ImColor(1.0f, 1.0f, 1.0f, 1.0f);
+        const uint32 textColor = ImColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+        const float barPercentage = 0.75f;
+        const float barHeight = 75.0f;
+        Float2 barStart = Float2(width * (1.0f - barPercentage) * 0.5f, height - 200.0f);
+        Float2 barSize = Float2(width * barPercentage, barHeight);
+        Float2 barEnd = barStart + barSize;
+
+        Float2 windowStart = barStart - 8.0f;
+        Float2 windowSize = barSize + 16.0f;
+        Float2 windowEnd = windowStart + windowSize;
+
+        ImGui::SetNextWindowPos(ToImVec2(windowStart), ImGuiSetCond_Always);
+        ImGui::SetNextWindowSize(ToImVec2(windowSize), ImGuiSetCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::Begin("HUD Window", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs |
+                                            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
+                                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse);
+
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+        const float progress = float(rtCurrSampleIdx) / totalNumSamples;
+
+        drawList->AddRectFilled(ToImVec2(barStart), ToImVec2(barEnd), barEmptyColor);
+        drawList->AddRectFilled(ToImVec2(barStart), ImVec2(barStart.x + barSize.x * progress, barEnd.y), barFilledColor);
+        drawList->AddRect(ToImVec2(barStart), ToImVec2(barEnd), barOutlineColor);
+
+        const uint64 raysPerFrame = rtTarget.Width() * rtTarget.Height() * (1 + (AppSettings::MaxPathLength - 1) * 2);
+        const double mRaysPerSecond = raysPerFrame * (1.0 / timer.DeltaSecondsF()) / 1000000.0;
+
+        std::string progressText = MakeString("Progress: %.2f%% (%.2f Mrays per second)", progress * 100.0f, mRaysPerSecond);
+        Float2 progressTextSize = ToFloat2(ImGui::CalcTextSize(progressText.c_str()));
+        Float2 progressTextPos = barStart + (barSize * 0.5f) - (progressTextSize * 0.5f);
+        drawList->AddText(ToImVec2(progressTextPos), textColor, progressText.c_str());
+
+        ImGui::PopStyleVar();
+
+        ImGui::End();
+    }
 }
 
 void DXRPathTracer::BuildRTAccelerationStructure()

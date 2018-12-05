@@ -54,6 +54,7 @@ namespace AppSettings
     static const uint64 MaxPathLengthSetting = 8;
 
     extern BoolSetting EnableSun;
+    extern BoolSetting EnableSky;
     extern BoolSetting SunAreaLightApproximation;
     extern FloatSetting SunSize;
     extern DirectionSetting SunDirection;
@@ -77,13 +78,15 @@ namespace AppSettings
     extern BoolSetting EnableSpecular;
     extern BoolSetting ShowLightCounts;
     extern BoolSetting AlwaysResetPathTrace;
+    extern BoolSetting ShowProgressBar;
 
     struct AppSettingsCBuffer
     {
         bool32 EnableSun;
+        bool32 EnableSky;
         bool32 SunAreaLightApproximation;
         float SunSize;
-        Float4Align Float3 SunDirection;
+        Float3 SunDirection;
         int32 MSAAMode;
         bool32 RenderLights;
         bool32 EnableRayTracing;
@@ -97,7 +100,6 @@ namespace AppSettings
         bool32 EnableNormalMaps;
         bool32 EnableSpecular;
         bool32 ShowLightCounts;
-        bool32 AlwaysResetPathTrace;
     };
 
     extern ConstantBuffer CBuffer;

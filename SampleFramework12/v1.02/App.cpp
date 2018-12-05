@@ -113,8 +113,6 @@ void App::OnWindowResized(void* context, HWND hWnd, UINT msg, WPARAM wParam, LPA
 
         if(uint32(width) != app->swapChain.Width() || uint32(height) != app->swapChain.Height())
         {
-            app->DestroyPSOs_Internal();
-
             app->BeforeReset_Internal();
 
             app->swapChain.SetWidth(width);
@@ -122,8 +120,6 @@ void App::OnWindowResized(void* context, HWND hWnd, UINT msg, WPARAM wParam, LPA
             app->swapChain.Reset();
 
             app->AfterReset_Internal();
-
-            app->CreatePSOs_Internal();
         }
     }
 }

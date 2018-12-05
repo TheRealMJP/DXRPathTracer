@@ -40,6 +40,9 @@ public class Settings
         [HelpText("Enables the sun light")]
         bool EnableSun = true;
 
+        [HelpText("Enables the sky environment")]
+        bool EnableSky = true;
+
         [HelpText("Controls whether the sun is treated as a disc area light in the real-time shader")]
         bool SunAreaLightApproximation = true;
 
@@ -183,6 +186,10 @@ public class Settings
         [HelpText("Visualizes the light count for a pixel")]
         bool ShowLightCounts = false;
 
+        [UseAsShaderConstant(false)]
         bool AlwaysResetPathTrace = false;
+
+        [UseAsShaderConstant(false)]
+        bool ShowProgressBar = true;
     }
 }

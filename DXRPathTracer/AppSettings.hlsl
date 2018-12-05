@@ -1,6 +1,7 @@
 struct AppSettings_Layout
 {
     bool EnableSun;
+    bool EnableSky;
     bool SunAreaLightApproximation;
     float SunSize;
     float3 SunDirection;
@@ -17,7 +18,6 @@ struct AppSettings_Layout
     bool EnableNormalMaps;
     bool EnableSpecular;
     bool ShowLightCounts;
-    bool AlwaysResetPathTrace;
 };
 
 ConstantBuffer<AppSettings_Layout> AppSettings : register(b12);

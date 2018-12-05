@@ -30,6 +30,7 @@ namespace AppSettings
     static SettingsContainer Settings;
 
     BoolSetting EnableSun;
+    BoolSetting EnableSky;
     BoolSetting SunAreaLightApproximation;
     FloatSetting SunSize;
     DirectionSetting SunDirection;
@@ -53,6 +54,7 @@ namespace AppSettings
     BoolSetting EnableSpecular;
     BoolSetting ShowLightCounts;
     BoolSetting AlwaysResetPathTrace;
+    BoolSetting ShowProgressBar;
 
     ConstantBuffer CBuffer;
     const uint32 CBufferRegister = 12;
@@ -78,6 +80,9 @@ namespace AppSettings
 
         EnableSun.Initialize("EnableSun", "Sun And Sky", "Enable Sun", "Enables the sun light", true);
         Settings.AddSetting(&EnableSun);
+
+        EnableSky.Initialize("EnableSky", "Sun And Sky", "Enable Sky", "Enables the sky environment", true);
+        Settings.AddSetting(&EnableSky);
 
         SunAreaLightApproximation.Initialize("SunAreaLightApproximation", "Sun And Sky", "Sun Area Light Approximation", "Controls whether the sun is treated as a disc area light in the real-time shader", true);
         Settings.AddSetting(&SunAreaLightApproximation);
@@ -148,6 +153,9 @@ namespace AppSettings
         AlwaysResetPathTrace.Initialize("AlwaysResetPathTrace", "Debug", "Always Reset Path Trace", "", false);
         Settings.AddSetting(&AlwaysResetPathTrace);
 
+        ShowProgressBar.Initialize("ShowProgressBar", "Debug", "Show Progress Bar", "", true);
+        Settings.AddSetting(&ShowProgressBar);
+
         ConstantBufferInit cbInit;
         cbInit.Size = sizeof(AppSettingsCBuffer);
         cbInit.Dynamic = true;
@@ -165,6 +173,7 @@ namespace AppSettings
     {
         AppSettingsCBuffer cbData;
         cbData.EnableSun = EnableSun;
+        cbData.EnableSky = EnableSky;
         cbData.SunAreaLightApproximation = SunAreaLightApproximation;
         cbData.SunSize = SunSize;
         cbData.SunDirection = SunDirection;
@@ -181,7 +190,6 @@ namespace AppSettings
         cbData.EnableNormalMaps = EnableNormalMaps;
         cbData.EnableSpecular = EnableSpecular;
         cbData.ShowLightCounts = ShowLightCounts;
-        cbData.AlwaysResetPathTrace = AlwaysResetPathTrace;
 
         CBuffer.MapAndSetData(cbData);
     }
