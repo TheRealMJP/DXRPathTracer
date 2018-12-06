@@ -55,7 +55,7 @@ namespace AppSettings
     BoolSetting EnableDirect;
     BoolSetting EnableIndirect;
     BoolSetting EnableIndirectSpecular;
-    BoolSetting ShowLightCounts;
+    FloatSetting RoughnessScale;
     BoolSetting AlwaysResetPathTrace;
     BoolSetting ShowProgressBar;
 
@@ -159,8 +159,8 @@ namespace AppSettings
         EnableIndirectSpecular.Initialize("EnableIndirectSpecular", "Debug", "Enable Indirect Specular", "Enables indirect specular reflections, it produces noisier output", false);
         Settings.AddSetting(&EnableIndirectSpecular);
 
-        ShowLightCounts.Initialize("ShowLightCounts", "Debug", "Show Light Counts", "Visualizes the light count for a pixel", false);
-        Settings.AddSetting(&ShowLightCounts);
+        RoughnessScale.Initialize("RoughnessScale", "Debug", "Roughness Scale", "Scales the scene roughness by this value", 1.0000f, 0.0010f, 2.0000f, 0.0100f, ConversionMode::None, 1.0000f);
+        Settings.AddSetting(&RoughnessScale);
 
         AlwaysResetPathTrace.Initialize("AlwaysResetPathTrace", "Debug", "Always Reset Path Trace", "", false);
         Settings.AddSetting(&AlwaysResetPathTrace);
@@ -204,7 +204,7 @@ namespace AppSettings
         cbData.EnableDirect = EnableDirect;
         cbData.EnableIndirect = EnableIndirect;
         cbData.EnableIndirectSpecular = EnableIndirectSpecular;
-        cbData.ShowLightCounts = ShowLightCounts;
+        cbData.RoughnessScale = RoughnessScale;
 
         CBuffer.MapAndSetData(cbData);
     }

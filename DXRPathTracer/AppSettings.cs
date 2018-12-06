@@ -192,8 +192,10 @@ public class Settings
         [HelpText("Enables indirect specular reflections, it produces noisier output")]
         bool EnableIndirectSpecular = false;
 
-        [HelpText("Visualizes the light count for a pixel")]
-        bool ShowLightCounts = false;
+        [HelpText("Scales the scene roughness by this value")]
+        [MinValue(0.001f)]
+        [MaxValue(2.0f)]
+        float RoughnessScale = 1.0f;
 
         [UseAsShaderConstant(false)]
         bool AlwaysResetPathTrace = false;

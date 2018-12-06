@@ -972,6 +972,7 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::SunDirection,
         &AppSettings::Turbidity,
         &AppSettings::GroundAlbedo,
+        &AppSettings::RoughnessScale,
     };
 
     for(const Setting* setting : settingsToCheck)

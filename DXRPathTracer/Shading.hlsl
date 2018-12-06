@@ -216,9 +216,6 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
 
     output += input.EmissiveMap;
 
-    if(AppSettings.ShowLightCounts)
-        output = lerp(output, float3(2.5f, 0.0f, 0.0f), numLights / 10.0f);
-
     output = clamp(output, 0.0f, FP16Max);
 
     return output;

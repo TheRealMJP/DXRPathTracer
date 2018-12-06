@@ -20,7 +20,7 @@ struct AppSettings_Layout
     bool EnableDirect;
     bool EnableIndirect;
     bool EnableIndirectSpecular;
-    bool ShowLightCounts;
+    float RoughnessScale;
 };
 
 ConstantBuffer<AppSettings_Layout> AppSettings : register(b12);

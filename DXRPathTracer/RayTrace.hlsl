@@ -141,7 +141,7 @@ void RaygenShader()
 
 static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint pathLength, in uint pixelIdx, in uint sampleSetIdx)
 {
-    if((!AppSettings.EnableDiffuse && !AppSettings.EnableSpecular) || 
+    if((!AppSettings.EnableDiffuse && !AppSettings.EnableSpecular) ||
         (!AppSettings.EnableDirect && !AppSettings.EnableIndirect))
         return 0.0.xxx;
 
@@ -185,7 +185,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         return 0.0f;
 
     Texture2D roughnessMap = Tex2DTable[material.Roughness];
-    const float sqrtRoughness = roughnessMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x;
+    const float sqrtRoughness = roughnessMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x * AppSettings.RoughnessScale;
 
     const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
     const float3 specularAlbedo = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);

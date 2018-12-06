@@ -79,7 +79,7 @@ namespace AppSettings
     extern BoolSetting EnableDirect;
     extern BoolSetting EnableIndirect;
     extern BoolSetting EnableIndirectSpecular;
-    extern BoolSetting ShowLightCounts;
+    extern FloatSetting RoughnessScale;
     extern BoolSetting AlwaysResetPathTrace;
     extern BoolSetting ShowProgressBar;
 
@@ -105,7 +105,7 @@ namespace AppSettings
         bool32 EnableDirect;
         bool32 EnableIndirect;
         bool32 EnableIndirectSpecular;
-        bool32 ShowLightCounts;
+        float RoughnessScale;
     };
 
     extern ConstantBuffer CBuffer;
