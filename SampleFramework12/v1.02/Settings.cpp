@@ -402,15 +402,17 @@ void DirectionSetting::Update(const Float4x4& viewMatrix)
             rotAmt -= lastDragDelta;
 
         rotAmt *= 0.01f;
-        Float3x3 rotation = Float3x3::RotationEuler(rotAmt.y, rotAmt.x, 0.0f);
+        Float3x3 rotation = Float3x3::RotationEuler(rotAmt.y, rotAmt.x, 0.0f);        
         if(convertToViewSpace)
         {
             Float3 dirVS = Float3::TransformDirection(val, viewMatrix);
             dirVS = Float3::Transform(dirVS, rotation);
-            val = Float3::Transform(dirVS, Float3x3::Transpose(viewMatrix.To3x3()));
+            val = Float3::TransformDirection(dirVS, Float4x4::Transpose(viewMatrix));
         }
         else
             val = Float3::Transform(val, rotation);
+
+        spherical = CartesianToSpherical(val);
 
         wasDragged = true;
         lastDragDelta = dragDelta;
@@ -478,10 +480,13 @@ void DirectionSetting::Update(const Float4x4& viewMatrix)
     else if(inputMode == DirectionInputMode::Spherical)
     {
         Float2 degrees = Float2(RadToDeg(spherical.x), RadToDeg(spherical.y));
-        ImGui::SliderFloat("azimuth", &degrees.x, 0.0f, 360.0f);
-        ImGui::SliderFloat("elevation", &degrees.y, -90.0f, 90.0f);
-        spherical = Float2(DegToRad(degrees.x), DegToRad(degrees.y));
-        val = SphericalToCartesian(spherical.x, spherical.y);
+        bool sliderChanged = ImGui::SliderFloat("azimuth", &degrees.x, 0.0f, 360.0f);
+        sliderChanged |= ImGui::SliderFloat("elevation", &degrees.y, -90.0f, 90.0f);
+        if(sliderChanged)
+        {
+            spherical = Float2(DegToRad(degrees.x), DegToRad(degrees.y));        
+            val = SphericalToCartesian(spherical.x, spherical.y);
+        }
     }
 
     bool cartesianButton = ImGui::RadioButton("Cartesian", inputMode == DirectionInputMode::Cartesian);
