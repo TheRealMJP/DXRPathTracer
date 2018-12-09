@@ -967,6 +967,7 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::EnableDirect,
         &AppSettings::EnableIndirect,
         &AppSettings::EnableIndirectSpecular,
+        &AppSettings::EnableSky,
         &AppSettings::EnableSun,
         &AppSettings::SunSize,
         &AppSettings::SunDirection,

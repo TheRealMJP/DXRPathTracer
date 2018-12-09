@@ -314,7 +314,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
-        float3 skyRadiance = skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz;
+        float3 skyRadiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz : 0.0.xxx;
 
         radiance += payload.Visibility * skyRadiance * throughput;
     }
@@ -356,7 +356,7 @@ void MissShader(inout PrimaryPayload payload)
     const float3 rayDir = WorldRayDirection();
 
     TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
-    payload.Radiance = skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz;
+    payload.Radiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz : 0.0.xxx;
 
     if(payload.PathLength == 1)
     {

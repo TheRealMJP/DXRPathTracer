@@ -1,6 +1,7 @@
 struct AppSettings_Layout
 {
     bool EnableSun;
+    bool EnableSky;
     bool SunAreaLightApproximation;
     float SunSize;
     float3 SunDirection;
