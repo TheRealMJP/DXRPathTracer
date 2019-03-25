@@ -54,8 +54,7 @@ StaticAssert_(ArraySize_(SceneSunDirections) == uint64(Scenes::NumValues));
 
 static const uint64 NumConeSides = 16;
 
-//###################################################################
-static const bool Benchmark = true;
+static const bool Benchmark = false;
 
 struct HitGroupRecord
 {
