@@ -72,6 +72,7 @@ namespace AppSettings
     extern FloatSetting BloomMagnitude;
     extern FloatSetting BloomBlurSigma;
     extern BoolSetting EnableVSync;
+    extern BoolSetting StablePowerState;
     extern BoolSetting EnableAlbedoMaps;
     extern BoolSetting EnableNormalMaps;
     extern BoolSetting EnableDiffuse;

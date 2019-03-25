@@ -937,6 +937,10 @@ void DXRPathTracer::Update(const Timer& timer)
     // Toggle VSYNC
     swapChain.SetVSYNCEnabled(AppSettings::EnableVSync ? true : false);
 
+    // Toggle stable power state
+    if(AppSettings::StablePowerState.Changed())
+        DX12::Device->SetStablePowerState(AppSettings::StablePowerState);
+
     skyCache.Init(AppSettings::SunDirection, AppSettings::SunSize, AppSettings::GroundAlbedo, AppSettings::Turbidity, true);
 
     if(AppSettings::MSAAMode.Changed() || AppSettings::ClusterRasterizationMode.Changed())

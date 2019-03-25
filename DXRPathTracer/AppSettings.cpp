@@ -48,6 +48,7 @@ namespace AppSettings
     FloatSetting BloomMagnitude;
     FloatSetting BloomBlurSigma;
     BoolSetting EnableVSync;
+    BoolSetting StablePowerState;
     BoolSetting EnableAlbedoMaps;
     BoolSetting EnableNormalMaps;
     BoolSetting EnableDiffuse;
@@ -137,6 +138,9 @@ namespace AppSettings
 
         EnableVSync.Initialize("EnableVSync", "Debug", "Enable VSync", "Enables or disables vertical sync during Present", true);
         Settings.AddSetting(&EnableVSync);
+
+        StablePowerState.Initialize("StablePowerState", "Debug", "Stable Power State", "Enables the stable power state, which stabilizes GPU clocks for more consistent performance", false);
+        Settings.AddSetting(&StablePowerState);
 
         EnableAlbedoMaps.Initialize("EnableAlbedoMaps", "Debug", "Enable Albedo Maps", "Enables albedo maps", true);
         Settings.AddSetting(&EnableAlbedoMaps);

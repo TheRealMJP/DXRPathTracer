@@ -169,6 +169,10 @@ public class Settings
         [HelpText("Enables or disables vertical sync during Present")]
         bool EnableVSync = true;
 
+        [UseAsShaderConstant(false)]
+        [HelpText("Enables the stable power state, which stabilizes GPU clocks for more consistent performance")]
+        bool StablePowerState = false;
+
         [DisplayName("Enable Albedo Maps")]
         [HelpText("Enables albedo maps")]
         bool EnableAlbedoMaps = true;
