@@ -126,7 +126,7 @@ void RaygenShader()
     const uint hitGroupOffset = RayTypeRadiance;
     const uint hitGroupGeoMultiplier = NumRayTypes;
     const uint missShaderIdx = RayTypeRadiance;
-    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+    TraceRay(Scene, 0, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
     payload.Radiance = clamp(payload.Radiance, 0.0f, FP16Max);
 
@@ -222,7 +222,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeShadow;
-        TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(Scene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularAlbedo,
                                  roughness, positionWS, incomingRayOriginWS) * payload.Visibility;
@@ -299,7 +299,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         const uint hitGroupOffset = RayTypeRadiance;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeRadiance;
-        TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(Scene, 0, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += payload.Radiance * throughput;
     }
@@ -311,7 +311,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeShadow;
-        TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(Scene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
         float3 skyRadiance = skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz;
