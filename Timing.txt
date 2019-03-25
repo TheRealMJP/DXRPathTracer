@@ -1,0 +1,2 @@
+Start: 15.18ms (15.22ms max) (660 MRays/s)
+Single geo, per-prim buffer with material index + vertex indices: 15.18ms (15.22ms max)
