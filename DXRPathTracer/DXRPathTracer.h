@@ -73,6 +73,8 @@ protected:
     ID3D12RootSignature* resolveRootSignature = nullptr;
     ID3D12PipelineState* resolvePSO = nullptr;
 
+    bool32 stablePowerState = false;
+
     // Ray tracing resources
     CompiledShaderPtr rayTraceLib;
     RenderTexture rtTarget;

@@ -54,6 +54,8 @@ StaticAssert_(ArraySize_(SceneSunDirections) == uint64(Scenes::NumValues));
 
 static const uint64 NumConeSides = 16;
 
+static const bool Benchmark = false;
+
 struct HitGroupRecord
 {
     ShaderIdentifier ID;
@@ -188,6 +190,14 @@ void DXRPathTracer::AfterReset()
 
 void DXRPathTracer::Initialize()
 {
+    if(Benchmark)
+    {
+        AppSettings::EnableVSync.SetValue(false);
+        AppSettings::StablePowerState.SetValue(true);
+        AppSettings::AlwaysResetPathTrace.SetValue(true);
+        AppSettings::CurrentScene.SetValue(Scenes::SunTemple);
+    }
+
     // Check if the device supports conservative rasterization
     D3D12_FEATURE_DATA_D3D12_OPTIONS features = { };
     DX12::Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &features, sizeof(features));
@@ -938,8 +948,11 @@ void DXRPathTracer::Update(const Timer& timer)
     swapChain.SetVSYNCEnabled(AppSettings::EnableVSync ? true : false);
 
     // Toggle stable power state
-    if(AppSettings::StablePowerState.Changed())
+    if(AppSettings::StablePowerState != stablePowerState)
+    {
         DX12::Device->SetStablePowerState(AppSettings::StablePowerState);
+        stablePowerState = AppSettings::StablePowerState;
+    }
 
     skyCache.Init(AppSettings::SunDirection, AppSettings::SunSize, AppSettings::GroundAlbedo, AppSettings::Turbidity, true);
 
@@ -950,7 +963,7 @@ void DXRPathTracer::Update(const Timer& timer)
         CreatePSOs();
     }
 
-    if(AppSettings::CurrentScene.Changed())
+    if(AppSettings::CurrentScene.Changed() && currentModel != &sceneModels[uint64(AppSettings::CurrentScene)])
     {
         currentModel = &sceneModels[uint64(AppSettings::CurrentScene)];
         DestroyPSOs();
