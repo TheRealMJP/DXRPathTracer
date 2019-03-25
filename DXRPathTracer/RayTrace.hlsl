@@ -37,25 +37,19 @@ struct RayTraceConstants
 
     uint VtxBufferIdx;
     uint IdxBufferIdx;
-    uint GeometryInfoBufferIdx;
+    uint PrimInfoBufferIdx;
     uint MaterialBufferIdx;
     uint SkyTextureIdx;
 };
 
-struct HitConstants
-{
-    uint GeometryIdx;
-    uint MaterialIdx;
-};
 
 RaytracingAccelerationStructure Scene : register(t0, space200);
 RWTexture2D<float4> RenderTarget : register(u0);
-StructuredBuffer<GeometryInfo> GeometryInfoBuffers[] : register(t0, space100);
+StructuredBuffer<PrimInfo> PrimInfoBuffers[] : register(t0, space100);
 StructuredBuffer<MeshVertex> VertexBuffers[] : register(t0, space101);
 StructuredBuffer<Material> MaterialBuffers[] : register(t0, space102);
 
 ConstantBuffer<RayTraceConstants> RayTraceCB : register(b0);
-ConstantBuffer<HitConstants> HitCB : register(b0, space200);
 
 SamplerState MeshSampler : register(s0);
 SamplerState LinearSampler : register(s1);
@@ -327,23 +321,18 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
     float3 barycentrics = float3(1 - attr.barycentrics.x - attr.barycentrics.y, attr.barycentrics.x, attr.barycentrics.y);
 
-    StructuredBuffer<GeometryInfo> geoInfoBuffer = GeometryInfoBuffers[RayTraceCB.GeometryInfoBufferIdx];
-    const GeometryInfo geoInfo = geoInfoBuffer[HitCB.GeometryIdx];
+    StructuredBuffer<PrimInfo> primInfoBuffer = PrimInfoBuffers[RayTraceCB.PrimInfoBufferIdx];
+    const PrimInfo primInfo = primInfoBuffer[PrimitiveIndex()];
 
     StructuredBuffer<MeshVertex> vtxBuffer = VertexBuffers[RayTraceCB.VtxBufferIdx];
     Buffer<uint> idxBuffer = BufferUintTable[RayTraceCB.IdxBufferIdx];
 
     StructuredBuffer<Material> materialBuffer = MaterialBuffers[RayTraceCB.MaterialBufferIdx];
-    const Material material = materialBuffer[geoInfo.MaterialIdx];
+    const Material material = materialBuffer[primInfo.MaterialIdx];
 
-    const uint primIdx = PrimitiveIndex();
-    const uint idx0 = idxBuffer[primIdx * 3 + geoInfo.IdxOffset + 0];
-    const uint idx1 = idxBuffer[primIdx * 3 + geoInfo.IdxOffset + 1];
-    const uint idx2 = idxBuffer[primIdx * 3 + geoInfo.IdxOffset + 2];
-
-    const MeshVertex vtx0 = vtxBuffer[idx0 + geoInfo.VtxOffset];
-    const MeshVertex vtx1 = vtxBuffer[idx1 + geoInfo.VtxOffset];
-    const MeshVertex vtx2 = vtxBuffer[idx2 + geoInfo.VtxOffset];
+    const MeshVertex vtx0 = vtxBuffer[primInfo.VertexIdx0];
+    const MeshVertex vtx1 = vtxBuffer[primInfo.VertexIdx1];
+    const MeshVertex vtx2 = vtxBuffer[primInfo.VertexIdx2];
 
     const MeshVertex hitSurface = BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
 

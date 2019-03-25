@@ -59,8 +59,6 @@ static const bool Benchmark = false;
 struct HitGroupRecord
 {
     ShaderIdentifier ID;
-    uint32 GeometryIdx = 0;
-    uint8 Padding[28] = { };
 };
 
 StaticAssert_(sizeof(HitGroupRecord) % D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT == 0);
@@ -106,7 +104,7 @@ struct RayTraceConstants
 
     uint32 VtxBufferIdx = uint32(-1);
     uint32 IdxBufferIdx = uint32(-1);
-    uint32 GeometryInfoBufferIdx = uint32(-1);
+    uint32 PrimInfoBufferIdx = uint32(-1);
     uint32 MaterialBufferIdx = uint32(-1);
     uint32 SkyTextureIdx = uint32(-1);
 };
@@ -139,13 +137,6 @@ enum RTRootParams : uint32
     RTParams_AppSettings,
 
     NumRTRootParams
-};
-
-enum RTHitGroupRootParams : uint32
-{
-    RTHitGroupParams_GeometryID,
-
-    NumRTHitGroupRootParams
 };
 
 // Returns true if a sphere intersects a capped cone defined by a direction, height, and angle
@@ -401,13 +392,13 @@ void DXRPathTracer::Shutdown()
     rtTarget.Shutdown();
     DX12::Release(rtRootSignature);
     DX12::Release(rtEmptyLocalRS);
-    DX12::Release(rtHitGroupLocalRS);
     rtBottomLevelAccelStructure.Shutdown();
     rtTopLevelAccelStructure.Shutdown();
     rtRayGenTable.Shutdown();
     rtHitTable.Shutdown();
     rtMissTable.Shutdown();
-    rtGeoInfoBuffer.Shutdown();
+    rtPrimInfoBuffer.Shutdown();
+    rtFlattenedIdxBuffer.Shutdown();
 }
 
 void DXRPathTracer::CreatePSOs()
@@ -722,24 +713,6 @@ void DXRPathTracer::InitRayTracing()
         DX12::CreateRootSignature(&rtEmptyLocalRS, rootSignatureDesc);
     }
 
-    {
-        // Local root signature for the hit group
-        D3D12_ROOT_PARAMETER1 rootParameters[NumRTHitGroupRootParams] = {};
-
-        rootParameters[RTHitGroupParams_GeometryID].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        rootParameters[RTHitGroupParams_GeometryID].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.Num32BitValues = 1;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.RegisterSpace = 200;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.ShaderRegister = 0;
-
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
-        rootSignatureDesc.pParameters = rootParameters;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-
-        DX12::CreateRootSignature(&rtHitGroupLocalRS, rootSignatureDesc);
-    }
-
     rtCurrCamera = camera;
 }
 
@@ -802,9 +775,9 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
-        // Local root signature to be used in the primary hit group. Passes the geometry index as a root parameter.
+        // (Empty) local root signature to be used in the primary hit group.
         D3D12_LOCAL_ROOT_SIGNATURE localRSDesc = { };
-        localRSDesc.pLocalRootSignature = rtHitGroupLocalRS;
+        localRSDesc.pLocalRootSignature = rtEmptyLocalRS;
         const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
 
         static const wchar* exports[] =
@@ -845,7 +818,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     const void* missID = psoProps->GetShaderIdentifier(L"MissShader");
     const void* shadowMissID = psoProps->GetShaderIdentifier(L"ShadowMissShader");
 
-    const uint32 numGeometries = uint32(currentModel->NumMeshes());
+    const uint32 numGeometries = 1;
 
     // Make our shader tables
     {
@@ -877,10 +850,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
         for(uint64 i = 0; i < numGeometries; ++i)
         {
             hitGroupRecords[i * 2 + 0].ID = ShaderIdentifier(hitGroupID);
-            hitGroupRecords[i * 2 + 0].GeometryIdx = uint32(i);
-
             hitGroupRecords[i * 2 + 1].ID = ShaderIdentifier(shadowHitGroupID);
-            hitGroupRecords[i * 2 + 1].GeometryIdx = uint32(i);
         }
 
         StructuredBufferInit sbInit;
@@ -1364,7 +1334,7 @@ void DXRPathTracer::RenderRayTracing()
 
     rtConstants.VtxBufferIdx = currentModel->VertexBuffer().SRV;
     rtConstants.IdxBufferIdx = currentModel->IndexBuffer().SRV;
-    rtConstants.GeometryInfoBufferIdx = rtGeoInfoBuffer.SRV;
+    rtConstants.PrimInfoBufferIdx = rtPrimInfoBuffer.SRV;
     rtConstants.MaterialBufferIdx = meshRenderer.MaterialBuffer().SRV;
     rtConstants.SkyTextureIdx = skyCache.CubeMap.SRV;
 
@@ -1466,35 +1436,77 @@ void DXRPathTracer::BuildRTAccelerationStructure()
     const StructuredBuffer& vtxBuffer = currentModel->VertexBuffer();
 
     const uint64 numMeshes = currentModel->NumMeshes();
-    Array<D3D12_RAYTRACING_GEOMETRY_DESC> geometryDescs(numMeshes);
 
-    const uint32 numGeometries = uint32(geometryDescs.Size());
-    Array<GeometryInfo> geoInfoBufferData(numGeometries);
+    const uint32 totalNumIndices = uint32(idxBuffer.NumElements);
+    Array<uint32> flattendIndices(totalNumIndices);
+
+    const uint32 totalNumPrimitives = totalNumIndices / 3;
+    Array<PrimInfo> primInfoBufferData(totalNumPrimitives);
+    uint32 currPrimOffset = 0;
+    uint32 currVtxOffset = 0;
 
     for(uint64 meshIdx = 0; meshIdx < numMeshes; ++meshIdx)
     {
         const Mesh& mesh = currentModel->Meshes()[meshIdx];
-        D3D12_RAYTRACING_GEOMETRY_DESC& geometryDesc = geometryDescs[meshIdx];
-        geometryDesc = { };
-        geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-        geometryDesc.Triangles.IndexBuffer = idxBuffer.GPUAddress + mesh.IndexOffset() * idxBuffer.Stride;
-        geometryDesc.Triangles.IndexCount = uint32(mesh.NumIndices());
-        geometryDesc.Triangles.IndexFormat = idxBuffer.Format;
-        geometryDesc.Triangles.Transform3x4 = 0;
-        geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-        geometryDesc.Triangles.VertexCount = uint32(mesh.NumVertices());
-        geometryDesc.Triangles.VertexBuffer.StartAddress = vtxBuffer.GPUAddress + mesh.VertexOffset() * vtxBuffer.Stride;
-        geometryDesc.Triangles.VertexBuffer.StrideInBytes = vtxBuffer.Stride;
-        geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 
-        GeometryInfo& geoInfo = geoInfoBufferData[meshIdx];
-        geoInfo = { };
-        geoInfo.VtxOffset = uint32(mesh.VertexOffset());
-        geoInfo.IdxOffset = uint32(mesh.IndexOffset());
-        geoInfo.MaterialIdx = mesh.MeshParts()[0].MaterialIdx;
+        const uint32 currIdxOffset = currPrimOffset * 3;
+
+        const uint32 numMeshPrimitives = uint32(mesh.NumIndices() / 3);
+        for(uint32 primIdx = 0; primIdx < numMeshPrimitives; ++primIdx)
+        {
+            PrimInfo& primInfo = primInfoBufferData[currPrimOffset + primIdx];
+            primInfo.MaterialIdx = mesh.MeshParts()[0].MaterialIdx;
+
+            if(mesh.IndexBufferType() == IndexType::Index16Bit)
+            {
+                const uint16* srcIndices = mesh.Indices();
+                primInfo.VertexIdx0 = uint32(srcIndices[primIdx * 3 + 0]) + currVtxOffset;
+                primInfo.VertexIdx1 = uint32(srcIndices[primIdx * 3 + 1]) + currVtxOffset;
+                primInfo.VertexIdx2 = uint32(srcIndices[primIdx * 3 + 2]) + currVtxOffset;
+            }
+            else
+            {
+                const uint32* srcIndices = mesh.Indices32();
+                primInfo.VertexIdx0 = srcIndices[primIdx * 3 + 0] + currVtxOffset;
+                primInfo.VertexIdx1 = srcIndices[primIdx * 3 + 1] + currVtxOffset;
+                primInfo.VertexIdx2 = srcIndices[primIdx * 3 + 2] + currVtxOffset;
+            }
+
+            const uint32 currPrimIdxOffset = (currPrimOffset * 3) + (primIdx * 3);
+            flattendIndices[currPrimIdxOffset + 0] = primInfo.VertexIdx0;
+            flattendIndices[currPrimIdxOffset + 1] = primInfo.VertexIdx1;
+            flattendIndices[currPrimIdxOffset + 2] = primInfo.VertexIdx2;
+        }
+
+        currPrimOffset += numMeshPrimitives;
+        currVtxOffset += mesh.NumVertices();
 
         Assert_(mesh.NumMeshParts() == 1);
     }
+
+    {
+        StructuredBufferInit sbInit;
+        sbInit.Stride = sizeof(uint32);
+        sbInit.NumElements = totalNumPrimitives * 3;
+        sbInit.Name = L"Flattened Index Buffer";
+        sbInit.InitData = flattendIndices.Data();
+        rtFlattenedIdxBuffer.Initialize(sbInit);
+    }
+
+    const uint32 numGeometries = 1;
+    Array<D3D12_RAYTRACING_GEOMETRY_DESC> geometryDescs(numGeometries);
+    D3D12_RAYTRACING_GEOMETRY_DESC& geometryDesc = geometryDescs[0];
+    geometryDesc = { };
+    geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+    geometryDesc.Triangles.IndexBuffer = rtFlattenedIdxBuffer.GPUAddress;
+    geometryDesc.Triangles.IndexCount = totalNumIndices;
+    geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+    geometryDesc.Triangles.Transform3x4 = 0;
+    geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+    geometryDesc.Triangles.VertexCount = uint32(vtxBuffer.NumElements);
+    geometryDesc.Triangles.VertexBuffer.StartAddress = vtxBuffer.GPUAddress;
+    geometryDesc.Triangles.VertexBuffer.StrideInBytes = vtxBuffer.Stride;
+    geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
 
     // Get required sizes for an acceleration structure
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
@@ -1603,11 +1615,11 @@ void DXRPathTracer::BuildRTAccelerationStructure()
 
     {
         StructuredBufferInit sbInit;
-        sbInit.Stride = sizeof(GeometryInfo);
-        sbInit.NumElements = numGeometries;
-        sbInit.Name = L"Geometry Info Buffer";
-        sbInit.InitData = geoInfoBufferData.Data();
-        rtGeoInfoBuffer.Initialize(sbInit);
+        sbInit.Stride = sizeof(PrimInfo);
+        sbInit.NumElements = totalNumPrimitives;
+        sbInit.Name = L"Primitive Info Buffer";
+        sbInit.InitData = primInfoBufferData.Data();
+        rtPrimInfoBuffer.Initialize(sbInit);
     }
 
     buildAccelStructure = false;

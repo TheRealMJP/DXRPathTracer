@@ -55,10 +55,10 @@ struct ClusterBounds
     uint2 ZBounds;
 };
 
-struct GeometryInfo
+struct PrimInfo
 {
-    uint VtxOffset;
-    uint IdxOffset;
     uint MaterialIdx;
-    uint PadTo16Bytes;
+    uint VertexIdx0;
+    uint VertexIdx1;
+    uint VertexIdx2;
 };
