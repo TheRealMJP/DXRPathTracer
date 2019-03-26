@@ -746,7 +746,7 @@ void DXRPathTracer::InitRayTracing()
 void DXRPathTracer::CreateRayTracingPSOs()
 {
     StateObjectBuilder builder;
-    builder.Init(11);
+    builder.Init(12);
 
     {
         // DXIL library sub-object containing all of our code
@@ -784,6 +784,16 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
+        // Shadow alpha-test hit group
+        D3D12_HIT_GROUP_DESC hitDesc = { };
+        hitDesc.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
+        hitDesc.ClosestHitShaderImport = L"ShadowHitShader";
+        hitDesc.AnyHitShaderImport = L"ShadowAnyHitShader";
+        hitDesc.HitGroupExport = L"ShadowAlphaTestHitGroup";
+        builder.AddSubObject(hitDesc);
+    }
+
+    {
         D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = { };
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                      // float2 barycentrics;
         shaderConfig.MaxPayloadSizeInBytes = 3 * sizeof(float) + 3 * sizeof(uint32);   // float3 radiance + uint pathLength + uint pixelIdx + uint setIdx
@@ -800,7 +810,6 @@ void DXRPathTracer::CreateRayTracingPSOs()
         {
             L"RaygenShader",
             L"MissShader",
-            L"ShadowHitGroup",
             L"ShadowMissShader",
         };
 
@@ -820,7 +829,9 @@ void DXRPathTracer::CreateRayTracingPSOs()
         static const wchar* exports[] =
         {
             L"HitGroup",
+            L"ShadowHitGroup",
             L"AlphaTestHitGroup",
+            L"ShadowAlphaTestHitGroup",
         };
 
         D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION associations = { };
@@ -854,6 +865,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     const void* hitGroupID = psoProps->GetShaderIdentifier(L"HitGroup");
     const void* alphaTestHitGroupID = psoProps->GetShaderIdentifier(L"AlphaTestHitGroup");
     const void* shadowHitGroupID = psoProps->GetShaderIdentifier(L"ShadowHitGroup");
+    const void* shadowAlphaTestHitGroupID = psoProps->GetShaderIdentifier(L"ShadowAlphaTestHitGroup");
     const void* missID = psoProps->GetShaderIdentifier(L"MissShader");
     const void* shadowMissID = psoProps->GetShaderIdentifier(L"ShadowMissShader");
 
@@ -898,7 +910,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
             hitGroupRecords[i * 2 + 0].ID = alphaTest ? ShaderIdentifier(alphaTestHitGroupID) : ShaderIdentifier(hitGroupID);
             hitGroupRecords[i * 2 + 0].GeometryIdx = uint32(i);
 
-            hitGroupRecords[i * 2 + 1].ID = ShaderIdentifier(shadowHitGroupID);
+            hitGroupRecords[i * 2 + 1].ID = alphaTest ? ShaderIdentifier(shadowAlphaTestHitGroupID) : ShaderIdentifier(shadowHitGroupID);
             hitGroupRecords[i * 2 + 1].GeometryIdx = uint32(i);
         }
 

@@ -321,19 +321,16 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     return radiance;
 }
 
-[shader("closesthit")]
-void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
+// Loops up the vertex data for the hit triangle and interpolates its attributes
+MeshVertex GetHitSurface(in HitAttributes attr, in uint geometryIdx)
 {
     float3 barycentrics = float3(1 - attr.barycentrics.x - attr.barycentrics.y, attr.barycentrics.x, attr.barycentrics.y);
 
     StructuredBuffer<GeometryInfo> geoInfoBuffer = GeometryInfoBuffers[RayTraceCB.GeometryInfoBufferIdx];
-    const GeometryInfo geoInfo = geoInfoBuffer[HitCB.GeometryIdx];
+    const GeometryInfo geoInfo = geoInfoBuffer[geometryIdx];
 
     StructuredBuffer<MeshVertex> vtxBuffer = VertexBuffers[RayTraceCB.VtxBufferIdx];
     Buffer<uint> idxBuffer = BufferUintTable[RayTraceCB.IdxBufferIdx];
-
-    StructuredBuffer<Material> materialBuffer = MaterialBuffers[RayTraceCB.MaterialBufferIdx];
-    const Material material = materialBuffer[geoInfo.MaterialIdx];
 
     const uint primIdx = PrimitiveIndex();
     const uint idx0 = idxBuffer[primIdx * 3 + geoInfo.IdxOffset + 0];
@@ -344,7 +341,24 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
     const MeshVertex vtx1 = vtxBuffer[idx1 + geoInfo.VtxOffset];
     const MeshVertex vtx2 = vtxBuffer[idx2 + geoInfo.VtxOffset];
 
-    const MeshVertex hitSurface = BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
+    return BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
+}
+
+// Gets the material assigned to a geometry in the acceleration structure
+Material GetGeometryMaterial(in uint geometryIdx)
+{
+    StructuredBuffer<GeometryInfo> geoInfoBuffer = GeometryInfoBuffers[RayTraceCB.GeometryInfoBufferIdx];
+    const GeometryInfo geoInfo = geoInfoBuffer[geometryIdx];
+
+    StructuredBuffer<Material> materialBuffer = MaterialBuffers[RayTraceCB.MaterialBufferIdx];
+    return materialBuffer[geoInfo.MaterialIdx];
+}
+
+[shader("closesthit")]
+void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
+{
+    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
+    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 
     payload.Radiance = PathTrace(hitSurface, material, payload.PathLength, payload.PixelIdx, payload.SampleSetIdx);
 }
@@ -352,27 +366,20 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
-    float3 barycentrics = float3(1 - attr.barycentrics.x - attr.barycentrics.y, attr.barycentrics.x, attr.barycentrics.y);
+    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
+    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 
-    StructuredBuffer<GeometryInfo> geoInfoBuffer = GeometryInfoBuffers[RayTraceCB.GeometryInfoBufferIdx];
-    const GeometryInfo geoInfo = geoInfoBuffer[HitCB.GeometryIdx];
+    // Standard alpha testing
+    Texture2D opacityMap = Tex2DTable[material.Opacity];
+    if(opacityMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x < 0.35f)
+        IgnoreHit();
+}
 
-    StructuredBuffer<MeshVertex> vtxBuffer = VertexBuffers[RayTraceCB.VtxBufferIdx];
-    Buffer<uint> idxBuffer = BufferUintTable[RayTraceCB.IdxBufferIdx];
-
-    StructuredBuffer<Material> materialBuffer = MaterialBuffers[RayTraceCB.MaterialBufferIdx];
-    const Material material = materialBuffer[geoInfo.MaterialIdx];
-
-    const uint primIdx = PrimitiveIndex();
-    const uint idx0 = idxBuffer[primIdx * 3 + geoInfo.IdxOffset + 0];
-    const uint idx1 = idxBuffer[primIdx * 3 + geoInfo.IdxOffset + 1];
-    const uint idx2 = idxBuffer[primIdx * 3 + geoInfo.IdxOffset + 2];
-
-    const MeshVertex vtx0 = vtxBuffer[idx0 + geoInfo.VtxOffset];
-    const MeshVertex vtx1 = vtxBuffer[idx1 + geoInfo.VtxOffset];
-    const MeshVertex vtx2 = vtxBuffer[idx2 + geoInfo.VtxOffset];
-
-    const MeshVertex hitSurface = BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
+[shader("anyhit")]
+void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
+{
+    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
+    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 
     // Standard alpha testing
     Texture2D opacityMap = Tex2DTable[material.Opacity];
