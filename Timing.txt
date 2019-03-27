@@ -4,3 +4,6 @@ No back-face cull: 13.95ms (13.99ms max)
 Use RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH for shadow rays: 12.90ms (12.93ms max)
 // Remove branch for dirlight shadow ray: 13.19ms (13.22ms max)
 With alpha testing: 17.04ms
+BC4 opacity maps: 16.40ms
+No alpha test for radiance rays when path length > 1: 14.95ms
+No alpha test for any rays when path length > 1: 13.65ms

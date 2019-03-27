@@ -71,6 +71,7 @@ struct PrimaryPayload
 struct ShadowPayload
 {
     float Visibility;
+    uint PathLength;
 };
 
 enum RayTypes {
@@ -217,6 +218,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
 
         ShadowPayload payload;
         payload.Visibility = 1.0f;
+        payload.PathLength = pathLength;
 
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
@@ -306,6 +308,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     {
         ShadowPayload payload;
         payload.Visibility = 1.0f;
+        payload.PathLength = pathLength + 1;
 
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
@@ -366,6 +369,11 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
+    // Don't have any transparency once we're doing bounces, since it's really expensive
+    // to keep testing triangles and run the anyhit shader!
+    if(payload.PathLength > 1)
+        return;
+
     const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
     const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 
@@ -378,6 +386,11 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
 {
+    // Don't have any transparency once we're doing bounces, since it's really expensive
+    // to keep testing triangles and run the anyhit shader!
+    if(payload.PathLength > 1)
+        return;
+
     const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
     const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 
