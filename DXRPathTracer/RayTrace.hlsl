@@ -71,7 +71,6 @@ struct PrimaryPayload
 struct ShadowPayload
 {
     float Visibility;
-    uint PathLength;
 };
 
 enum RayTypes {
@@ -123,10 +122,16 @@ void RaygenShader()
     payload.PixelIdx = pixelIdx;
     payload.SampleSetIdx = sampleSetIdx;
 
+    uint traceRayFlags = 0;
+
+    // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
+    if(payload.PathLength > AppSettings.MaxAnyHitPathLength)
+        traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
+
     const uint hitGroupOffset = RayTypeRadiance;
     const uint hitGroupGeoMultiplier = NumRayTypes;
     const uint missShaderIdx = RayTypeRadiance;
-    TraceRay(Scene, 0, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+    TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
     payload.Radiance = clamp(payload.Radiance, 0.0f, FP16Max);
 
@@ -218,12 +223,17 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
 
         ShadowPayload payload;
         payload.Visibility = 1.0f;
-        payload.PathLength = pathLength;
+
+        uint traceRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+
+        // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
+        if(pathLength > AppSettings.MaxAnyHitPathLength)
+            traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeShadow;
-        TraceRay(Scene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularAlbedo,
                                  roughness, positionWS, incomingRayOriginWS) * payload.Visibility;
@@ -297,10 +307,16 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         payload.PixelIdx = pixelIdx;
         payload.SampleSetIdx = sampleSetIdx;
 
+        uint traceRayFlags = 0;
+
+        // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
+        if(payload.PathLength > AppSettings.MaxAnyHitPathLength)
+            traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
+
         const uint hitGroupOffset = RayTypeRadiance;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeRadiance;
-        TraceRay(Scene, 0, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += payload.Radiance * throughput;
     }
@@ -308,12 +324,17 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     {
         ShadowPayload payload;
         payload.Visibility = 1.0f;
-        payload.PathLength = pathLength + 1;
+
+        uint traceRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+
+        // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
+        if(pathLength + 1 > AppSettings.MaxAnyHitPathLength)
+            traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeShadow;
-        TraceRay(Scene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
         float3 skyRadiance = skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz;
@@ -369,11 +390,6 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
-    // Don't have any transparency once we're doing bounces, since it's really expensive
-    // to keep testing triangles and run the anyhit shader!
-    if(payload.PathLength > 1)
-        return;
-
     const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
     const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 
@@ -386,11 +402,6 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
 {
-    // Don't have any transparency once we're doing bounces, since it's really expensive
-    // to keep testing triangles and run the anyhit shader!
-    if(payload.PathLength > 1)
-        return;
-
     const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
     const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 

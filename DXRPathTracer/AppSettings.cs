@@ -128,6 +128,12 @@ public class Settings
         [MaxValue(MaxPathLengthSetting)]
         [DisplayName("Max Path Length")]
         int MaxPathLength = 3;
+
+        [HelpText("The maximum path length where any-hit shaders will be used for alpha testing. Increasing this with improve the render quality, but will also increase frame times")]
+        [MinValue(0)]
+        [MaxValue(MaxPathLengthSetting)]
+        [DisplayName("Max Any-Hit Path Length")]
+        int MaxAnyHitPathLength = 1;
     }
 
     [ExpandGroup(false)]
