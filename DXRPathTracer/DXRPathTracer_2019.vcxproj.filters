@@ -1,0 +1,330 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="MeshRenderer.cpp" />
+    <ClCompile Include="PostProcessor.cpp" />
+    <ClCompile Include="DXRPathTracer.cpp" />
+    <ClCompile Include="AppSettings.cpp" />
+    <ClCompile Include="..\SampleFramework12\v1.02\App.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Assert.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\FileIO.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Input.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\MurmurHash.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\PCH.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Settings.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Timer.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\TinyEXR.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Utility.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Window.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\SpriteRenderer.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\Textures.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\Camera.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\DXErr.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\GraphicsTypes.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\Model.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\Profiler.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\Sampling.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\SH.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\ShaderCompilation.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\Skybox.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\Spectrum.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\SpriteFont.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\SG.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\SF12_Math.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\ImGuiHelper.cpp">
+      <Filter>SampleFramework12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\DX12.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\SwapChain.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\DX12_Upload.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\DX12_Helpers.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\PostProcessHelper.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\ShadowHelper.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\EnkiTS\TaskScheduler.cpp">
+      <Filter>SampleFramework12\EnkiTS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\EnkiTS\TaskScheduler_c.cpp">
+      <Filter>SampleFramework12\EnkiTS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\ImGui\imgui.cpp">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\ImGui\imgui_demo.cpp">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\ImGui\imgui_draw.cpp">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\HosekSky\ArHosekSkyModel.cpp">
+      <Filter>SampleFramework12\HosekSky</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\ImGui\imgui_widgets.cpp">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SampleFramework12\v1.02\Graphics\DXRHelper.cpp">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AppSettings.h" />
+    <ClInclude Include="MeshRenderer.h" />
+    <ClInclude Include="PostProcessor.h" />
+    <ClInclude Include="DXRPathTracer.h" />
+    <ClInclude Include="..\SampleFramework12\v1.02\Timer.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\TinyEXR.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Utility.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Window.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\App.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Assert.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Containers.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Exceptions.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\FileIO.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Input.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\InterfacePointers.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\MurmurHash.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\PCH.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Serialization.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Settings.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\SpriteRenderer.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Textures.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\BRDF.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Camera.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\DXErr.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Filtering.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\GraphicsTypes.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Model.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Profiler.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Sampling.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\SH.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\ShaderCompilation.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Skybox.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\Spectrum.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\SpriteFont.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\SF12_Math.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\ImGuiHelper.h">
+      <Filter>SampleFramework12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\DX12.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\SwapChain.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\DX12_Upload.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\DX12_Helpers.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\PostProcessHelper.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\SG.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="AppConfig.h" />
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\ShadowHelper.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="SharedTypes.h" />
+    <ClInclude Include="..\SampleFramework12\v1.02\EnkiTS\TaskScheduler.h">
+      <Filter>SampleFramework12\EnkiTS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\EnkiTS\TaskScheduler_c.h">
+      <Filter>SampleFramework12\EnkiTS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\EnkiTS\LockLessMultiReadPipe.h">
+      <Filter>SampleFramework12\EnkiTS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\ImGui\imconfig.h">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\ImGui\imgui.h">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\ImGui\imgui_internal.h">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\HosekSky\ArHosekSkyModel.h">
+      <Filter>SampleFramework12\HosekSky</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\ImGui\imstb_rectpack.h">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\ImGui\imstb_textedit.h">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\ImGui\imstb_truetype.h">
+      <Filter>SampleFramework12\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SampleFramework12\v1.02\Graphics\DXRHelper.h">
+      <Filter>SampleFramework12\Graphics</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="SampleFramework12">
+      <UniqueIdentifier>{f3f7f78e-3efa-49dc-b296-8ee1e9ac5ce3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SampleFramework12\External DLLs">
+      <UniqueIdentifier>{75a60a2c-5900-4bd1-82c7-81e3237b116f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SampleFramework12\Graphics">
+      <UniqueIdentifier>{075a1545-c637-4509-b8ec-701cdbf9fef9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SampleFramework12\EnkiTS">
+      <UniqueIdentifier>{f6b57266-b3a1-4989-a6da-bb809c7a43b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SampleFramework12\ImGui">
+      <UniqueIdentifier>{0e862617-bbff-49cd-86c2-074a0b28665d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SampleFramework12\HosekSky">
+      <UniqueIdentifier>{c82095c4-b09b-4dfa-b9f9-c1a599c72f67}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="AppSettings.cs" />
+    <CustomBuild Include="..\Externals\WinPixEventRuntime\bin\WinPixEventRuntime.dll">
+      <Filter>SampleFramework12\External DLLs</Filter>
+    </CustomBuild>
+    <CustomBuild Include="..\Externals\DXCompiler\Bin\dxcompiler.dll">
+      <Filter>SampleFramework12\External DLLs</Filter>
+    </CustomBuild>
+    <CustomBuild Include="..\Externals\Assimp-4.1.0\bin\assimp-vc140-mt.dll">
+      <Filter>SampleFramework12\External DLLs</Filter>
+    </CustomBuild>
+    <CustomBuild Include="$(WindowsSdkDir)\bin\$(WindowsTargetPlatformVersion)\x64\dxil.dll">
+      <Filter>SampleFramework12\External DLLs</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\SampleFramework12\v1.02\sf12.natvis">
+      <Filter>SampleFramework12</Filter>
+    </Natvis>
+  </ItemGroup>
+</Project>
