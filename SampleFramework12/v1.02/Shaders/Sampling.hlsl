@@ -126,8 +126,7 @@ float3 SampleDirectionGGX(float3 v, float3 n, float roughness, float u1, float u
     h.y = sin(theta) * sin(phi);
     h.z = cos(theta);
 
-    float hDotV = abs(dot(h, v));
-    float3 sampleDir = 2.0f * hDotV * h - v;
+    float3 sampleDir = 2.0f * dot(h, v) * h - v;
     return normalize(sampleDir);
 }
 

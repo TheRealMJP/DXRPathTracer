@@ -131,6 +131,12 @@ public class Settings
         [MaxValue(MaxPathLengthSetting)]
         [DisplayName("Max Path Length")]
         int MaxPathLength = 3;
+
+        [HelpText("The maximum path length where any-hit shaders will be used for alpha testing. Increasing this with improve the render quality, but will also increase frame times")]
+        [MinValue(0)]
+        [MaxValue(MaxPathLengthSetting)]
+        [DisplayName("Max Any-Hit Path Length")]
+        int MaxAnyHitPathLength = 1;
     }
 
     [ExpandGroup(false)]
@@ -171,6 +177,10 @@ public class Settings
         [DisplayName("Enable VSync")]
         [HelpText("Enables or disables vertical sync during Present")]
         bool EnableVSync = true;
+
+        [UseAsShaderConstant(false)]
+        [HelpText("Enables the stable power state, which stabilizes GPU clocks for more consistent performance")]
+        bool StablePowerState = false;
 
         [DisplayName("Enable Albedo Maps")]
         [HelpText("Enables albedo maps")]

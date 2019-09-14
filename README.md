@@ -13,7 +13,7 @@ The repository does *not* include textures for the Sponza and SunTemple scenes i
 
 To move the camera, press the W/S/A/D/Q/E keys. The camera can also be rotated by right-clicking on the window and dragging the mouse.
 
-The render is progressively updated by shooting one ray per-pixel every frame, takes about 42ms per frame on my Titan V. Diffuse and specular sampling is currently supported, with lighting provided by a [procedural sun and sky model](http://cgg.mff.cuni.cz/projects/SkylightModelling/). If you change a setting or move the camera, the render will reset and start accumulating samples again. Path lengths greater than 2 are computed by recursively tracing a new ray inside of the closest hit program, which is convenient but probably not the fastest way to things.
+The render is progressively updated by shooting one ray per-pixel every frame, which takes anywhere from 14 to 30ms per frame on my RTX 2080 when the max path length is set to 3 (the default). Diffuse and specular sampling is currently supported, with lighting provided by a [procedural sun and sky model](http://cgg.mff.cuni.cz/projects/SkylightModelling/). If you change a setting or move the camera, the render will reset and start accumulating samples again. Path lengths greater than 2 are computed by recursively tracing a new ray inside of the closest hit program, which is convenient but probably not the fastest way to things.
 
 To improve the quality, increase the "Sqrt Num Samples" setting. As the name implies it's the square root of the number of samples, so increasing that value will increase the total render time non-linearly! You can also increase the maximum path length, which is capped at 3 (single-bounce) by default.
 
@@ -21,8 +21,8 @@ To switch between path-traced rendering and standard (boring) rasterization with
 
 # Possible To-Do List
 
-* Support alpha-tested triangles for foliage
-* Investigate performance tradeoffs involved with having one D3D12_RAYTRACING_GEOMETRY_DESC per mesh in the source scene
+* ~~Support alpha-tested triangles for foliage~~
+* ~~Investigate performance tradeoffs involved with having one D3D12_RAYTRACING_GEOMETRY_DESC per mesh in the source scene~~
 * Investigate higher-performance sampling schemes (currently using a stock implementation of [Correlated Multi-Jittered Sampling](https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf))
 * Local light sources
 * Area light sampling with soft shadows

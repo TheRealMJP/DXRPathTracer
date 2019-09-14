@@ -161,25 +161,28 @@ void MeshRenderer::Initialize(const Model* model_)
         // Create a structured buffer containing texture indices per-material
         const Array<MeshMaterial>& materials = model->Materials();
         const uint64 numMaterials = materials.Size();
-        Array<Material> textureIndices(numMaterials);
+        Array<Material> matBufferData(numMaterials);
         for(uint64 i = 0; i < numMaterials; ++i)
         {
-            Material& matIndices = textureIndices[i];
+            Material& matIndices = matBufferData[i];
             const MeshMaterial& material = materials[i];
 
             matIndices.Albedo = material.Textures[uint64(MaterialTextures::Albedo)]->SRV;
             matIndices.Normal = material.Textures[uint64(MaterialTextures::Normal)]->SRV;
             matIndices.Roughness = material.Textures[uint64(MaterialTextures::Roughness)]->SRV;
             matIndices.Metallic = material.Textures[uint64(MaterialTextures::Metallic)]->SRV;
-            matIndices.Opacity = material.Textures[uint64(MaterialTextures::Opacity)]->SRV;
             matIndices.Emissive = material.Textures[uint64(MaterialTextures::Emissive)]->SRV;
+
+            // Opacity is optional
+            const Texture* opacity = material.Textures[uint64(MaterialTextures::Opacity)];
+            matIndices.Opacity = opacity ? opacity->SRV : uint32(-1);
         }
 
         StructuredBufferInit sbInit;
         sbInit.Stride = sizeof(Material);
         sbInit.NumElements = numMaterials;
         sbInit.Dynamic = false;
-        sbInit.InitData = textureIndices.Data();
+        sbInit.InitData = matBufferData.Data();
         materialBuffer.Initialize(sbInit);
         materialBuffer.Resource()->SetName(L"Material Texture Indices");
     }
@@ -444,7 +447,7 @@ void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Came
 
             ID3D12PipelineState* newPSO = mainPassPSO;
             const MeshMaterial& material = model->Materials()[part.MaterialIdx];
-            if(material.TextureNames[uint64(MaterialTextures::Opacity)].length() > 0)
+            if(material.Textures[uint64(MaterialTextures::Opacity)] != nullptr)
                 newPSO = mainPassAlphaTestPSO;
 
             if(currPSO != newPSO)

@@ -51,7 +51,7 @@ static const wchar* DefaultTextures[] =
     L"..\\Content\\Textures\\DefaultNormalMap.dds",     // Normal
     L"..\\Content\\Textures\\DefaultRoughness.dds",     // Roughness
     L"..\\Content\\Textures\\DefaultBlack.dds",         // Metallic
-    L"..\\Content\\Textures\\Default.dds",              // Opacity
+    L"",                                                // Opacity
     L"..\\Content\\Textures\\DefaultBlack.dds",         // Emissive
 };
 
@@ -89,6 +89,12 @@ void LoadMaterialResources(Array<MeshMaterial>& materials, const wstring& direct
             wstring path = directory + material.TextureNames[texType];
             if(material.TextureNames[texType].length() == 0 || FileExists(path.c_str()) == false)
                 path = DefaultTextures[texType];
+
+            if(path.length() == 0)
+            {
+                material.TextureIndices[texType] = uint32(-1);
+                continue;
+            }
 
             const uint64 numLoaded = materialTextures.Count();
             for(uint64 i = 0; i < numLoaded; ++i)

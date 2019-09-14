@@ -68,11 +68,13 @@ namespace AppSettings
     extern BoolSetting EnableRayTracing;
     extern IntSetting SqrtNumSamples;
     extern IntSetting MaxPathLength;
+    extern IntSetting MaxAnyHitPathLength;
     extern FloatSetting Exposure;
     extern FloatSetting BloomExposure;
     extern FloatSetting BloomMagnitude;
     extern FloatSetting BloomBlurSigma;
     extern BoolSetting EnableVSync;
+    extern BoolSetting StablePowerState;
     extern BoolSetting EnableAlbedoMaps;
     extern BoolSetting EnableNormalMaps;
     extern BoolSetting EnableDiffuse;
@@ -96,6 +98,7 @@ namespace AppSettings
         bool32 EnableRayTracing;
         int32 SqrtNumSamples;
         int32 MaxPathLength;
+        int32 MaxAnyHitPathLength;
         float Exposure;
         float BloomExposure;
         float BloomMagnitude;

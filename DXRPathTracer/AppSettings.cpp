@@ -44,11 +44,13 @@ namespace AppSettings
     BoolSetting EnableRayTracing;
     IntSetting SqrtNumSamples;
     IntSetting MaxPathLength;
+    IntSetting MaxAnyHitPathLength;
     FloatSetting Exposure;
     FloatSetting BloomExposure;
     FloatSetting BloomMagnitude;
     FloatSetting BloomBlurSigma;
     BoolSetting EnableVSync;
+    BoolSetting StablePowerState;
     BoolSetting EnableAlbedoMaps;
     BoolSetting EnableNormalMaps;
     BoolSetting EnableDiffuse;
@@ -127,6 +129,9 @@ namespace AppSettings
         MaxPathLength.Initialize("MaxPathLength", "Path Tracing", "Max Path Length", "Maximum path length (bounces) to use for path tracing", 3, 2, 8);
         Settings.AddSetting(&MaxPathLength);
 
+        MaxAnyHitPathLength.Initialize("MaxAnyHitPathLength", "Path Tracing", "Max Any-Hit Path Length", "The maximum path length where any-hit shaders will be used for alpha testing. Increasing this with improve the render quality, but will also increase frame times", 1, 0, 8);
+        Settings.AddSetting(&MaxAnyHitPathLength);
+
         Exposure.Initialize("Exposure", "Post Processing", "Exposure", "Simple exposure value applied to the scene before tone mapping (uses log2 scale)", -14.0000f, -24.0000f, 24.0000f, 0.1000f, ConversionMode::None, 1.0000f);
         Settings.AddSetting(&Exposure);
 
@@ -141,6 +146,9 @@ namespace AppSettings
 
         EnableVSync.Initialize("EnableVSync", "Debug", "Enable VSync", "Enables or disables vertical sync during Present", true);
         Settings.AddSetting(&EnableVSync);
+
+        StablePowerState.Initialize("StablePowerState", "Debug", "Stable Power State", "Enables the stable power state, which stabilizes GPU clocks for more consistent performance", false);
+        Settings.AddSetting(&StablePowerState);
 
         EnableAlbedoMaps.Initialize("EnableAlbedoMaps", "Debug", "Enable Albedo Maps", "Enables albedo maps", true);
         Settings.AddSetting(&EnableAlbedoMaps);
@@ -198,6 +206,7 @@ namespace AppSettings
         cbData.EnableRayTracing = EnableRayTracing;
         cbData.SqrtNumSamples = SqrtNumSamples;
         cbData.MaxPathLength = MaxPathLength;
+        cbData.MaxAnyHitPathLength = MaxAnyHitPathLength;
         cbData.Exposure = Exposure;
         cbData.BloomExposure = BloomExposure;
         cbData.BloomMagnitude = BloomMagnitude;

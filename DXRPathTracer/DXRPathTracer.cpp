@@ -54,6 +54,8 @@ StaticAssert_(ArraySize_(SceneSunDirections) == uint64(Scenes::NumValues));
 
 static const uint64 NumConeSides = 16;
 
+static const bool Benchmark = false;
+
 struct HitGroupRecord
 {
     ShaderIdentifier ID;
@@ -188,6 +190,14 @@ void DXRPathTracer::AfterReset()
 
 void DXRPathTracer::Initialize()
 {
+    if(Benchmark)
+    {
+        AppSettings::EnableVSync.SetValue(false);
+        AppSettings::StablePowerState.SetValue(true);
+        AppSettings::AlwaysResetPathTrace.SetValue(true);
+        AppSettings::CurrentScene.SetValue(Scenes::SunTemple);
+    }
+
     // Check if the device supports conservative rasterization
     D3D12_FEATURE_DATA_D3D12_OPTIONS features = { };
     DX12::Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &features, sizeof(features));
@@ -736,7 +746,7 @@ void DXRPathTracer::InitRayTracing()
 void DXRPathTracer::CreateRayTracingPSOs()
 {
     StateObjectBuilder builder;
-    builder.Init(10);
+    builder.Init(12);
 
     {
         // DXIL library sub-object containing all of our code
@@ -755,11 +765,31 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
+        // Primary alpha-test hit group
+        D3D12_HIT_GROUP_DESC hitDesc = { };
+        hitDesc.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
+        hitDesc.ClosestHitShaderImport = L"ClosestHitShader";
+        hitDesc.AnyHitShaderImport = L"AnyHitShader";
+        hitDesc.HitGroupExport = L"AlphaTestHitGroup";
+        builder.AddSubObject(hitDesc);
+    }
+
+    {
         // Shadow hit group
         D3D12_HIT_GROUP_DESC hitDesc = { };
         hitDesc.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
         hitDesc.ClosestHitShaderImport = L"ShadowHitShader";
         hitDesc.HitGroupExport = L"ShadowHitGroup";
+        builder.AddSubObject(hitDesc);
+    }
+
+    {
+        // Shadow alpha-test hit group
+        D3D12_HIT_GROUP_DESC hitDesc = { };
+        hitDesc.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
+        hitDesc.ClosestHitShaderImport = L"ShadowHitShader";
+        hitDesc.AnyHitShaderImport = L"ShadowAnyHitShader";
+        hitDesc.HitGroupExport = L"ShadowAlphaTestHitGroup";
         builder.AddSubObject(hitDesc);
     }
 
@@ -780,7 +810,6 @@ void DXRPathTracer::CreateRayTracingPSOs()
         {
             L"RaygenShader",
             L"MissShader",
-            L"ShadowHitGroup",
             L"ShadowMissShader",
         };
 
@@ -800,6 +829,9 @@ void DXRPathTracer::CreateRayTracingPSOs()
         static const wchar* exports[] =
         {
             L"HitGroup",
+            L"ShadowHitGroup",
+            L"AlphaTestHitGroup",
+            L"ShadowAlphaTestHitGroup",
         };
 
         D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION associations = { };
@@ -831,11 +863,11 @@ void DXRPathTracer::CreateRayTracingPSOs()
 
     const void* rayGenID = psoProps->GetShaderIdentifier(L"RaygenShader");
     const void* hitGroupID = psoProps->GetShaderIdentifier(L"HitGroup");
+    const void* alphaTestHitGroupID = psoProps->GetShaderIdentifier(L"AlphaTestHitGroup");
     const void* shadowHitGroupID = psoProps->GetShaderIdentifier(L"ShadowHitGroup");
+    const void* shadowAlphaTestHitGroupID = psoProps->GetShaderIdentifier(L"ShadowAlphaTestHitGroup");
     const void* missID = psoProps->GetShaderIdentifier(L"MissShader");
     const void* shadowMissID = psoProps->GetShaderIdentifier(L"ShadowMissShader");
-
-    const uint32 numGeometries = uint32(currentModel->NumMeshes());
 
     // Make our shader tables
     {
@@ -863,13 +895,22 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
-        Array<HitGroupRecord> hitGroupRecords(numGeometries * 2);
-        for(uint64 i = 0; i < numGeometries; ++i)
+        const uint32 numMeshes = uint32(currentModel->NumMeshes());
+
+        Array<HitGroupRecord> hitGroupRecords(numMeshes * 2);
+        for(uint64 i = 0; i < numMeshes; ++i)
         {
-            hitGroupRecords[i * 2 + 0].ID = ShaderIdentifier(hitGroupID);
+            // Use the alpha test hit group (with an any hit shader) if the material has an opacity map
+            const Mesh& mesh = currentModel->Meshes()[i];
+            Assert_(mesh.NumMeshParts() == 1);
+            const uint32 materialIdx = mesh.MeshParts()[0].MaterialIdx;
+            const MeshMaterial& material = currentModel->Materials()[materialIdx];
+            const bool alphaTest = material.Textures[uint32(MaterialTextures::Opacity)] != nullptr;
+
+            hitGroupRecords[i * 2 + 0].ID = alphaTest ? ShaderIdentifier(alphaTestHitGroupID) : ShaderIdentifier(hitGroupID);
             hitGroupRecords[i * 2 + 0].GeometryIdx = uint32(i);
 
-            hitGroupRecords[i * 2 + 1].ID = ShaderIdentifier(shadowHitGroupID);
+            hitGroupRecords[i * 2 + 1].ID = alphaTest ? ShaderIdentifier(shadowAlphaTestHitGroupID) : ShaderIdentifier(shadowHitGroupID);
             hitGroupRecords[i * 2 + 1].GeometryIdx = uint32(i);
         }
 
@@ -937,6 +978,13 @@ void DXRPathTracer::Update(const Timer& timer)
     // Toggle VSYNC
     swapChain.SetVSYNCEnabled(AppSettings::EnableVSync ? true : false);
 
+    // Toggle stable power state
+    if(AppSettings::StablePowerState != stablePowerState)
+    {
+        DX12::Device->SetStablePowerState(AppSettings::StablePowerState);
+        stablePowerState = AppSettings::StablePowerState;
+    }
+
     skyCache.Init(AppSettings::SunDirection, AppSettings::SunSize, AppSettings::GroundAlbedo, AppSettings::Turbidity, true);
 
     if(AppSettings::MSAAMode.Changed() || AppSettings::ClusterRasterizationMode.Changed())
@@ -946,7 +994,7 @@ void DXRPathTracer::Update(const Timer& timer)
         CreatePSOs();
     }
 
-    if(AppSettings::CurrentScene.Changed())
+    if(AppSettings::CurrentScene.Changed() && currentModel != &sceneModels[uint64(AppSettings::CurrentScene)])
     {
         currentModel = &sceneModels[uint64(AppSettings::CurrentScene)];
         DestroyPSOs();
@@ -974,6 +1022,7 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::Turbidity,
         &AppSettings::GroundAlbedo,
         &AppSettings::RoughnessScale,
+        &AppSettings::MaxAnyHitPathLength,
     };
 
     for(const Setting* setting : settingsToCheck)
@@ -1458,6 +1507,11 @@ void DXRPathTracer::BuildRTAccelerationStructure()
     for(uint64 meshIdx = 0; meshIdx < numMeshes; ++meshIdx)
     {
         const Mesh& mesh = currentModel->Meshes()[meshIdx];
+        Assert_(mesh.NumMeshParts() == 1);
+        const uint32 materialIdx = mesh.MeshParts()[0].MaterialIdx;
+        const MeshMaterial& material = currentModel->Materials()[materialIdx];
+        const bool opaque = material.Textures[uint32(MaterialTextures::Opacity)] == nullptr;
+
         D3D12_RAYTRACING_GEOMETRY_DESC& geometryDesc = geometryDescs[meshIdx];
         geometryDesc = { };
         geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
@@ -1469,7 +1523,7 @@ void DXRPathTracer::BuildRTAccelerationStructure()
         geometryDesc.Triangles.VertexCount = uint32(mesh.NumVertices());
         geometryDesc.Triangles.VertexBuffer.StartAddress = vtxBuffer.GPUAddress + mesh.VertexOffset() * vtxBuffer.Stride;
         geometryDesc.Triangles.VertexBuffer.StrideInBytes = vtxBuffer.Stride;
-        geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+        geometryDesc.Flags = opaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 
         GeometryInfo& geoInfo = geoInfoBufferData[meshIdx];
         geoInfo = { };

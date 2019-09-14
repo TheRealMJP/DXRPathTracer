@@ -10,6 +10,7 @@ struct AppSettings_Layout
     bool EnableRayTracing;
     int SqrtNumSamples;
     int MaxPathLength;
+    int MaxAnyHitPathLength;
     float Exposure;
     float BloomExposure;
     float BloomMagnitude;

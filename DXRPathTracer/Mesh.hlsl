@@ -144,7 +144,6 @@ float4 PSForward(in PSInput input) : SV_Target0
     Texture2D NormalMap = Tex2DTable[material.Normal];
     Texture2D RoughnessMap = Tex2DTable[material.Roughness];
     Texture2D MetallicMap = Tex2DTable[material.Metallic];
-    Texture2D OpacityMap = Tex2DTable[material.Opacity];
     Texture2D EmissiveMap = Tex2DTable[material.Emissive];
 
     ShadingInput shadingInput;
@@ -173,6 +172,7 @@ float4 PSForward(in PSInput input) : SV_Target0
     Texture2DArray spotLightShadowMap = Tex2DArrayTable[SRVIndices.SpotLightShadowMapIdx];
 
     #if AlphaTest_
+        Texture2D OpacityMap = Tex2DTable[material.Opacity];
         if(OpacityMap.Sample(AnisoSampler, input.UV).x < 0.35f)
             discard;
     #endif
