@@ -21,7 +21,6 @@ float2 SquareToConcentricDiskMapping(float x, float y, float numSides, float pol
 {
     float phi, r;
 
-    // -- (a,b) is now on [-1,1]ˆ2
     float a = 2.0f * x - 1.0f;
     float b = 2.0f * y - 1.0f;
 
@@ -75,7 +74,6 @@ float2 SquareToConcentricDiskMapping(float x, float y)
     float phi = 0.0f;
     float r = 0.0f;
 
-    // -- (a,b) is now on [-1,1]ˆ2
     float a = 2.0f * x - 1.0f;
     float b = 2.0f * y - 1.0f;
 
