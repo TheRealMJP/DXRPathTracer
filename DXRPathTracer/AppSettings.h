@@ -66,6 +66,8 @@ namespace AppSettings
     extern IntSetting MaxLightClamp;
     extern ClusterRasterizationModesSetting ClusterRasterizationMode;
     extern BoolSetting EnableRayTracing;
+    extern BoolSetting ClampRoughness;
+    extern BoolSetting AvoidCausticPaths;
     extern IntSetting SqrtNumSamples;
     extern IntSetting MaxPathLength;
     extern IntSetting MaxAnyHitPathLength;
@@ -96,6 +98,8 @@ namespace AppSettings
         int32 MSAAMode;
         bool32 RenderLights;
         bool32 EnableRayTracing;
+        bool32 ClampRoughness;
+        bool32 AvoidCausticPaths;
         int32 SqrtNumSamples;
         int32 MaxPathLength;
         int32 MaxAnyHitPathLength;

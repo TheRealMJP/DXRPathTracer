@@ -120,6 +120,12 @@ public class Settings
     {
         bool EnableRayTracing = true;
 
+        [HelpText("Clamp roughness for caustic paths from glossy bounces. Based on 'Physically Based Shader Design in Arnold' [Langlands14]")]
+        bool ClampRoughness = false;
+
+        [HelpText("Avoid specular evaluation followed by diffuse path. Based on 'Physically Based Shader Design in Arnold' [Langlands14]")]
+        bool AvoidCausticPaths = false;
+
         [HelpText("The square root of the number of per-pixel sample rays to use for path tracing")]
         [MinValue(1)]
         [MaxValue(100)]

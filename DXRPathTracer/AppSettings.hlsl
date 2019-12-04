@@ -8,6 +8,8 @@ struct AppSettings_Layout
     int MSAAMode;
     bool RenderLights;
     bool EnableRayTracing;
+    bool ClampRoughness;
+    bool AvoidCausticPaths;
     int SqrtNumSamples;
     int MaxPathLength;
     int MaxAnyHitPathLength;
