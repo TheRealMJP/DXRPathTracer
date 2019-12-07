@@ -796,7 +796,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     {
         D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = { };
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                      // float2 barycentrics;
-        shaderConfig.MaxPayloadSizeInBytes = 3 * sizeof(float) + 3 * sizeof(uint32);   // float3 radiance + uint pathLength + uint pixelIdx + uint setIdx
+        shaderConfig.MaxPayloadSizeInBytes = 4 * sizeof(float) + 4 * sizeof(uint32);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse
         builder.AddSubObject(shaderConfig);
     }
 
@@ -1015,6 +1015,7 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::EnableDirect,
         &AppSettings::EnableIndirect,
         &AppSettings::EnableIndirectSpecular,
+        &AppSettings::EnableSky,
         &AppSettings::EnableSun,
         &AppSettings::SunSize,
         &AppSettings::SunDirection,
@@ -1022,6 +1023,8 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::GroundAlbedo,
         &AppSettings::RoughnessScale,
         &AppSettings::MaxAnyHitPathLength,
+        &AppSettings::AvoidCausticPaths,
+        &AppSettings::ClampRoughness
     };
 
     for(const Setting* setting : settingsToCheck)

@@ -40,6 +40,9 @@ public class Settings
         [HelpText("Enables the sun light")]
         bool EnableSun = true;
 
+        [HelpText("Enables the sky environment")]
+        bool EnableSky = true;
+
         [HelpText("Controls whether the sun is treated as a disc area light in the real-time shader")]
         bool SunAreaLightApproximation = true;
 
@@ -116,6 +119,12 @@ public class Settings
     public class PathTracing
     {
         bool EnableRayTracing = true;
+
+        [HelpText("Clamp roughness for caustic paths from glossy bounces. Based on 'Physically Based Shader Design in Arnold' [Langlands14]")]
+        bool ClampRoughness = false;
+
+        [HelpText("Avoid specular evaluation followed by diffuse path. Based on 'Physically Based Shader Design in Arnold' [Langlands14]")]
+        bool AvoidCausticPaths = false;
 
         [HelpText("The square root of the number of per-pixel sample rays to use for path tracing")]
         [MinValue(1)]

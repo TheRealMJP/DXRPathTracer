@@ -1,12 +1,15 @@
 struct AppSettings_Layout
 {
     bool EnableSun;
+    bool EnableSky;
     bool SunAreaLightApproximation;
     float SunSize;
     float3 SunDirection;
     int MSAAMode;
     bool RenderLights;
     bool EnableRayTracing;
+    bool ClampRoughness;
+    bool AvoidCausticPaths;
     int SqrtNumSamples;
     int MaxPathLength;
     int MaxAnyHitPathLength;

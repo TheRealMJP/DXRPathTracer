@@ -30,6 +30,7 @@ namespace AppSettings
     static SettingsContainer Settings;
 
     BoolSetting EnableSun;
+    BoolSetting EnableSky;
     BoolSetting SunAreaLightApproximation;
     FloatSetting SunSize;
     DirectionSetting SunDirection;
@@ -41,6 +42,8 @@ namespace AppSettings
     IntSetting MaxLightClamp;
     ClusterRasterizationModesSetting ClusterRasterizationMode;
     BoolSetting EnableRayTracing;
+    BoolSetting ClampRoughness;
+    BoolSetting AvoidCausticPaths;
     IntSetting SqrtNumSamples;
     IntSetting MaxPathLength;
     IntSetting MaxAnyHitPathLength;
@@ -86,6 +89,9 @@ namespace AppSettings
         EnableSun.Initialize("EnableSun", "Sun And Sky", "Enable Sun", "Enables the sun light", true);
         Settings.AddSetting(&EnableSun);
 
+        EnableSky.Initialize("EnableSky", "Sun And Sky", "Enable Sky", "Enables the sky environment", true);
+        Settings.AddSetting(&EnableSky);
+
         SunAreaLightApproximation.Initialize("SunAreaLightApproximation", "Sun And Sky", "Sun Area Light Approximation", "Controls whether the sun is treated as a disc area light in the real-time shader", true);
         Settings.AddSetting(&SunAreaLightApproximation);
 
@@ -118,6 +124,12 @@ namespace AppSettings
 
         EnableRayTracing.Initialize("EnableRayTracing", "Path Tracing", "Enable Ray Tracing", "", true);
         Settings.AddSetting(&EnableRayTracing);
+
+        ClampRoughness.Initialize("ClampRoughness", "Path Tracing", "Clamp Roughness", "Clamp roughness for caustic paths from glossy bounces. Based on 'Physically Based Shader Design in Arnold' [Langlands14]", false);
+        Settings.AddSetting(&ClampRoughness);
+
+        AvoidCausticPaths.Initialize("AvoidCausticPaths", "Path Tracing", "Avoid Caustic Paths", "Avoid specular evaluation followed by diffuse path. Based on 'Physically Based Shader Design in Arnold' [Langlands14]", false);
+        Settings.AddSetting(&AvoidCausticPaths);
 
         SqrtNumSamples.Initialize("SqrtNumSamples", "Path Tracing", "Sqrt Num Samples", "The square root of the number of per-pixel sample rays to use for path tracing", 4, 1, 100);
         Settings.AddSetting(&SqrtNumSamples);
@@ -193,12 +205,15 @@ namespace AppSettings
     {
         AppSettingsCBuffer cbData;
         cbData.EnableSun = EnableSun;
+        cbData.EnableSky = EnableSky;
         cbData.SunAreaLightApproximation = SunAreaLightApproximation;
         cbData.SunSize = SunSize;
         cbData.SunDirection = SunDirection;
         cbData.MSAAMode = MSAAMode;
         cbData.RenderLights = RenderLights;
         cbData.EnableRayTracing = EnableRayTracing;
+        cbData.ClampRoughness = ClampRoughness;
+        cbData.AvoidCausticPaths = AvoidCausticPaths;
         cbData.SqrtNumSamples = SqrtNumSamples;
         cbData.MaxPathLength = MaxPathLength;
         cbData.MaxAnyHitPathLength = MaxAnyHitPathLength;

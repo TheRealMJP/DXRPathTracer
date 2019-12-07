@@ -63,9 +63,11 @@ typedef BuiltInTriangleIntersectionAttributes HitAttributes;
 struct PrimaryPayload
 {
     float3 Radiance;
+    float Roughness;
     uint PathLength;
     uint PixelIdx;
     uint SampleSetIdx;
+    bool IsDiffuse;
 };
 
 struct ShadowPayload
@@ -118,9 +120,11 @@ void RaygenShader()
 
     PrimaryPayload payload;
     payload.Radiance = 0.0f;
+    payload.Roughness = 0.0f;
     payload.PathLength = 1;
     payload.PixelIdx = pixelIdx;
     payload.SampleSetIdx = sampleSetIdx;
+    payload.IsDiffuse = false;
 
     uint traceRayFlags = 0;
 
@@ -144,13 +148,13 @@ void RaygenShader()
     RenderTarget[pixelCoord] = float4(newValue, 1.0f);
 }
 
-static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint pathLength, in uint pixelIdx, in uint sampleSetIdx)
+static float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPayload inPayload)
 {
     if((!AppSettings.EnableDiffuse && !AppSettings.EnableSpecular) ||
         (!AppSettings.EnableDirect && !AppSettings.EnableIndirect))
         return 0.0.xxx;
 
-    if(pathLength > 1 && !AppSettings.EnableIndirect)
+    if(inPayload.PathLength > 1 && !AppSettings.EnableIndirect)
         return 0.0.xxx;
 
     float3x3 tangentToWorld = float3x3(hitSurface.Tangent, hitSurface.Bitangent, hitSurface.Normal);
@@ -185,7 +189,8 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     const float metallic = metallicMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x;
 
     const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f);
-    const bool enableSpecular = (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? true : (pathLength == 1)));
+    const bool enableSpecular = (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && inPayload.IsDiffuse) : (inPayload.PathLength == 1)));
+
     if(enableDiffuse == false && enableSpecular == false)
         return 0.0f;
 
@@ -194,7 +199,9 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
 
     const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
     const float3 specularAlbedo = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
-    const float roughness = sqrtRoughness * sqrtRoughness;
+    float roughness = sqrtRoughness * sqrtRoughness;
+    if(AppSettings.ClampRoughness)
+        roughness = max(roughness, inPayload.Roughness);
 
     Texture2D emissiveMap = Tex2DTable[material.Emissive];
     float3 radiance = emissiveMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
@@ -227,7 +234,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         uint traceRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
 
         // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
-        if(pathLength > AppSettings.MaxAnyHitPathLength)
+        if(inPayload.PathLength > AppSettings.MaxAnyHitPathLength)
             traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
         const uint hitGroupOffset = RayTypeShadow;
@@ -240,7 +247,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     }
 
     // Choose our next path by importance sampling our BRDFs
-    float2 brdfSample = SamplePoint(pixelIdx, sampleSetIdx);
+    float2 brdfSample = SamplePoint(inPayload.PixelIdx, inPayload.SampleSetIdx);
 
     float3 throughput = 0.0f;
     float3 rayDirTS = 0.0f;
@@ -296,16 +303,18 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
     ray.TMin = 0.00001f;
     ray.TMax = FP32Max;
 
-    if(pathLength == 1 && !AppSettings.EnableDirect)
+    if(inPayload.PathLength == 1 && !AppSettings.EnableDirect)
         radiance = 0.0.xxx;
 
-    if(AppSettings.EnableIndirect && (pathLength + 1 < AppSettings.MaxPathLength))
+    if(AppSettings.EnableIndirect && (inPayload.PathLength + 1 < AppSettings.MaxPathLength))
     {
         PrimaryPayload payload;
         payload.Radiance = 0.0f;
-        payload.PathLength = pathLength + 1;
-        payload.PixelIdx = pixelIdx;
-        payload.SampleSetIdx = sampleSetIdx;
+        payload.PathLength = inPayload.PathLength + 1;
+        payload.PixelIdx = inPayload.PixelIdx;
+        payload.SampleSetIdx = inPayload.SampleSetIdx;
+        payload.IsDiffuse = (selector < 0.5f);
+        payload.Roughness = roughness;
 
         uint traceRayFlags = 0;
 
@@ -328,7 +337,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         uint traceRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
 
         // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
-        if(pathLength + 1 > AppSettings.MaxAnyHitPathLength)
+        if(inPayload.PathLength + 1 > AppSettings.MaxAnyHitPathLength)
             traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
         const uint hitGroupOffset = RayTypeShadow;
@@ -337,7 +346,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in uint 
         TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
-        float3 skyRadiance = skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz;
+        float3 skyRadiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz : 0.0.xxx;
 
         radiance += payload.Visibility * skyRadiance * throughput;
     }
@@ -384,7 +393,7 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
     const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
     const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
 
-    payload.Radiance = PathTrace(hitSurface, material, payload.PathLength, payload.PixelIdx, payload.SampleSetIdx);
+    payload.Radiance = PathTrace(hitSurface, material, payload);
 }
 
 [shader("anyhit")]
@@ -417,7 +426,7 @@ void MissShader(inout PrimaryPayload payload)
     const float3 rayDir = WorldRayDirection();
 
     TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
-    payload.Radiance = skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz;
+    payload.Radiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz : 0.0.xxx;
 
     if(payload.PathLength == 1)
     {
