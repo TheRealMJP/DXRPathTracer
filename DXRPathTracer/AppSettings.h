@@ -22,6 +22,7 @@ enum class Scenes
     Sponza = 0,
     SunTemple = 1,
     BoxTest = 2,
+    WhiteFurnace = 3,
 
     NumValues
 };
@@ -85,6 +86,8 @@ namespace AppSettings
     extern BoolSetting EnableIndirect;
     extern BoolSetting EnableIndirectSpecular;
     extern FloatSetting RoughnessScale;
+    extern FloatSetting MetallicScale;
+    extern BoolSetting EnableWhiteFurnaceMode;
     extern BoolSetting AlwaysResetPathTrace;
     extern BoolSetting ShowProgressBar;
 
@@ -115,6 +118,8 @@ namespace AppSettings
         bool32 EnableIndirect;
         bool32 EnableIndirectSpecular;
         float RoughnessScale;
+        float MetallicScale;
+        bool32 EnableWhiteFurnaceMode;
     };
 
     extern ConstantBuffer CBuffer;
