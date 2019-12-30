@@ -15,6 +15,7 @@ static const char* ScenesLabels[] =
     "Sponza",
     "SunTemple",
     "BoxTest",
+    "WhiteFurnace",
 };
 
 static const char* ClusterRasterizationModesLabels[] =
@@ -61,6 +62,8 @@ namespace AppSettings
     BoolSetting EnableIndirect;
     BoolSetting EnableIndirectSpecular;
     FloatSetting RoughnessScale;
+    FloatSetting MetallicScale;
+    BoolSetting EnableWhiteFurnaceMode;
     BoolSetting AlwaysResetPathTrace;
     BoolSetting ShowProgressBar;
 
@@ -110,7 +113,7 @@ namespace AppSettings
         MSAAMode.Initialize("MSAAMode", "Anti Aliasing", "MSAA Mode", "MSAA mode to use for rendering", MSAAModes::MSAA4x, 3, MSAAModesLabels);
         Settings.AddSetting(&MSAAMode);
 
-        CurrentScene.Initialize("CurrentScene", "Scene", "Current Scene", "", Scenes::BoxTest, 3, ScenesLabels);
+        CurrentScene.Initialize("CurrentScene", "Scene", "Current Scene", "", Scenes::BoxTest, 4, ScenesLabels);
         Settings.AddSetting(&CurrentScene);
 
         RenderLights.Initialize("RenderLights", "Scene", "Render Lights", "Enable or disable deferred light rendering", false);
@@ -182,6 +185,13 @@ namespace AppSettings
         RoughnessScale.Initialize("RoughnessScale", "Debug", "Roughness Scale", "Scales the scene roughness by this value", 1.0000f, 0.0010f, 2.0000f, 0.0100f, ConversionMode::None, 1.0000f);
         Settings.AddSetting(&RoughnessScale);
 
+        MetallicScale.Initialize("MetallicScale", "Debug", "Metallic Scale", "Scales the scene metallic by this value", 1.0000f, 0.0000f, 2.0000f, 0.0100f, ConversionMode::None, 1.0000f);
+        Settings.AddSetting(&MetallicScale);
+
+        EnableWhiteFurnaceMode.Initialize("EnableWhiteFurnaceMode", "Debug", "Enable White Furnace Mode", "Changes lighting to be the white furnace for energy conservation and preservation assessment.", false);
+        Settings.AddSetting(&EnableWhiteFurnaceMode);
+        EnableWhiteFurnaceMode.SetVisible(false);
+
         AlwaysResetPathTrace.Initialize("AlwaysResetPathTrace", "Debug", "Always Reset Path Trace", "", false);
         Settings.AddSetting(&AlwaysResetPathTrace);
 
@@ -229,6 +239,8 @@ namespace AppSettings
         cbData.EnableIndirect = EnableIndirect;
         cbData.EnableIndirectSpecular = EnableIndirectSpecular;
         cbData.RoughnessScale = RoughnessScale;
+        cbData.MetallicScale = MetallicScale;
+        cbData.EnableWhiteFurnaceMode = EnableWhiteFurnaceMode;
 
         CBuffer.MapAndSetData(cbData);
     }

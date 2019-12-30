@@ -179,23 +179,23 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     }
 
     float3 baseColor = 1.0f;
-    if(AppSettings.EnableAlbedoMaps)
+    if(AppSettings.EnableAlbedoMaps && !AppSettings.EnableWhiteFurnaceMode)
     {
         Texture2D albedoMap = Tex2DTable[material.Albedo];
         baseColor = albedoMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
     }
 
     Texture2D metallicMap = Tex2DTable[material.Metallic];
-    const float metallic = metallicMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x;
+    const float metallic = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : metallicMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x) * AppSettings.MetallicScale);
 
-    const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f);
+    const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f) || AppSettings.EnableWhiteFurnaceMode;
     const bool enableSpecular = (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && inPayload.IsDiffuse) : (inPayload.PathLength == 1)));
 
     if(enableDiffuse == false && enableSpecular == false)
         return 0.0f;
 
     Texture2D roughnessMap = Tex2DTable[material.Roughness];
-    const float sqrtRoughness = roughnessMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x * AppSettings.RoughnessScale;
+    const float sqrtRoughness = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : roughnessMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x) * AppSettings.RoughnessScale);
 
     const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
     const float3 specularAlbedo = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
@@ -204,9 +204,9 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         roughness = max(roughness, inPayload.Roughness);
 
     Texture2D emissiveMap = Tex2DTable[material.Emissive];
-    float3 radiance = emissiveMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
+    float3 radiance = AppSettings.EnableWhiteFurnaceMode ? 0.0.xxx : emissiveMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
 
-    if(AppSettings.EnableSun)
+    if(AppSettings.EnableSun && !AppSettings.EnableWhiteFurnaceMode)
     {
         float3 sunDirection = RayTraceCB.SunDirectionWS;
 
@@ -283,7 +283,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 
         float3 normalTS = float3(0.0f, 0.0f, 1.0f);
 
-        float3 F = Fresnel(specularAlbedo, microfacetNormalTS, sampleDirTS);
+        float3 F = AppSettings.EnableWhiteFurnaceMode ? 1.0.xxx : Fresnel(specularAlbedo, microfacetNormalTS, sampleDirTS);
         float G1 = SmithGGXMasking(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
         float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
 
@@ -306,7 +306,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     if(inPayload.PathLength == 1 && !AppSettings.EnableDirect)
         radiance = 0.0.xxx;
 
-    if(AppSettings.EnableIndirect && (inPayload.PathLength + 1 < AppSettings.MaxPathLength))
+    if(AppSettings.EnableIndirect && (inPayload.PathLength + 1 < AppSettings.MaxPathLength) && !AppSettings.EnableWhiteFurnaceMode)
     {
         PrimaryPayload payload;
         payload.Radiance = 0.0f;
@@ -345,10 +345,17 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         const uint missShaderIdx = RayTypeShadow;
         TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
-        TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
-        float3 skyRadiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz : 0.0.xxx;
+        if(AppSettings.EnableWhiteFurnaceMode)
+        {
+            radiance = throughput;
+        }
+        else
+        {
+            TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
+            float3 skyRadiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz : 0.0.xxx;
 
-        radiance += payload.Visibility * skyRadiance * throughput;
+            radiance += payload.Visibility * skyRadiance * throughput;
+        }
     }
 
     return radiance;
@@ -423,16 +430,23 @@ void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
 [shader("miss")]
 void MissShader(inout PrimaryPayload payload)
 {
-    const float3 rayDir = WorldRayDirection();
-
-    TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
-    payload.Radiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz : 0.0.xxx;
-
-    if(payload.PathLength == 1)
+    if(AppSettings.EnableWhiteFurnaceMode)
     {
-        float cosSunAngle = dot(rayDir, RayTraceCB.SunDirectionWS);
-        if(cosSunAngle >= RayTraceCB.CosSunAngularRadius)
-            payload.Radiance = RayTraceCB.SunRenderColor;
+        payload.Radiance = 1.0.xxx;
+    }
+    else
+    {
+        const float3 rayDir = WorldRayDirection();
+
+        TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
+        payload.Radiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz : 0.0.xxx;
+
+        if(payload.PathLength == 1)
+        {
+            float cosSunAngle = dot(rayDir, RayTraceCB.SunDirectionWS);
+            if(cosSunAngle >= RayTraceCB.CosSunAngularRadius)
+                payload.Radiance = RayTraceCB.SunRenderColor;
+        }
     }
 }
 

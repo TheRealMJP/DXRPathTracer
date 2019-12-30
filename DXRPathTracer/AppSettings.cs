@@ -3,6 +3,7 @@ enum Scenes
     Sponza = 0,
     SunTemple,
     BoxTest,
+    WhiteFurnace
 }
 
 enum MSAAModes
@@ -215,6 +216,15 @@ public class Settings
         [MinValue(0.001f)]
         [MaxValue(2.0f)]
         float RoughnessScale = 1.0f;
+
+        [HelpText("Scales the scene metallic by this value")]
+        [MinValue(0.0f)]
+        [MaxValue(2.0f)]
+        float MetallicScale = 1.0f;
+
+        [HelpText("Changes lighting to be the white furnace for energy conservation and preservation assessment.")]
+        [Visible(false)]
+        bool EnableWhiteFurnaceMode = false;
 
         [UseAsShaderConstant(false)]
         bool AlwaysResetPathTrace = false;
