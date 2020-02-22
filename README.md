@@ -24,7 +24,7 @@ To switch between path-traced rendering and standard (boring) rasterization with
 * ~~Support alpha-tested triangles for foliage~~
 * ~~Investigate performance tradeoffs involved with having one D3D12_RAYTRACING_GEOMETRY_DESC per mesh in the source scene~~
 * Investigate higher-performance sampling schemes (currently using a stock implementation of [Correlated Multi-Jittered Sampling](https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf))
-* Local light sources
+* ~~Local light sources~~
 * Area light sampling with soft shadows
 * Non-opaque materials
 * ~~Progress bar/text for the progressive render~~
