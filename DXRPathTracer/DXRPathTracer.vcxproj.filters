@@ -306,6 +306,12 @@
     <Filter Include="SampleFramework12\HosekSky">
       <UniqueIdentifier>{c82095c4-b09b-4dfa-b9f9-c1a599c72f67}</UniqueIdentifier>
     </Filter>
+    <Filter Include="SampleFramework12\Shaders">
+      <UniqueIdentifier>{88b91c31-fb13-4192-84a6-47ea85db3adf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{ea45a0f8-7a00-4ed5-98fa-0f18670007b3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="AppSettings.cs" />
@@ -326,5 +332,88 @@
     <Natvis Include="..\SampleFramework12\v1.02\sf12.natvis">
       <Filter>SampleFramework12</Filter>
     </Natvis>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\SampleFramework12\v1.02\Shaders\BRDF.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\Constants.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\Conversion.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\DecodeTextureCS.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\DescriptorTables.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\EVSM.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\FullScreenTriangle.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\ImGui.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\MSM.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\PPCommon.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\Quaternion.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\RayTracing.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\Sampling.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\SG.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\SH.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\Shadows.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\Skybox.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\SMConvert.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="..\SampleFramework12\v1.02\Shaders\Sprite.hlsl">
+      <Filter>SampleFramework12\Shaders</Filter>
+    </None>
+    <None Include="AppSettings.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Clusters.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="DepthOnly.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Mesh.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="PostProcessing.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="RayTrace.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Resolve.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shading.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

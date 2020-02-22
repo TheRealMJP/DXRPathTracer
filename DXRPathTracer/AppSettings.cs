@@ -82,8 +82,8 @@ public class Settings
         [UseAsShaderConstant(false)]
         Scenes CurrentScene = Scenes.BoxTest;
 
-        [HelpText("Enable or disable deferred light rendering")]
-        bool RenderLights = false;
+        [HelpText("Enable or disable spot light rendering")]
+        bool RenderLights = true;
     }
 
     const uint ClusterTileSize = 16;
