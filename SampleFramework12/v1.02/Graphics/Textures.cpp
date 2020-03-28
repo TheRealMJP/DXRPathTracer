@@ -265,7 +265,7 @@ void Create2DTexture(Texture& texture, uint64 width, uint64 height, uint64 numMi
 
 void Create3DTexture(Texture& texture, uint64 width, uint64 height, uint64 depth, uint64 numMips, DXGI_FORMAT format, const void* initData)
 {
-        texture.Shutdown();
+    texture.Shutdown();
 
     Assert_(width > 0);
     Assert_(height > 0);
@@ -481,7 +481,10 @@ void SaveTextureAsDDS(const Texture& texture, const wchar* filePath)
     DX12::ConvertAndReadbackTexture(texture, texture.Format, readbackBuffer);
 
     DirectX::ScratchImage scratchImage;
-    scratchImage.Initialize2D(texture.Format, texture.Width, texture.Height, texture.ArraySize, 1);
+    if(texture.Depth > 1)
+        scratchImage.Initialize3D(texture.Format, texture.Width, texture.Height, texture.Depth, 1);
+    else
+        scratchImage.Initialize2D(texture.Format, texture.Width, texture.Height, texture.ArraySize, 1);
     memcpy(scratchImage.GetPixels(), readbackBuffer.Map(), readbackBuffer.Size);
     readbackBuffer.Shutdown();
 

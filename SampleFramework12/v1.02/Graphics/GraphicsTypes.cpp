@@ -765,7 +765,7 @@ void FormattedBuffer::Initialize(const FormattedBufferInit& init)
 void FormattedBuffer::Shutdown()
 {
     DX12::SRVDescriptorHeap.FreePersistent(SRV);
-    DX12::SRVDescriptorHeap.FreePersistent(SRV);
+    DX12::UAVDescriptorHeap.FreePersistent(UAV);
     InternalBuffer.Shutdown();
     Stride = 0;
     NumElements = 0;

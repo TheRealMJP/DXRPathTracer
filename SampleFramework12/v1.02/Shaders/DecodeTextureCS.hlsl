@@ -19,6 +19,7 @@ struct DecodeCBufferLayout
     uint InputTextureIdx;
     uint Width;
     uint Height;
+    uint Depth;
 };
 
 ConstantBuffer<DecodeCBufferLayout> CBuffer : register(b0);
@@ -39,6 +40,16 @@ void DecodeTextureCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : SV_
 	const uint2 texelIdx = GroupID.xy * uint2(TGSize_, TGSize_) + GroupThreadID.xy;
     const uint bufferIdx = texelIdx.y * CBuffer.Width + texelIdx.x;
 	OutputBuffer[bufferIdx] = inputTexture[texelIdx];
+}
+
+[numthreads(TGSize_, TGSize_, TGSize_)]
+void DecodeTexture3DCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : SV_GroupThreadID)
+{
+    Texture3D inputTexture = Tex3DTable[CBuffer.InputTextureIdx];
+
+    const uint3 texelIdx = uint3(GroupID.xy * uint2(TGSize_, TGSize_) + GroupThreadID.xy, GroupID.z);
+    const uint bufferIdx = texelIdx.z * (CBuffer.Width * CBuffer.Height) + (texelIdx.y * CBuffer.Width) + texelIdx.x;
+    OutputBuffer[bufferIdx] = inputTexture[texelIdx];
 }
 
 [numthreads(TGSize_, TGSize_, 1)]

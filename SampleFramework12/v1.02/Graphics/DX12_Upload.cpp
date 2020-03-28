@@ -52,9 +52,11 @@ static ID3D12CommandQueue* convertCmdQueue = nullptr;
 static ID3D12CommandAllocator* convertCmdAllocator = nullptr;
 static ID3D12RootSignature* convertRootSignature = nullptr;
 static ID3D12PipelineState* convertPSO = nullptr;
+static ID3D12PipelineState* convert3DPSO = nullptr;
 static ID3D12PipelineState* convertArrayPSO = nullptr;
 static ID3D12PipelineState* convertCubePSO = nullptr;
 static CompiledShaderPtr convertCS;
+static CompiledShaderPtr convert3DCS;
 static CompiledShaderPtr convertArrayCS;
 static CompiledShaderPtr convertCubeCS;
 static uint32 convertTGSize = 8;
@@ -243,6 +245,7 @@ void Initialize_Upload()
     opts.Add("TGSize_", convertTGSize);
     const std::wstring shaderPath = SampleFrameworkDir() + L"Shaders\\DecodeTextureCS.hlsl";
     convertCS = CompileFromFile(shaderPath.c_str(), "DecodeTextureCS", ShaderType::Compute, opts);
+    convert3DCS = CompileFromFile(shaderPath.c_str(), "DecodeTexture3DCS", ShaderType::Compute, opts);
     convertArrayCS = CompileFromFile(shaderPath.c_str(), "DecodeTextureArrayCS", ShaderType::Compute, opts);
     convertCubeCS = CompileFromFile(shaderPath.c_str(), "DecodeTextureCubeCS", ShaderType::Compute, opts);
 
@@ -267,7 +270,7 @@ void Initialize_Upload()
 
         rootParameters[ConvertParams_CBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         rootParameters[ConvertParams_CBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[ConvertParams_CBuffer].Constants.Num32BitValues = 3;
+        rootParameters[ConvertParams_CBuffer].Constants.Num32BitValues = 4;
         rootParameters[ConvertParams_CBuffer].Constants.RegisterSpace = 0;
         rootParameters[ConvertParams_CBuffer].Constants.ShaderRegister = 0;
 
@@ -290,6 +293,9 @@ void Initialize_Upload()
         psoDesc.pRootSignature = convertRootSignature;
         psoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
         Device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&convertPSO));
+
+        psoDesc.CS = convert3DCS.ByteCode();
+        Device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&convert3DPSO));
 
         psoDesc.CS = convertArrayCS.ByteCode();
         Device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&convertArrayPSO));
@@ -326,6 +332,7 @@ void Shutdown_Upload()
     Release(convertCmdList);
     Release(convertCmdQueue);
     Release(convertPSO);
+    Release(convert3DPSO);
     Release(convertArrayPSO);
     Release(convertCubePSO);
     Release(convertRootSignature);
@@ -451,12 +458,12 @@ void ConvertAndReadbackTexture(const Texture& texture, DXGI_FORMAT outputFormat,
 {
     Assert_(convertCmdList != nullptr);
     Assert_(texture.Valid());
-    Assert_(texture.Depth == 1);
+    Assert_((texture.Depth == 1) || (texture.ArraySize == 1));
 
     // Create a buffer for the CS to write flattened, converted texture data into
     FormattedBufferInit init;
     init.Format = outputFormat;
-    init.NumElements = texture.Width * texture.Height * texture.ArraySize;
+    init.NumElements = texture.Width * texture.Height * texture.Depth * texture.ArraySize;
     init.CreateUAV = true;
     init.InitialState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 
@@ -469,6 +476,8 @@ void ConvertAndReadbackTexture(const Texture& texture, DXGI_FORMAT outputFormat,
 
     if(texture.Cubemap)
         convertCmdList->SetPipelineState(convertCubePSO);
+    else if(texture.Depth > 1)
+        convertCmdList->SetPipelineState(convert3DPSO);
     else if(texture.ArraySize > 1)
         convertCmdList->SetPipelineState(convertArrayPSO);
     else
@@ -482,10 +491,11 @@ void ConvertAndReadbackTexture(const Texture& texture, DXGI_FORMAT outputFormat,
     convertCmdList->SetComputeRoot32BitConstant(ConvertParams_CBuffer, texture.SRV, 0);
     convertCmdList->SetComputeRoot32BitConstant(ConvertParams_CBuffer, uint32(texture.Width), 1);
     convertCmdList->SetComputeRoot32BitConstant(ConvertParams_CBuffer, uint32(texture.Height), 2);
+    convertCmdList->SetComputeRoot32BitConstant(ConvertParams_CBuffer, uint32(texture.Depth), 3);
 
     uint32 dispatchX = DispatchSize(texture.Width, convertTGSize);
     uint32 dispatchY = DispatchSize(texture.Height, convertTGSize);
-    uint32 dispatchZ = texture.ArraySize;
+    uint32 dispatchZ = texture.ArraySize * texture.Depth;
     convertCmdList->Dispatch(dispatchX, dispatchY, dispatchZ);
 
     convertBuffer.Transition(convertCmdList, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
