@@ -64,6 +64,7 @@ struct ShadingInput
     ByteAddressBuffer SpotLightClusterBuffer;
 
     SamplerState AnisoSampler;
+    SamplerState LinearSampler;
 
     ShadingConstants ShadingCBuffer;
     SunShadowConstants ShadowCBuffer;
@@ -76,7 +77,8 @@ struct ShadingInput
 // work around incorrect behavior from the shader compiler
 //-------------------------------------------------------------------------------------------------
 float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
-                  in Texture2DArray spotLightShadowMap, in SamplerComparisonState shadowSampler)
+                  in Texture2DArray spotLightShadowMap, in SamplerComparisonState shadowSampler,
+                  in Texture2D DFGLut)
 {
     float3 vtxNormalWS = input.TangentFrame._m20_m21_m22;
     float3 normalWS = vtxNormalWS;
@@ -101,11 +103,25 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
         albedoMap = input.AlbedoMap;
 
     float metallic = saturate(input.MetallicMap);
-    float3 diffuseAlbedo = lerp(albedoMap.xyz, 0.0f, metallic);
+    float3 diffuseAlbedo = lerp(albedoMap.xyz, 0.0f, metallic) * (AppSettings.EnableDiffuse ? 1.0f : 0.0f);
     float3 specularAlbedo = lerp(0.03f, albedoMap.xyz, metallic) * (AppSettings.EnableSpecular ? 1.0f : 0.0f);
 
     float roughnessMap = input.RoughnessMap;
     float roughness = roughnessMap * roughnessMap;
+
+    float3 msEnergyCompensation = 1.0.xxx;
+    if(AppSettings.ApplyMultiscatteringEnergyCompensation)
+    {
+        float2 DFG = DFGLut.SampleLevel(input.LinearSampler, float2(saturate(dot(normalWS, -viewWS)), roughness), 0.0f).xy;
+
+        // Improve energy preservation by applying a scaled version of the original
+        // single scattering specular lobe. Based on "Practical multiple scattering
+        // compensation for microfacet models" [Turquin19].
+        //
+        // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
+        float Ess = DFG.x;
+        msEnergyCompensation = 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
+    }
 
     float depthVS = input.DepthVS;
 
@@ -124,7 +140,7 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
     // Add in the primary directional light
     float3 output = 0.0f;
 
-    if(AppSettings.EnableSun)
+    if(AppSettings.EnableSun && AppSettings.EnableDirect)
     {
         float3 sunDirection = CBuffer.SunDirectionWS;
 
@@ -154,12 +170,12 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
             sunDirection = DDotR < d ? normalize(d * D + normalize(S) * r) : R;
         }
         output += CalcLighting(normalWS, sunDirection, CBuffer.SunIrradiance, diffuseAlbedo, specularAlbedo,
-                                 roughness, positionWS, CBuffer.CameraPosWS) * sunShadowVisibility;
+                                 roughness, positionWS, CBuffer.CameraPosWS, msEnergyCompensation) * sunShadowVisibility;
     }
 
     // Apply the spot lights
     uint numLights = 0;
-    if(AppSettings.RenderLights)
+    if(AppSettings.RenderLights && AppSettings.EnableDirect)
     {
         float2 shadowMapSize;
         float numSlices;
@@ -202,7 +218,7 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
                                                                           float2(SpotShadowNearClip, spotLight.Range), ShadowCBuffer.Extra);
 
                     output += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularAlbedo,
-                                           roughness, positionWS, CBuffer.CameraPosWS) * spotLightVisibility;
+                                           roughness, positionWS, CBuffer.CameraPosWS, msEnergyCompensation) * spotLightVisibility;
                 }
 
                 ++numLights;
@@ -210,9 +226,12 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
         }
     }
 
-    float3 ambient = EvalSH9Irradiance(normalWS, CBuffer.SkySH) * InvPi;
-    ambient *= 0.1f; // Darken the ambient since we don't have any sky occlusion
-    output += ambient * diffuseAlbedo;
+    if(AppSettings.EnableIndirect)
+    {
+        float3 ambient = EvalSH9Irradiance(normalWS, CBuffer.SkySH) * InvPi;
+        ambient *= 0.1f; // Darken the ambient since we don't have any sky occlusion
+        output += ambient * diffuseAlbedo;
+    }
 
     output += input.EmissiveMap;
 

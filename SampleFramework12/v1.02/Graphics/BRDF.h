@@ -41,6 +41,17 @@ inline float GGX_V1(float m2, float nDotX)
     return 1.0f / (nDotX + sqrt(m2 + (1 - m2) * nDotX * nDotX));
 }
 
+// Returns the PDF for a particular GGX sample
+inline float GGX_PDF(const Float3& n, const Float3& h, const Float3& v, float roughness)
+{
+    float nDotH = Saturate(Float3::Dot(n, h));
+    float hDotV = Saturate(Float3::Dot(h, v));
+    float m2 = roughness * roughness;
+    float d = m2 / (Pi * Square(nDotH * nDotH * (m2 - 1) + 1));
+    float pM = d * nDotH;
+    return pM / (4 * hDotV);
+}
+
 // Computes the specular term using a GGX microfacet distribution, with a matching
 // geometry factor and visibility term. Based on "Microfacet Models for Refraction Through
 // Rough Surfaces" [Walter 07]. m is roughness, n is the surface normal, h is the half vector,
@@ -67,7 +78,8 @@ inline float GGX_Specular(float m, const Float3& n, const Float3& h, const Float
 // the differential irradiance from a given direction
 inline Float3 CalcLighting(const Float3& normal, const Float3& lightIrradiance,
                            const Float3& lightDir, const Float3& diffuseAlbedo, const Float3& position,
-                           const Float3& cameraPos, float roughness, bool includeSpecular, Float3 specAlbedo)
+                           const Float3& cameraPos, float roughness, bool includeSpecular, Float3 specAlbedo,
+                           const Float3& msEnergyCompensation)
 {
     Float3 lighting = diffuseAlbedo * InvPi;
 
@@ -80,7 +92,7 @@ inline Float3 CalcLighting(const Float3& normal, const Float3& lightIrradiance,
         Float3 fresnel = Fresnel(specAlbedo, h, lightDir);
 
         float specular = GGX_Specular(roughness, normal, h, view, lightDir);
-        lighting += specular * fresnel;
+        lighting += specular * fresnel * msEnergyCompensation;
     }
 
     return lighting * lightIrradiance;

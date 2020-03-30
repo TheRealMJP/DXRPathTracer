@@ -85,6 +85,7 @@ namespace AppSettings
     extern BoolSetting EnableDirect;
     extern BoolSetting EnableIndirect;
     extern BoolSetting EnableIndirectSpecular;
+    extern BoolSetting ApplyMultiscatteringEnergyCompensation;
     extern FloatSetting RoughnessScale;
     extern FloatSetting MetallicScale;
     extern BoolSetting EnableWhiteFurnaceMode;
@@ -117,6 +118,7 @@ namespace AppSettings
         bool32 EnableDirect;
         bool32 EnableIndirect;
         bool32 EnableIndirectSpecular;
+        bool32 ApplyMultiscatteringEnergyCompensation;
         float RoughnessScale;
         float MetallicScale;
         bool32 EnableWhiteFurnaceMode;

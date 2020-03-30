@@ -61,6 +61,7 @@ namespace AppSettings
     BoolSetting EnableDirect;
     BoolSetting EnableIndirect;
     BoolSetting EnableIndirectSpecular;
+    BoolSetting ApplyMultiscatteringEnergyCompensation;
     FloatSetting RoughnessScale;
     FloatSetting MetallicScale;
     BoolSetting EnableWhiteFurnaceMode;
@@ -182,6 +183,9 @@ namespace AppSettings
         EnableIndirectSpecular.Initialize("EnableIndirectSpecular", "Debug", "Enable Indirect Specular", "Enables indirect specular reflections, it produces noisier output", false);
         Settings.AddSetting(&EnableIndirectSpecular);
 
+        ApplyMultiscatteringEnergyCompensation.Initialize("ApplyMultiscatteringEnergyCompensation", "Debug", "Apply Multiscattering Energy Compensation", "Apply energy compensation to recover energy missing due to multiscattering. Based on 'Practical multiple scattering compensation for microfacet models' [Turquin19]", true);
+        Settings.AddSetting(&ApplyMultiscatteringEnergyCompensation);
+
         RoughnessScale.Initialize("RoughnessScale", "Debug", "Roughness Scale", "Scales the scene roughness by this value", 1.0000f, 0.0010f, 2.0000f, 0.0100f, ConversionMode::None, 1.0000f);
         Settings.AddSetting(&RoughnessScale);
 
@@ -238,6 +242,7 @@ namespace AppSettings
         cbData.EnableDirect = EnableDirect;
         cbData.EnableIndirect = EnableIndirect;
         cbData.EnableIndirectSpecular = EnableIndirectSpecular;
+        cbData.ApplyMultiscatteringEnergyCompensation = ApplyMultiscatteringEnergyCompensation;
         cbData.RoughnessScale = RoughnessScale;
         cbData.MetallicScale = MetallicScale;
         cbData.EnableWhiteFurnaceMode = EnableWhiteFurnaceMode;

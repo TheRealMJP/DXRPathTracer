@@ -205,7 +205,7 @@ float VelvetSpecular(in float m, in float3 n, in float3 h, in float3 v, in float
 //-------------------------------------------------------------------------------------------------
 float3 CalcLighting(in float3 normal, in float3 lightDir, in float3 peakIrradiance,
                     in float3 diffuseAlbedo, in float3 specularAlbedo, in float roughness,
-                    in float3 positionWS, in float3 cameraPosWS)
+                    in float3 positionWS, in float3 cameraPosWS, in float3 msEnergyCompensation)
 {
     float3 lighting = diffuseAlbedo * (1.0f / 3.14159f);
 
@@ -219,7 +219,7 @@ float3 CalcLighting(in float3 normal, in float3 lightDir, in float3 peakIrradian
         float3 fresnel = Fresnel(specularAlbedo, h, lightDir);
 
         float specular = GGXSpecular(roughness, normal, h, view, lightDir);
-        lighting += specular * fresnel;
+        lighting += specular * fresnel * msEnergyCompensation;
     }
 
     return lighting * nDotL * peakIrradiance;

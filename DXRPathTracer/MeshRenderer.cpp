@@ -172,6 +172,7 @@ void MeshRenderer::Initialize(const Model* model_)
             matIndices.Roughness = material.Textures[uint64(MaterialTextures::Roughness)]->SRV;
             matIndices.Metallic = material.Textures[uint64(MaterialTextures::Metallic)]->SRV;
             matIndices.Emissive = material.Textures[uint64(MaterialTextures::Emissive)]->SRV;
+            matIndices.DFG = material.Textures[uint64(MaterialTextures::DFG)]->SRV;
 
             // Opacity is optional
             const Texture* opacity = material.Textures[uint64(MaterialTextures::Opacity)];
@@ -246,9 +247,10 @@ void MeshRenderer::Initialize(const Model* model_)
         rootParameters[MainPass_AppSettings].Descriptor.ShaderRegister = AppSettings::CBufferRegister;
         rootParameters[MainPass_AppSettings].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
 
-        D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
+        D3D12_STATIC_SAMPLER_DESC staticSamplers[3] = {};
         staticSamplers[0] = DX12::GetStaticSamplerState(SamplerState::Anisotropic, 0);
-        staticSamplers[1] = DX12::GetStaticSamplerState(SamplerState::ShadowMapPCF, 1);
+        staticSamplers[1] = DX12::GetStaticSamplerState(SamplerState::LinearClamp, 1);
+        staticSamplers[2] = DX12::GetStaticSamplerState(SamplerState::ShadowMapPCF, 2);
 
         D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
         rootSignatureDesc.NumParameters = ArraySize_(rootParameters);

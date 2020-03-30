@@ -212,6 +212,9 @@ public class Settings
         [HelpText("Enables indirect specular reflections, it produces noisier output")]
         bool EnableIndirectSpecular = false;
 
+        [HelpText("Apply energy compensation to recover energy missing due to multiscattering. Based on 'Practical multiple scattering compensation for microfacet models' [Turquin19]")]
+        bool ApplyMultiscatteringEnergyCompensation = true;
+
         [HelpText("Scales the scene roughness by this value")]
         [MinValue(0.001f)]
         [MaxValue(2.0f)]
