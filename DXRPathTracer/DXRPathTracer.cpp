@@ -22,6 +22,7 @@
 #include <Graphics/DX12.h>
 #include <Graphics/DX12_Helpers.h>
 #include <Graphics/DXRHelper.h>
+#include <Graphics/BRDF.h>
 #include <EnkiTS/TaskScheduler_c.h>
 #include <ImGui/ImGui.h>
 #include <ImGuiHelper.h>
@@ -171,6 +172,82 @@ static bool SphereConeIntersection(const Float3& coneTip, const Float3& coneDir,
     return e < sphereRadius;
 }
 
+float Pow5(const float x)
+{
+    float xx = x * x;
+    return xx * xx * x;
+}
+
+// This creates the DFG look up table that is commonly used for the implementation
+// of image based lighting as defined in 'Real Shading in Unreal Engine 4' [Karis13].
+// This look up table is useful since it contains the directional albedo which we can use
+// to improve the energy preservation of the BRDF. We do that based on 'Practical multiple
+// scattering compensation for microfacet models' [Turquin19].
+//
+// See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf [Karis13]
+// See: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf [Turquin19]
+static void GenerateDFG(ID3D12Device * const device)
+{
+    Assert_(device != nullptr);
+
+    static const uint32 ViewResolution = 64;
+    static const uint32 RoughnessResolution = 64;
+#if Debug_
+    static const uint64 SqrtNumSamples = 10;
+#else
+    static const uint64 SqrtNumSamples = 128;
+#endif
+    static const uint64 NumSamples = SqrtNumSamples * SqrtNumSamples;
+    std::vector<float2> texData(ViewResolution * RoughnessResolution);
+
+    const Float3 n = Float3(0.0f, 0.0f, 1.0f);
+
+    for(uint32 mIdx = 0; mIdx < RoughnessResolution; ++mIdx)
+    {
+        const float SqrtRoughness = Max((mIdx + 0.5f) / RoughnessResolution, 0.064f);
+        const float Roughness = SqrtRoughness * SqrtRoughness;
+        for(uint32 vIdx = 0; vIdx < ViewResolution; ++vIdx)
+        {
+            Float3 v = 0.0f;
+            v.z = (vIdx + 0.5f) / ViewResolution;
+            v.x = std::sqrt(1.0f - Saturate(v.z * v.z));
+
+            float currentScale = 0.0f;
+            float currentBias = 0.0f;
+
+            for(uint64 sampleIdx = 0; sampleIdx < NumSamples; ++sampleIdx)
+            {
+                Float2 sampleCoord = Hammersley2D(sampleIdx, NumSamples);
+                Float3 l = SampleDirectionGGX(v, n, Roughness, Float3x3(), sampleCoord.x, sampleCoord.y);
+                Float3 h = Float3::Normalize(v + l);
+                float nDotL = Saturate(l.z);
+                
+                if(nDotL > 0.0f)
+                {
+                    const float pdf = GGX_PDF(n, h, v, Roughness);
+                    const float sampleWeight = GGX_Specular(Roughness, n, h, v, l) * nDotL / pdf;
+                    const float fc = Pow5(1.0f - Saturate(Float3::Dot(l, h)));
+                    currentScale += sampleWeight;
+                    currentBias += fc * sampleWeight;
+                }
+            }
+
+            currentScale /= NumSamples;
+            currentBias /= NumSamples;
+
+            const uint64 idx = (mIdx * ViewResolution) + vIdx;
+            texData[idx] = Float2(currentScale, currentBias);
+        }
+    }
+
+    Texture DFGTexture;
+
+    Create2DTexture(DFGTexture, ViewResolution, RoughnessResolution, 1, 1, DXGI_FORMAT_R32G32_FLOAT, false, texData.data());
+    SaveTextureAsDDS(DFGTexture, L"..\\Content\\Textures\\DFG.dds");
+
+    DFGTexture.Shutdown();
+}
+
 DXRPathTracer::DXRPathTracer(const wchar* cmdLine) : App(L"DXR Path Tracer", cmdLine)
 {
     minFeatureLevel = D3D_FEATURE_LEVEL_11_1;
@@ -217,6 +294,8 @@ void DXRPathTracer::Initialize()
     camera.Initialize(aspect, Pi_4, 0.1f, 100.0f);
 
     ShadowHelper::Initialize(ShadowMapMode::DepthMap, ShadowMSAAMode::MSAA1x);
+
+    //GenerateDFG(DX12::Device);
 
     InitializeScene();
 
@@ -1038,7 +1117,8 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::EnableWhiteFurnaceMode,
         &AppSettings::MaxAnyHitPathLength,
         &AppSettings::AvoidCausticPaths,
-        &AppSettings::ClampRoughness
+        &AppSettings::ClampRoughness,
+        &AppSettings::ApplyMultiscatteringEnergyCompensation
     };
 
     for(const Setting* setting : settingsToCheck)

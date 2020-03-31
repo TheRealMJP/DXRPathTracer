@@ -53,7 +53,8 @@ ConstantBuffer<SRVIndexConstants> SRVIndices : register(b4);
 StructuredBuffer<Material> MaterialBuffers[] : register(t0, space100);
 
 SamplerState AnisoSampler : register(s0);
-SamplerComparisonState PCFSampler : register(s1);
+SamplerState LinearSampler : register(s1);
+SamplerComparisonState PCFSampler : register(s2);
 
 //=================================================================================================
 // Input/Output structs
@@ -145,6 +146,7 @@ float4 PSForward(in PSInput input) : SV_Target0
     Texture2D RoughnessMap = Tex2DTable[material.Roughness];
     Texture2D MetallicMap = Tex2DTable[material.Metallic];
     Texture2D EmissiveMap = Tex2DTable[material.Emissive];
+    Texture2D DFGLut = Tex2DTable[material.DFG];
 
     ShadingInput shadingInput;
     shadingInput.PositionSS = uint2(input.PositionSS.xy);
@@ -163,6 +165,7 @@ float4 PSForward(in PSInput input) : SV_Target0
     shadingInput.SpotLightClusterBuffer = RawBufferTable[SRVIndices.SpotLightClusterBufferIdx];
 
     shadingInput.AnisoSampler = AnisoSampler;
+    shadingInput.LinearSampler = LinearSampler;
 
     shadingInput.ShadingCBuffer = PSCBuffer;
     shadingInput.ShadowCBuffer = ShadowCBuffer;
@@ -177,7 +180,7 @@ float4 PSForward(in PSInput input) : SV_Target0
             discard;
     #endif
 
-    float3 shadingResult = ShadePixel(shadingInput, sunShadowMap, spotLightShadowMap, PCFSampler);
+    float3 shadingResult = ShadePixel(shadingInput, sunShadowMap, spotLightShadowMap, PCFSampler, DFGLut);
 
     return float4(shadingResult, 1.0f);
 }

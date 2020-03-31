@@ -24,6 +24,7 @@ struct AppSettings_Layout
     bool EnableDirect;
     bool EnableIndirect;
     bool EnableIndirectSpecular;
+    bool ApplyMultiscatteringEnergyCompensation;
     float RoughnessScale;
     float MetallicScale;
     bool EnableWhiteFurnaceMode;

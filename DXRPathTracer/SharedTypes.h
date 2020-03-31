@@ -35,6 +35,7 @@ struct Material
     uint Metallic;
     uint Opacity;
     uint Emissive;
+    uint DFG;
 };
 
 struct SpotLight

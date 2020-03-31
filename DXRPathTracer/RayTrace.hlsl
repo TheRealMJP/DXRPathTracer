@@ -212,6 +212,20 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     if(AppSettings.ClampRoughness)
         roughness = max(roughness, inPayload.Roughness);
 
+    float3 msEnergyCompensation = 1.0.xxx;
+    if(AppSettings.ApplyMultiscatteringEnergyCompensation)
+    {
+        float2 DFG = Tex2DTable[material.DFG].SampleLevel(LinearSampler, float2(saturate(dot(normalWS, -incomingRayDirWS)), roughness), 0.0f).xy;
+
+        // Improve energy preservation by applying a scaled version of the original
+        // single scattering specular lobe. Based on "Practical multiple scattering
+        // compensation for microfacet models" [Turquin19].
+        //
+        // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
+        float Ess = DFG.x;
+        msEnergyCompensation = 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
+    }
+
     Texture2D emissiveMap = Tex2DTable[material.Emissive];
     float3 radiance = AppSettings.EnableWhiteFurnaceMode ? 0.0.xxx : emissiveMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
 
@@ -253,7 +267,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularAlbedo,
-                                 roughness, positionWS, incomingRayOriginWS) * payload.Visibility;
+                                 roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
     }
 
 	// Apply spot lights
@@ -302,7 +316,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 				float3 intensity = spotLight.Intensity * angularAttenuation;
 
 				radiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularAlbedo,
-					roughness, positionWS, incomingRayOriginWS) * payload.Visibility;
+					roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
 			}
 		}
 	}
@@ -350,6 +364,19 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 
         throughput = (F * (G2 / G1));
         rayDirTS = sampleDirTS;
+
+        if(AppSettings.ApplyMultiscatteringEnergyCompensation)
+        {
+            float2 DFG = Tex2DTable[material.DFG].SampleLevel(LinearSampler, float2(saturate(dot(normalTS, -incomingRayDirTS)), roughness), 0.0f).xy;
+
+            // Improve energy preservation by applying a scaled version of the original
+            // single scattering specular lobe. Based on "Practical multiple scattering
+            // compensation for microfacet models" [Turquin19].
+            //
+            // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
+            float Ess = DFG.x;
+            throughput *= 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
+        }
     }
 
     const float3 rayDirWS = normalize(mul(rayDirTS, tangentToWorld));

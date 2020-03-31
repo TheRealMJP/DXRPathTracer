@@ -72,6 +72,7 @@ enum class MaterialTextures
     Metallic,
     Opacity,
     Emissive,
+    DFG,
 
     Count
 };
