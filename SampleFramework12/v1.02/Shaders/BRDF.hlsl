@@ -201,6 +201,29 @@ float VelvetSpecular(in float m, in float3 n, in float3 h, in float3 v, in float
 }
 
 //-------------------------------------------------------------------------------------------------
+// Returns an adjusted scale factor for environment specular reflections that represents the
+// integral of the geometry/visibility + fresnel terms for a GGX BRDF given a particular
+// viewing angle and roughness value. The final value is computed using polynomials that were
+// fitted to tabulated data generated via monte carlo integration.
+//-------------------------------------------------------------------------------------------------
+float3 GGXEnvironmentBRDF(in float3 specAlbedo, in float nDotV, in float sqrtRoughness)
+{
+    const float nDotV2 = nDotV * nDotV;
+    const float sqrtRoughness2 = sqrtRoughness * sqrtRoughness;
+    const float sqrtRoughness3 = sqrtRoughness2 * sqrtRoughness;
+
+    const float delta = 0.991086418474895f + (0.412367709802119f * sqrtRoughness * nDotV2) -
+                        (0.363848256078895f * sqrtRoughness2) -
+                        (0.758634385642633f * nDotV * sqrtRoughness2);
+    const float bias = saturate((0.0306613448029984f * sqrtRoughness) + 0.0238299731830387f /
+                                (0.0272458171384516f + sqrtRoughness3 + nDotV2) -
+                                0.0454747751719356f);
+
+    const float scale = saturate(delta - bias);
+    return specAlbedo * scale + bias;
+}
+
+//-------------------------------------------------------------------------------------------------
 // Calculates the lighting result for an analytical light source
 //-------------------------------------------------------------------------------------------------
 float3 CalcLighting(in float3 normal, in float3 lightDir, in float3 peakIrradiance,
