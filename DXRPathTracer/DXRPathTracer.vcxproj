@@ -14,19 +14,19 @@
     <ProjectGuid>{FA705507-9C58-4413-8878-8795F3B9897D}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>DXRPathTracer</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -230,91 +230,6 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" $(OutDir)%(Filename)%(Extension)</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" $(OutDir)%(Filename)%(Extension)</Command>
     </CustomBuild>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\SampleFramework12\v1.02\Shaders\BRDF.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\Constants.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\Conversion.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\DecodeTextureCS.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\DescriptorTables.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\EVSM.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\FullScreenTriangle.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\ImGui.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\MSM.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\PPCommon.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\Quaternion.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\RayTracing.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\Sampling.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\SG.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\SH.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\Shadows.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\Skybox.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\SMConvert.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\SampleFramework12\v1.02\Shaders\Sprite.hlsl">
-      <FileType>Document</FileType>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="AppSettings.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Clusters.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="DepthOnly.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Mesh.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="PostProcessing.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="RayTrace.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Resolve.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Shading.hlsl">
-      <FileType>Document</FileType>
-    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
