@@ -13,6 +13,7 @@
 
 #include "Exceptions.h"
 #include "Utility.h"
+#include "Containers.h"
 
 namespace SampleFramework12
 {
@@ -29,6 +30,9 @@ uint64 GetFileTimestamp(const wchar* filePath);
 
 std::string ReadFileAsString(const wchar* filePath);
 void WriteStringAsFile(const wchar* filePath, const std::string& data);
+
+void ReadFileAsByteArray(const wchar* filePath, Array<uint8>& data);
+void WriteFileAsByteArray(const wchar* filePath, const Array<uint8>& data);
 
 enum class FileOpenMode
 {
