@@ -34,7 +34,7 @@ StaticAssert_(ArraySize_(TypeStrings) == uint64(ShaderType::NumTypes));
 
 static const char* ProfileStrings[] =
 {
-    "vs_6_1", "hs_6_1", "ds_6_1", "gs_6_1", "ps_6_1", "cs_6_1", "lib_6_3",
+    "vs_6_1", "hs_6_1", "ds_6_1", "gs_6_1", "ps_6_1", "cs_6_1", "lib_6_5",
 };
 
 StaticAssert_(ArraySize_(ProfileStrings) == uint64(ShaderType::NumTypes));

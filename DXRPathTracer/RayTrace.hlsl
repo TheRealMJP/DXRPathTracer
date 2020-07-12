@@ -485,8 +485,8 @@ Material GetGeometryMaterial(in uint geometryIdx)
 [shader("closesthit")]
 void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
-    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
+    const MeshVertex hitSurface = GetHitSurface(attr, GeometryIndex());
+    const Material material = GetGeometryMaterial(GeometryIndex());
 
     payload.Radiance = PathTrace(hitSurface, material, payload);
 }
@@ -494,8 +494,8 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
-    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
+    const MeshVertex hitSurface = GetHitSurface(attr, GeometryIndex());
+    const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing
     Texture2D opacityMap = Tex2DTable[material.Opacity];
@@ -506,8 +506,8 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
-    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
+    const MeshVertex hitSurface = GetHitSurface(attr, GeometryIndex());
+    const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing
     Texture2D opacityMap = Tex2DTable[material.Opacity];
