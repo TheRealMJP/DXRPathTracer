@@ -172,15 +172,15 @@ static wstring MakeShaderCacheName(const std::string& shaderCode, const char* fu
 }
 
 static HRESULT CompileShaderDXC(const wchar* path, const D3D_SHADER_MACRO* defines, const char* functionName,
-                                const char* profileString, IDxcBlob** compiledShader, IDxcBlobEncoding** errorMessages)
+                                const char* profileString, IDxcBlobPtr& compiledShader, IDxcBlobEncodingPtr& errorMessages)
 {
-    IDxcLibrary* library = nullptr;
+    IDxcLibraryPtr library;
     DXCall(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)));
 
-    IDxcBlobEncoding* sourceCode = nullptr;
+    IDxcBlobEncodingPtr sourceCode;
     DXCall(library->CreateBlobFromFile(path, nullptr, &sourceCode));
 
-    IDxcCompiler* compiler = nullptr;
+    IDxcCompilerPtr compiler;
     DXCall(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler)));
 
     // Convert the defines to wide strings
@@ -224,27 +224,21 @@ static HRESULT CompileShaderDXC(const wchar* path, const D3D_SHADER_MACRO* defin
         #endif
     };
 
-    IDxcIncludeHandler* includeHandler = nullptr;
+    IDxcIncludeHandlerPtr includeHandler;
     DXCall(library->CreateIncludeHandler(&includeHandler));
 
-    IDxcOperationResult* operationResult = nullptr;
-    DXCall(compiler->Compile(sourceCode, path, functionName ? AnsiToWString(functionName).c_str() : L"",
+    IDxcOperationResultPtr operationResult;
+    DXCall(compiler->Compile(sourceCode.Get(), path, functionName ? AnsiToWString(functionName).c_str() : L"",
                              AnsiToWString(profileString).c_str(), arguments,
                              ArraySize_(arguments), dxcDefines.Data(), uint32(dxcDefines.Size()),
-                             includeHandler, &operationResult));
+                             includeHandler.Get(), &operationResult));
 
     HRESULT hr = S_OK;
     operationResult->GetStatus(&hr);
     if(SUCCEEDED(hr))
-        DXCall(operationResult->GetResult(compiledShader));
+        DXCall(operationResult->GetResult(&compiledShader));
     else
-        operationResult->GetErrorBuffer(errorMessages);
-
-    DX12::Release(operationResult);
-    DX12::Release(includeHandler);
-    DX12::Release(compiler);
-    DX12::Release(sourceCode);
-    DX12::Release(library);
+        operationResult->GetErrorBuffer(&errorMessages);
 
     return hr;
 }
@@ -287,17 +281,15 @@ static void CompileShader(const wchar* path, const char* functionName, ShaderTyp
     // Loop until we succeed, or an exception is thrown
     while(true)
     {
-        IDxcBlob* compiledShader = nullptr;
-        IDxcBlobEncoding* errorMessages = nullptr;
+        IDxcBlobPtr compiledShader;
+        IDxcBlobEncodingPtr errorMessages;
 
-        HRESULT hr = CompileShaderDXC(path, defines, functionName, profileString, &compiledShader, &errorMessages);
+        HRESULT hr = CompileShaderDXC(path, defines, functionName, profileString, compiledShader, errorMessages);
         if(FAILED(hr))
         {
             if(errorMessages)
             {
                 std::wstring fullMessage = MakeString(L"Error compiling shader file \"%ls\" - %s", path, errorMessages->GetBufferPointer());
-                DX12::Release(errorMessages);
-                errorMessages = nullptr;
 
                 // Pop up a message box allowing user to retry compilation
                 int32 retVal = MessageBoxW(nullptr, fullMessage.c_str(), L"Shader Compilation Error", MB_RETRYCANCEL);
@@ -328,8 +320,6 @@ static void CompileShader(const wchar* path, const char* functionName, ShaderTyp
             // Return the compiled shader bytecode
             byteCode.Init(shaderSize);
             memcpy(byteCode.Data(), compiledShader->GetBufferPointer(), shaderSize);
-
-            DX12::Release(compiledShader);
 
             return;
         }
