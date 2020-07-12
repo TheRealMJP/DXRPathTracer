@@ -289,7 +289,8 @@ static void CompileShader(const wchar* path, const char* functionName, ShaderTyp
         {
             if(errorMessages)
             {
-                std::wstring fullMessage = MakeString(L"Error compiling shader file \"%ls\" - %s", path, errorMessages->GetBufferPointer());
+                const char* errMsgStr = reinterpret_cast<const char*>(errorMessages->GetBufferPointer());
+                std::wstring fullMessage = MakeString(L"Error compiling shader file \"%s\" - %hs", path, errMsgStr);
 
                 // Pop up a message box allowing user to retry compilation
                 int32 retVal = MessageBoxW(nullptr, fullMessage.c_str(), L"Shader Compilation Error", MB_RETRYCANCEL);
