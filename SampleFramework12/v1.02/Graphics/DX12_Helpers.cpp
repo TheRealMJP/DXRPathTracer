@@ -739,14 +739,14 @@ void InsertStandardDescriptorRanges(D3D12_DESCRIPTOR_RANGE1* ranges)
     uint32 userStart = NumStandardDescriptorRanges - NumUserDescriptorRanges;
     for(uint32 i = 0; i < NumStandardDescriptorRanges; ++i)
     {
-        StandardDescriptorRangeDescs[i].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        StandardDescriptorRangeDescs[i].NumDescriptors = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-        StandardDescriptorRangeDescs[i].BaseShaderRegister = 0;
-        StandardDescriptorRangeDescs[i].RegisterSpace = i;
-        StandardDescriptorRangeDescs[i].OffsetInDescriptorsFromTableStart = 0;
-        StandardDescriptorRangeDescs[i].Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+        ranges[i].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        ranges[i].NumDescriptors = UINT_MAX;
+        ranges[i].BaseShaderRegister = 0;
+        ranges[i].RegisterSpace = i;
+        ranges[i].OffsetInDescriptorsFromTableStart = 0;
+        ranges[i].Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
         if(i >= userStart)
-            StandardDescriptorRangeDescs[i].RegisterSpace = (i - userStart) + 100;
+            ranges[i].RegisterSpace = (i - userStart) + 100;
     }
 }
 
