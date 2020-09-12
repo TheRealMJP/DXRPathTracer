@@ -156,10 +156,6 @@ void Initialize(D3D_FEATURE_LEVEL minFeatureLevel, uint32 adapterIdx)
         D3D12_MESSAGE_ID disabledMessages[] =
         {
             D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
-
-            // These happen when capturing with VS diagnostics
-            D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
-            D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE,
         };
 
         D3D12_INFO_QUEUE_FILTER filter = { };

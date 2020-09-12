@@ -473,7 +473,6 @@ void DXRPathTracer::Shutdown()
 
     rtTarget.Shutdown();
     DX12::Release(rtRootSignature);
-    DX12::Release(rtEmptyLocalRS);
     rtBottomLevelAccelStructure.Shutdown();
     rtTopLevelAccelStructure.Shutdown();
     rtRayGenTable.Shutdown();
@@ -795,13 +794,6 @@ void DXRPathTracer::InitRayTracing()
         DX12::CreateRootSignature(&rtRootSignature, rootSignatureDesc);
     }
 
-    {
-        // (empty) local root signature
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-        DX12::CreateRootSignature(&rtEmptyLocalRS, rootSignatureDesc);
-    }
-
     rtCurrCamera = camera;
 }
 
@@ -860,30 +852,6 @@ void DXRPathTracer::CreateRayTracingPSOs()
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                      // float2 barycentrics;
         shaderConfig.MaxPayloadSizeInBytes = 4 * sizeof(float) + 4 * sizeof(uint32);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse
         builder.AddSubObject(shaderConfig);
-    }
-
-    {
-        // Local (empty) root signature used in all of our ray tracing shaders
-        D3D12_LOCAL_ROOT_SIGNATURE localRSDesc = { };
-        localRSDesc.pLocalRootSignature = rtEmptyLocalRS;
-        const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
-
-        static const wchar* exports[] =
-        {
-            L"RaygenShader",
-            L"MissShader",
-            L"ShadowMissShader",
-            L"HitGroup",
-            L"ShadowHitGroup",
-            L"AlphaTestHitGroup",
-            L"ShadowAlphaTestHitGroup",
-        };
-
-        D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION associations = { };
-        associations.pSubobjectToAssociate = localRSSubObj;
-        associations.NumExports = ArraySize_(exports);
-        associations.pExports = exports;
-        builder.AddSubObject(associations);
     }
 
     {
