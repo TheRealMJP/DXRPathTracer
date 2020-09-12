@@ -61,8 +61,6 @@ static const bool Benchmark = false;
 struct HitGroupRecord
 {
     ShaderIdentifier ID;
-    uint32 GeometryIdx = 0;
-    uint8 Padding[28] = { };
 };
 
 StaticAssert_(sizeof(HitGroupRecord) % D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT == 0);
@@ -145,13 +143,6 @@ enum RTRootParams : uint32
     NumRTRootParams
 };
 
-enum RTHitGroupRootParams : uint32
-{
-    RTHitGroupParams_GeometryID,
-
-    NumRTHitGroupRootParams
-};
-
 // Returns true if a sphere intersects a capped cone defined by a direction, height, and angle
 static bool SphereConeIntersection(const Float3& coneTip, const Float3& coneDir, float coneHeight,
                                    float coneAngle, const Float3& sphereCenter, float sphereRadius)
@@ -221,7 +212,7 @@ static void GenerateDFG(ID3D12Device * const device)
                 Float3 l = SampleDirectionGGX(v, n, Roughness, Float3x3(), sampleCoord.x, sampleCoord.y);
                 Float3 h = Float3::Normalize(v + l);
                 float nDotL = Saturate(l.z);
-                
+
                 if(nDotL > 0.0f)
                 {
                     const float pdf = GGX_PDF(n, h, v, Roughness);
@@ -483,7 +474,6 @@ void DXRPathTracer::Shutdown()
     rtTarget.Shutdown();
     DX12::Release(rtRootSignature);
     DX12::Release(rtEmptyLocalRS);
-    DX12::Release(rtHitGroupLocalRS);
     rtBottomLevelAccelStructure.Shutdown();
     rtTopLevelAccelStructure.Shutdown();
     rtRayGenTable.Shutdown();
@@ -812,24 +802,6 @@ void DXRPathTracer::InitRayTracing()
         DX12::CreateRootSignature(&rtEmptyLocalRS, rootSignatureDesc);
     }
 
-    {
-        // Local root signature for the hit group
-        D3D12_ROOT_PARAMETER1 rootParameters[NumRTHitGroupRootParams] = {};
-
-        rootParameters[RTHitGroupParams_GeometryID].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        rootParameters[RTHitGroupParams_GeometryID].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.Num32BitValues = 1;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.RegisterSpace = 200;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.ShaderRegister = 0;
-
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
-        rootSignatureDesc.pParameters = rootParameters;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-
-        DX12::CreateRootSignature(&rtHitGroupLocalRS, rootSignatureDesc);
-    }
-
     rtCurrCamera = camera;
 }
 
@@ -891,7 +863,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
-        // Local (empty) root signature used in our ray gen shader and miss shaders
+        // Local (empty) root signature used in all of our ray tracing shaders
         D3D12_LOCAL_ROOT_SIGNATURE localRSDesc = { };
         localRSDesc.pLocalRootSignature = rtEmptyLocalRS;
         const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
@@ -901,23 +873,6 @@ void DXRPathTracer::CreateRayTracingPSOs()
             L"RaygenShader",
             L"MissShader",
             L"ShadowMissShader",
-        };
-
-        D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION associations = { };
-        associations.pSubobjectToAssociate = localRSSubObj;
-        associations.NumExports = ArraySize_(exports);
-        associations.pExports = exports;
-        builder.AddSubObject(associations);
-    }
-
-    {
-        // Local root signature to be used in the primary hit group. Passes the geometry index as a root parameter.
-        D3D12_LOCAL_ROOT_SIGNATURE localRSDesc = { };
-        localRSDesc.pLocalRootSignature = rtHitGroupLocalRS;
-        const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
-
-        static const wchar* exports[] =
-        {
             L"HitGroup",
             L"ShadowHitGroup",
             L"AlphaTestHitGroup",
@@ -998,10 +953,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
             const bool alphaTest = material.Textures[uint32(MaterialTextures::Opacity)] != nullptr;
 
             hitGroupRecords[i * 2 + 0].ID = alphaTest ? ShaderIdentifier(alphaTestHitGroupID) : ShaderIdentifier(hitGroupID);
-            hitGroupRecords[i * 2 + 0].GeometryIdx = uint32(i);
-
             hitGroupRecords[i * 2 + 1].ID = alphaTest ? ShaderIdentifier(shadowAlphaTestHitGroupID) : ShaderIdentifier(shadowHitGroupID);
-            hitGroupRecords[i * 2 + 1].GeometryIdx = uint32(i);
         }
 
         StructuredBufferInit sbInit;

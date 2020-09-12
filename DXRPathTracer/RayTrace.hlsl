@@ -43,11 +43,6 @@ struct RayTraceConstants
 	uint NumLights;
 };
 
-struct HitConstants
-{
-    uint GeometryIdx;
-};
-
 struct LightConstants
 {
 	SpotLight Lights[MaxSpotLights];
@@ -61,7 +56,6 @@ StructuredBuffer<MeshVertex> VertexBuffers[] : register(t0, space101);
 StructuredBuffer<Material> MaterialBuffers[] : register(t0, space102);
 
 ConstantBuffer<RayTraceConstants> RayTraceCB : register(b0);
-ConstantBuffer<HitConstants> HitCB : register(b0, space200);
 
 ConstantBuffer<LightConstants> LightCBuffer : register(b1);
 

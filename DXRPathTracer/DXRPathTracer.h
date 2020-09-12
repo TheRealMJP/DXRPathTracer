@@ -80,7 +80,6 @@ protected:
     RenderTexture rtTarget;
     ID3D12RootSignature* rtRootSignature = nullptr;
     ID3D12RootSignature* rtEmptyLocalRS = nullptr;
-    ID3D12RootSignature* rtHitGroupLocalRS = nullptr;
     ID3D12StateObject* rtPSO = nullptr;
     bool buildAccelStructure = true;
     uint64 lastBuildAccelStructureFrame = uint64(-1);
