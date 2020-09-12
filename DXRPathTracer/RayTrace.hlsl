@@ -209,7 +209,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     float3 msEnergyCompensation = 1.0.xxx;
     if(AppSettings.ApplyMultiscatteringEnergyCompensation)
     {
-        float2 DFG = Tex2DTable[material.DFG].SampleLevel(LinearSampler, float2(saturate(dot(normalWS, -incomingRayDirWS)), roughness), 0.0f).xy;
+        float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalWS, -incomingRayDirWS)), sqrtRoughness);
 
         // Improve energy preservation by applying a scaled version of the original
         // single scattering specular lobe. Based on "Practical multiple scattering
@@ -310,7 +310,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 				float3 intensity = spotLight.Intensity * angularAttenuation;
 
 				radiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularAlbedo,
-					roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
+					                     roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
 			}
 		}
 	}
@@ -361,7 +361,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 
         if(AppSettings.ApplyMultiscatteringEnergyCompensation)
         {
-            float2 DFG = Tex2DTable[material.DFG].SampleLevel(LinearSampler, float2(saturate(dot(normalTS, -incomingRayDirTS)), roughness), 0.0f).xy;
+            float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalTS, -incomingRayDirWS)), sqrtRoughness);
 
             // Improve energy preservation by applying a scaled version of the original
             // single scattering specular lobe. Based on "Practical multiple scattering

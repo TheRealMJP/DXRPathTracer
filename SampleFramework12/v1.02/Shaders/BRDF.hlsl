@@ -201,12 +201,12 @@ float VelvetSpecular(in float m, in float3 n, in float3 h, in float3 v, in float
 }
 
 //-------------------------------------------------------------------------------------------------
-// Returns an adjusted scale factor for environment specular reflections that represents the
+// Returns scale and bias values for environment specular reflections that represents the
 // integral of the geometry/visibility + fresnel terms for a GGX BRDF given a particular
 // viewing angle and roughness value. The final value is computed using polynomials that were
 // fitted to tabulated data generated via monte carlo integration.
 //-------------------------------------------------------------------------------------------------
-float3 GGXEnvironmentBRDF(in float3 specAlbedo, in float nDotV, in float sqrtRoughness)
+float2 GGXEnvironmentBRDFScaleBias(in float nDotV, in float sqrtRoughness)
 {
     const float nDotV2 = nDotV * nDotV;
     const float sqrtRoughness2 = sqrtRoughness * sqrtRoughness;
@@ -220,7 +220,19 @@ float3 GGXEnvironmentBRDF(in float3 specAlbedo, in float nDotV, in float sqrtRou
                                 0.0454747751719356f);
 
     const float scale = saturate(delta - bias);
-    return specAlbedo * scale + bias;
+    return float2(scale, bias);
+}
+
+//-------------------------------------------------------------------------------------------------
+// Returns an adjusted scale factor for environment specular reflections that represents the
+// integral of the geometry/visibility + fresnel terms for a GGX BRDF given a particular
+// viewing angle and roughness value. The final value is computed using polynomials that were
+// fitted to tabulated data generated via monte carlo integration.
+//-------------------------------------------------------------------------------------------------
+float3 GGXEnvironmentBRDF(in float3 specAlbedo, in float nDotV, in float sqrtRoughness)
+{
+    float2 scaleBias = GGXEnvironmentBRDFScaleBias(nDotV, sqrtRoughness);
+    return specAlbedo * scaleBias.x + scaleBias.y;
 }
 
 //-------------------------------------------------------------------------------------------------

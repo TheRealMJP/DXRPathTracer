@@ -77,8 +77,7 @@ struct ShadingInput
 // work around incorrect behavior from the shader compiler
 //-------------------------------------------------------------------------------------------------
 float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
-                  in Texture2DArray spotLightShadowMap, in SamplerComparisonState shadowSampler,
-                  in Texture2D DFGLut)
+                  in Texture2DArray spotLightShadowMap, in SamplerComparisonState shadowSampler)
 {
     float3 vtxNormalWS = input.TangentFrame._m20_m21_m22;
     float3 normalWS = vtxNormalWS;
@@ -106,13 +105,13 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
     float3 diffuseAlbedo = lerp(albedoMap.xyz, 0.0f, metallic) * (AppSettings.EnableDiffuse ? 1.0f : 0.0f);
     float3 specularAlbedo = lerp(0.03f, albedoMap.xyz, metallic) * (AppSettings.EnableSpecular ? 1.0f : 0.0f);
 
-    float roughnessMap = input.RoughnessMap;
-    float roughness = roughnessMap * roughnessMap;
+    float sqrtRoughness = input.RoughnessMap;
+    float roughness = sqrtRoughness * sqrtRoughness;
 
     float3 msEnergyCompensation = 1.0.xxx;
     if(AppSettings.ApplyMultiscatteringEnergyCompensation)
     {
-        float2 DFG = DFGLut.SampleLevel(input.LinearSampler, float2(saturate(dot(normalWS, -viewWS)), roughness), 0.0f).xy;
+        float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalWS, viewWS)), sqrtRoughness);
 
         // Improve energy preservation by applying a scaled version of the original
         // single scattering specular lobe. Based on "Practical multiple scattering

@@ -53,7 +53,6 @@ static const wchar* DefaultTextures[] =
     L"..\\Content\\Textures\\DefaultBlack.dds",         // Metallic
     L"",                                                // Opacity
     L"..\\Content\\Textures\\DefaultBlack.dds",         // Emissive
-    L"..\\Content\\Textures\\DFG.dds",                  // DFG
 };
 
 StaticAssert_(ArraySize_(DefaultTextures) == uint64(MaterialTextures::Count));
