@@ -66,7 +66,7 @@ static ID3D12GraphicsCommandList1* readbackCmdList = nullptr;
 static ID3D12CommandAllocator* readbackCmdAllocator = nullptr;
 static Fence readbackFence;
 
-static const uint64 UploadBufferSize = 256 * 1024 * 1024;
+static const uint64 UploadBufferSize = 96 * 1024 * 1024;
 static const uint64 MaxUploadSubmissions = 16;
 static ID3D12Resource* UploadBuffer = nullptr;
 static uint8* UploadBufferCPUAddr = nullptr;
@@ -104,7 +104,7 @@ static void ClearFinishedUploads(uint64 flushCount)
 
         // If the submission hasn't been sent to the GPU yet we can't wait for it
         if(submission.FenceValue == uint64(-1))
-            return;
+            break;
 
         if(i < flushCount)
             UploadFence.Wait(submission.FenceValue);
@@ -122,6 +122,14 @@ static void ClearFinishedUploads(uint64 flushCount)
 
             if(UploadBufferUsed == 0)
                 UploadBufferStart = 0;
+        }
+        else
+        {
+            // We don't want to retire our submissions out of allocation order, because
+            // the ring buffer logic above will move the tail position forward (we don't
+            // allow holes in the ring buffer). Submitting out-of-order should still be
+            // ok though as long as we retire in-order.
+            break;
         }
     }
 }
