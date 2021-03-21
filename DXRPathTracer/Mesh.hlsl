@@ -146,7 +146,6 @@ float4 PSForward(in PSInput input) : SV_Target0
     Texture2D RoughnessMap = Tex2DTable[material.Roughness];
     Texture2D MetallicMap = Tex2DTable[material.Metallic];
     Texture2D EmissiveMap = Tex2DTable[material.Emissive];
-    Texture2D DFGLut = Tex2DTable[material.DFG];
 
     ShadingInput shadingInput;
     shadingInput.PositionSS = uint2(input.PositionSS.xy);
@@ -180,7 +179,7 @@ float4 PSForward(in PSInput input) : SV_Target0
             discard;
     #endif
 
-    float3 shadingResult = ShadePixel(shadingInput, sunShadowMap, spotLightShadowMap, PCFSampler, DFGLut);
+    float3 shadingResult = ShadePixel(shadingInput, sunShadowMap, spotLightShadowMap, PCFSampler);
 
     return float4(shadingResult, 1.0f);
 }

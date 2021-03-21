@@ -61,8 +61,6 @@ static const bool Benchmark = false;
 struct HitGroupRecord
 {
     ShaderIdentifier ID;
-    uint32 GeometryIdx = 0;
-    uint8 Padding[28] = { };
 };
 
 StaticAssert_(sizeof(HitGroupRecord) % D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT == 0);
@@ -145,13 +143,6 @@ enum RTRootParams : uint32
     NumRTRootParams
 };
 
-enum RTHitGroupRootParams : uint32
-{
-    RTHitGroupParams_GeometryID,
-
-    NumRTHitGroupRootParams
-};
-
 // Returns true if a sphere intersects a capped cone defined by a direction, height, and angle
 static bool SphereConeIntersection(const Float3& coneTip, const Float3& coneDir, float coneHeight,
                                    float coneAngle, const Float3& sphereCenter, float sphereRadius)
@@ -176,76 +167,6 @@ float Pow5(const float x)
 {
     float xx = x * x;
     return xx * xx * x;
-}
-
-// This creates the DFG look up table that is commonly used for the implementation
-// of image based lighting as defined in 'Real Shading in Unreal Engine 4' [Karis13].
-// This look up table is useful since it contains the directional albedo which we can use
-// to improve the energy preservation of the BRDF. We do that based on 'Practical multiple
-// scattering compensation for microfacet models' [Turquin19].
-//
-// See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf [Karis13]
-// See: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf [Turquin19]
-static void GenerateDFG(ID3D12Device * const device)
-{
-    Assert_(device != nullptr);
-
-    static const uint32 ViewResolution = 64;
-    static const uint32 RoughnessResolution = 64;
-#if Debug_
-    static const uint64 SqrtNumSamples = 10;
-#else
-    static const uint64 SqrtNumSamples = 128;
-#endif
-    static const uint64 NumSamples = SqrtNumSamples * SqrtNumSamples;
-    std::vector<float2> texData(ViewResolution * RoughnessResolution);
-
-    const Float3 n = Float3(0.0f, 0.0f, 1.0f);
-
-    for(uint32 mIdx = 0; mIdx < RoughnessResolution; ++mIdx)
-    {
-        const float SqrtRoughness = Max((mIdx + 0.5f) / RoughnessResolution, 0.064f);
-        const float Roughness = SqrtRoughness * SqrtRoughness;
-        for(uint32 vIdx = 0; vIdx < ViewResolution; ++vIdx)
-        {
-            Float3 v = 0.0f;
-            v.z = (vIdx + 0.5f) / ViewResolution;
-            v.x = std::sqrt(1.0f - Saturate(v.z * v.z));
-
-            float currentScale = 0.0f;
-            float currentBias = 0.0f;
-
-            for(uint64 sampleIdx = 0; sampleIdx < NumSamples; ++sampleIdx)
-            {
-                Float2 sampleCoord = Hammersley2D(sampleIdx, NumSamples);
-                Float3 l = SampleDirectionGGX(v, n, Roughness, Float3x3(), sampleCoord.x, sampleCoord.y);
-                Float3 h = Float3::Normalize(v + l);
-                float nDotL = Saturate(l.z);
-                
-                if(nDotL > 0.0f)
-                {
-                    const float pdf = GGX_PDF(n, h, v, Roughness);
-                    const float sampleWeight = GGX_Specular(Roughness, n, h, v, l) * nDotL / pdf;
-                    const float fc = Pow5(1.0f - Saturate(Float3::Dot(l, h)));
-                    currentScale += sampleWeight;
-                    currentBias += fc * sampleWeight;
-                }
-            }
-
-            currentScale /= NumSamples;
-            currentBias /= NumSamples;
-
-            const uint64 idx = (mIdx * ViewResolution) + vIdx;
-            texData[idx] = Float2(currentScale, currentBias);
-        }
-    }
-
-    Texture DFGTexture;
-
-    Create2DTexture(DFGTexture, ViewResolution, RoughnessResolution, 1, 1, DXGI_FORMAT_R32G32_FLOAT, false, texData.data());
-    SaveTextureAsDDS(DFGTexture, L"..\\Content\\Textures\\DFG.dds");
-
-    DFGTexture.Shutdown();
 }
 
 DXRPathTracer::DXRPathTracer(const wchar* cmdLine) : App(L"DXR Path Tracer", cmdLine)
@@ -294,8 +215,6 @@ void DXRPathTracer::Initialize()
     camera.Initialize(aspect, Pi_4, 0.1f, 100.0f);
 
     ShadowHelper::Initialize(ShadowMapMode::DepthMap, ShadowMSAAMode::MSAA1x);
-
-    //GenerateDFG(DX12::Device);
 
     InitializeScene();
 
@@ -482,8 +401,6 @@ void DXRPathTracer::Shutdown()
 
     rtTarget.Shutdown();
     DX12::Release(rtRootSignature);
-    DX12::Release(rtEmptyLocalRS);
-    DX12::Release(rtHitGroupLocalRS);
     rtBottomLevelAccelStructure.Shutdown();
     rtTopLevelAccelStructure.Shutdown();
     rtRayGenTable.Shutdown();
@@ -805,31 +722,6 @@ void DXRPathTracer::InitRayTracing()
         DX12::CreateRootSignature(&rtRootSignature, rootSignatureDesc);
     }
 
-    {
-        // (empty) local root signature
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-        DX12::CreateRootSignature(&rtEmptyLocalRS, rootSignatureDesc);
-    }
-
-    {
-        // Local root signature for the hit group
-        D3D12_ROOT_PARAMETER1 rootParameters[NumRTHitGroupRootParams] = {};
-
-        rootParameters[RTHitGroupParams_GeometryID].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        rootParameters[RTHitGroupParams_GeometryID].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.Num32BitValues = 1;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.RegisterSpace = 200;
-        rootParameters[RTHitGroupParams_GeometryID].Constants.ShaderRegister = 0;
-
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
-        rootSignatureDesc.pParameters = rootParameters;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
-
-        DX12::CreateRootSignature(&rtHitGroupLocalRS, rootSignatureDesc);
-    }
-
     rtCurrCamera = camera;
 }
 
@@ -888,47 +780,6 @@ void DXRPathTracer::CreateRayTracingPSOs()
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                      // float2 barycentrics;
         shaderConfig.MaxPayloadSizeInBytes = 4 * sizeof(float) + 4 * sizeof(uint32);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse
         builder.AddSubObject(shaderConfig);
-    }
-
-    {
-        // Local (empty) root signature used in our ray gen shader and miss shaders
-        D3D12_LOCAL_ROOT_SIGNATURE localRSDesc = { };
-        localRSDesc.pLocalRootSignature = rtEmptyLocalRS;
-        const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
-
-        static const wchar* exports[] =
-        {
-            L"RaygenShader",
-            L"MissShader",
-            L"ShadowMissShader",
-        };
-
-        D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION associations = { };
-        associations.pSubobjectToAssociate = localRSSubObj;
-        associations.NumExports = ArraySize_(exports);
-        associations.pExports = exports;
-        builder.AddSubObject(associations);
-    }
-
-    {
-        // Local root signature to be used in the primary hit group. Passes the geometry index as a root parameter.
-        D3D12_LOCAL_ROOT_SIGNATURE localRSDesc = { };
-        localRSDesc.pLocalRootSignature = rtHitGroupLocalRS;
-        const D3D12_STATE_SUBOBJECT* localRSSubObj = builder.AddSubObject(localRSDesc);
-
-        static const wchar* exports[] =
-        {
-            L"HitGroup",
-            L"ShadowHitGroup",
-            L"AlphaTestHitGroup",
-            L"ShadowAlphaTestHitGroup",
-        };
-
-        D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION associations = { };
-        associations.pSubobjectToAssociate = localRSSubObj;
-        associations.NumExports = ArraySize_(exports);
-        associations.pExports = exports;
-        builder.AddSubObject(associations);
     }
 
     {
@@ -998,10 +849,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
             const bool alphaTest = material.Textures[uint32(MaterialTextures::Opacity)] != nullptr;
 
             hitGroupRecords[i * 2 + 0].ID = alphaTest ? ShaderIdentifier(alphaTestHitGroupID) : ShaderIdentifier(hitGroupID);
-            hitGroupRecords[i * 2 + 0].GeometryIdx = uint32(i);
-
             hitGroupRecords[i * 2 + 1].ID = alphaTest ? ShaderIdentifier(shadowAlphaTestHitGroupID) : ShaderIdentifier(shadowHitGroupID);
-            hitGroupRecords[i * 2 + 1].GeometryIdx = uint32(i);
         }
 
         StructuredBufferInit sbInit;

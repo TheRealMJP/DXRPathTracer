@@ -136,13 +136,17 @@ void Initialize(D3D_FEATURE_LEVEL minFeatureLevel, uint32 adapterIdx)
         throw Exception(L"The device doesn't support the minimum feature level required to run this sample (DX" + majorLevel + L"." + minorLevel + L")");
     }
 
-    #if EnableDXR_
-        StaticAssertMsg_(EnableDXC_, "DXC must be enabled to use DXR");
+    // Check the required shader model
+    D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = { D3D_SHADER_MODEL_6_6 };
+    DXCall(Device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)));
+    if(shaderModel.HighestShaderModel < D3D_SHADER_MODEL_6_1)
+        throw Exception(L"The device does not support the minimum shader model required to run this sample (SM 6.1)");
 
+    #if EnableDXR_
         D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = { };
         DXCall(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof(opts5)));
-        if(opts5.RaytracingTier == D3D12_RAYTRACING_TIER_NOT_SUPPORTED)
-            throw Exception(L"The device does not support raytracing, which is required to run this sample.");
+        if(opts5.RaytracingTier < D3D12_RAYTRACING_TIER_1_1)
+            throw Exception(L"The device does not support DXR 1.1, which is required to run this sample.");
     #endif
 
     #if UseDebugDevice_
@@ -152,10 +156,6 @@ void Initialize(D3D_FEATURE_LEVEL minFeatureLevel, uint32 adapterIdx)
         D3D12_MESSAGE_ID disabledMessages[] =
         {
             D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
-
-            // These happen when capturing with VS diagnostics
-            D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
-            D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE,
         };
 
         D3D12_INFO_QUEUE_FILTER filter = { };

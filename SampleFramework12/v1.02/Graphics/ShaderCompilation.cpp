@@ -27,29 +27,21 @@ using std::map;
 namespace SampleFramework12
 {
 
-static const uint64 CacheVersion = 0;
+static const uint64 CacheVersion = 1;
 
 static const char* TypeStrings[] = { "vertex", "hull", "domain", "geometry", "pixel", "compute", "lib" };
 StaticAssert_(ArraySize_(TypeStrings) == uint64(ShaderType::NumTypes));
 
 static const char* ProfileStrings[] =
 {
-    #if EnableDXC_
-        "vs_6_1", "hs_6_1", "ds_6_1", "gs_6_1", "ps_6_1", "cs_6_1", "lib_6_3",
-    #else
-        "vs_5_1", "hs_5_1", "ds_5_1", "gs_5_1", "ps_5_1", "cs_5_1", "<invalid>",
-    #endif
+    "vs_6_1", "hs_6_1", "ds_6_1", "gs_6_1", "ps_6_1", "cs_6_1", "lib_6_5",
 };
 
 StaticAssert_(ArraySize_(ProfileStrings) == uint64(ShaderType::NumTypes));
 
 static Hash MakeCompilerHash()
 {
-    #if EnableDXC_
-        HMODULE module = LoadLibrary(L"dxcompiler.dll");
-    #else
-        HMODULE module = LoadLibrary(L"d3dcompiler_47.dll");
-    #endif
+    HMODULE module = LoadLibrary(L"dxcompiler.dll");
 
     if(module == nullptr)
         throw Exception(L"Failed to load compiler DLL");
@@ -179,91 +171,16 @@ static wstring MakeShaderCacheName(const std::string& shaderCode, const char* fu
     return cacheDir + codeHash.ToString() + L".cache";
 }
 
-class FrameworkInclude : public ID3DInclude
-{
-    HRESULT Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID* ppData, UINT* pBytes) override
-    {
-        std::wstring filePath;
-        if(IncludeType == D3D_INCLUDE_LOCAL)
-            filePath = AnsiToWString(pFileName);
-        else if(IncludeType == D3D_INCLUDE_SYSTEM)
-            filePath = SampleFrameworkDir() + L"Shaders\\" + AnsiToWString(pFileName);
-        else
-            return E_FAIL;
-
-        if(FileExists(filePath.c_str()) == false)
-            return E_FAIL;
-        File file(filePath.c_str(), FileOpenMode::Read);
-        *pBytes = UINT(file.Size());
-        uint8* data = reinterpret_cast<uint8*>(std::malloc(*pBytes));
-        file.Read(*pBytes, data);
-        *ppData = data;
-        return S_OK;
-    }
-
-    HRESULT Close(LPCVOID pData) override
-    {
-        std::free(const_cast<void*>(pData));
-        return S_OK;
-    }
-};
-
-#if EnableDXC_
-
-struct Blob : public ID3DBlob
-{
-    Array<uint8> Data;
-    uint32 RefCount = 1;
-
-    void* GetBufferPointer() override
-    {
-        return Data.Data();
-    }
-
-    size_t GetBufferSize() override
-    {
-        return Data.MemorySize();
-    }
-
-    ULONG AddRef() override
-    {
-        return ++RefCount;
-    }
-
-    ULONG Release() override
-    {
-        if(RefCount == 1)
-        {
-            delete this;
-            return 0;
-        }
-        else if(RefCount > 1)
-        {
-            return --RefCount;
-        }
-        else
-        {
-            Assert_(false);
-            return 0;
-        }
-    }
-
-    HRESULT QueryInterface(REFIID riid, void** ppvObject) override
-    {
-        return E_FAIL;
-    }
-};
-
 static HRESULT CompileShaderDXC(const wchar* path, const D3D_SHADER_MACRO* defines, const char* functionName,
-                                const char* profileString, ID3DBlob** compiledShader, ID3DBlob** errorMessages)
+                                const char* profileString, IDxcBlobPtr& compiledShader, IDxcBlobEncodingPtr& errorMessages)
 {
-    IDxcLibrary* library = nullptr;
+    IDxcLibraryPtr library;
     DXCall(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)));
 
-    IDxcBlobEncoding* sourceCode = nullptr;
+    IDxcBlobEncodingPtr sourceCode;
     DXCall(library->CreateBlobFromFile(path, nullptr, &sourceCode));
 
-    IDxcCompiler* compiler = nullptr;
+    IDxcCompilerPtr compiler;
     DXCall(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler)));
 
     // Convert the defines to wide strings
@@ -307,35 +224,28 @@ static HRESULT CompileShaderDXC(const wchar* path, const D3D_SHADER_MACRO* defin
         #endif
     };
 
-    IDxcIncludeHandler* includeHandler = nullptr;
+    IDxcIncludeHandlerPtr includeHandler;
     DXCall(library->CreateIncludeHandler(&includeHandler));
 
-    IDxcOperationResult* operationResult = nullptr;
-    DXCall(compiler->Compile(sourceCode, path, functionName ? AnsiToWString(functionName).c_str() : L"",
+    IDxcOperationResultPtr operationResult;
+    DXCall(compiler->Compile(sourceCode.Get(), path, functionName ? AnsiToWString(functionName).c_str() : L"",
                              AnsiToWString(profileString).c_str(), arguments,
                              ArraySize_(arguments), dxcDefines.Data(), uint32(dxcDefines.Size()),
-                             includeHandler, &operationResult));
+                             includeHandler.Get(), &operationResult));
 
     HRESULT hr = S_OK;
     operationResult->GetStatus(&hr);
     if(SUCCEEDED(hr))
-        DXCall(operationResult->GetResult(reinterpret_cast<IDxcBlob**>(compiledShader)));
+        DXCall(operationResult->GetResult(&compiledShader));
     else
-        operationResult->GetErrorBuffer(reinterpret_cast<IDxcBlobEncoding**>(errorMessages));
-
-    DX12::Release(operationResult);
-    DX12::Release(includeHandler);
-    DX12::Release(compiler);
-    DX12::Release(sourceCode);
-    DX12::Release(library);
+        operationResult->GetErrorBuffer(&errorMessages);
 
     return hr;
 }
 
-#endif // EnableDXC_
-
-static ID3DBlob* CompileShader(const wchar* path, const char* functionName, ShaderType type,
-                               const D3D_SHADER_MACRO* defines, GrowableList<wstring>& filePaths)
+static void CompileShader(const wchar* path, const char* functionName, ShaderType type,
+                          const D3D_SHADER_MACRO* defines, GrowableList<wstring>& filePaths,
+                          Array<uint8>& byteCode)
 {
     if(FileExists(path) == false)
     {
@@ -353,76 +263,37 @@ static ID3DBlob* CompileShader(const wchar* path, const char* functionName, Shad
 
     if(FileExists(cacheName.c_str()))
     {
-        File cacheFile(cacheName.c_str(), FileOpenMode::Read);
-        const uint64 shaderSize = cacheFile.Size();
-
-        #if EnableDXC_
-            Blob* shaderBlob = new Blob();
-            shaderBlob->Data.Init(shaderSize);
-            cacheFile.Read(shaderSize, shaderBlob->Data.Data());
-            return shaderBlob;
-        #else
-            Array<uint8> compressedShader;
-            compressedShader.Init(shaderSize);
-            cacheFile.Read(shaderSize, compressedShader.Data());
-
-            ID3DBlob* decompressedShader[1] = { nullptr };
-            uint32 indices[1] = { 0 };
-            DXCall(D3DDecompressShaders(compressedShader.Data(), shaderSize, 1, 0,
-                                        indices, 0, decompressedShader, nullptr));
-
-            return decompressedShader[0];
-        #endif
+        ReadFileAsByteArray(cacheName.c_str(), byteCode);
+        return;
     }
 
     if(type == ShaderType::Library)
     {
-        WriteLog("Compiling shader library %s %s\n", WStringToAnsi(GetFileName(path).c_str()).c_str(),
+        WriteLog("Compiling shader library %ls %s\n", GetFileName(path).c_str(),
                  MakeDefinesString(defines).c_str());
     }
     else
     {
-        WriteLog("Compiling %s shader %s_%s %s\n", TypeStrings[uint64(type)],
-                 WStringToAnsi(GetFileName(path).c_str()).c_str(),
-                 functionName, MakeDefinesString(defines).c_str());
+        WriteLog("Compiling %s shader %ls_%s %s\n", TypeStrings[uint64(type)],
+                 GetFileName(path).c_str(), functionName, MakeDefinesString(defines).c_str());
     }
 
     // Loop until we succeed, or an exception is thrown
     while(true)
     {
-        ID3DBlob* compiledShader = nullptr;
-        ID3DBlobPtr errorMessages;
+        IDxcBlobPtr compiledShader;
+        IDxcBlobEncodingPtr errorMessages;
 
-        #if EnableDXC_
-            HRESULT hr = CompileShaderDXC(path, defines, functionName, profileString, &compiledShader, &errorMessages);
-        #else
-            UINT flags = D3DCOMPILE_WARNINGS_ARE_ERRORS;
-            flags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
-            flags |= D3DCOMPILE_ALL_RESOURCES_BOUND;
-            #ifdef _DEBUG
-                flags |= D3DCOMPILE_DEBUG;
-            #endif
-
-            FrameworkInclude include;
-            HRESULT hr = D3DCompileFromFile(path, defines, &include, functionName,
-                                            profileString, flags, 0, &compiledShader, &errorMessages);
-        #endif
-
+        HRESULT hr = CompileShaderDXC(path, defines, functionName, profileString, compiledShader, errorMessages);
         if(FAILED(hr))
         {
             if(errorMessages)
             {
-                wchar message[1024] = { 0 };
-                char* blobdata = reinterpret_cast<char*>(errorMessages->GetBufferPointer());
-
-                MultiByteToWideChar(CP_ACP, 0, blobdata, static_cast<int>(errorMessages->GetBufferSize()), message, 1024);
-                std::wstring fullMessage = L"Error compiling shader file \"";
-                fullMessage += path;
-                fullMessage += L"\" - ";
-                fullMessage += message;
+                const char* errMsgStr = reinterpret_cast<const char*>(errorMessages->GetBufferPointer());
+                std::wstring fullMessage = MakeString(L"Error compiling shader file \"%s\" - %hs", path, errMsgStr);
 
                 // Pop up a message box allowing user to retry compilation
-                int retVal = MessageBoxW(nullptr, fullMessage.c_str(), L"Shader Compilation Error", MB_RETRYCANCEL);
+                int32 retVal = MessageBoxW(nullptr, fullMessage.c_str(), L"Shader Compilation Error", MB_RETRYCANCEL);
                 if(retVal != IDRETRY)
                     throw DXException(hr, fullMessage.c_str());
             }
@@ -434,18 +305,6 @@ static ID3DBlob* CompileShader(const wchar* path, const char* functionName, Shad
         }
         else
         {
-            ID3DBlobPtr compressedShader;
-
-            #if EnableDXC_
-                compressedShader = compiledShader;
-            #else
-                // Compress the shader
-                D3D_SHADER_DATA shaderData;
-                shaderData.pBytecode = compiledShader->GetBufferPointer();
-                shaderData.BytecodeLength = compiledShader->GetBufferSize();
-                DXCall(D3DCompressShaders(1, &shaderData, D3D_COMPRESS_SHADER_KEEP_ALL_PARTS, &compressedShader));
-            #endif
-
             // Create the cache directory if it doesn't exist
             if(DirectoryExists(baseCacheDir.c_str()) == false)
                 Win32Call(CreateDirectory(baseCacheDir.c_str(), nullptr));
@@ -456,10 +315,14 @@ static ID3DBlob* CompileShader(const wchar* path, const char* functionName, Shad
             File cacheFile(cacheName.c_str(), FileOpenMode::Write);
 
             // Write the compiled shader to disk
-            uint64 shaderSize = compressedShader->GetBufferSize();
-            cacheFile.Write(shaderSize, compressedShader->GetBufferPointer());
+            const uint64 shaderSize = compiledShader->GetBufferSize();
+            cacheFile.Write(shaderSize, compiledShader->GetBufferPointer());
 
-            return compiledShader;
+            // Return the compiled shader bytecode
+            byteCode.Init(shaderSize);
+            memcpy(byteCode.Data(), compiledShader->GetBufferPointer(), shaderSize);
+
+            return;
         }
     }
 }
@@ -489,8 +352,8 @@ static void CompileShader(CompiledShader* shader)
     GrowableList<wstring> filePaths;
     D3D_SHADER_MACRO defines[CompileOptions::MaxDefines + 1];
     shader->CompileOpts.MakeDefines(defines);
-    shader->ByteCode = CompileShader(shader->FilePath.c_str(), functionName, shader->Type, defines, filePaths);
-    shader->ByteCodeHash = GenerateHash(shader->ByteCode->GetBufferPointer(), int(shader->ByteCode->GetBufferSize()));
+    CompileShader(shader->FilePath.c_str(), functionName, shader->Type, defines, filePaths, shader->ByteCode);
+    shader->ByteCodeHash = GenerateHash(shader->ByteCode.Data(), int(shader->ByteCode.Size()));
 
     for(uint64 fileIdx = 0; fileIdx < filePaths.Count(); ++ fileIdx)
     {

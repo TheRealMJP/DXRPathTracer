@@ -68,4 +68,11 @@ typedef Microsoft::WRL::ComPtr<ID3D12DebugCommandList> ID3D12DebugCommandListPtr
 typedef Microsoft::WRL::ComPtr<ID3D12DebugCommandQueue> ID3D12DebugCommandQueuePtr;
 typedef Microsoft::WRL::ComPtr<ID3D12InfoQueue> ID3D12InfoQueuePtr;
 
+typedef Microsoft::WRL::ComPtr<IDxcLibrary> IDxcLibraryPtr;
+typedef Microsoft::WRL::ComPtr<IDxcBlob> IDxcBlobPtr;
+typedef Microsoft::WRL::ComPtr<IDxcBlobEncoding> IDxcBlobEncodingPtr;
+typedef Microsoft::WRL::ComPtr<IDxcCompiler> IDxcCompilerPtr;
+typedef Microsoft::WRL::ComPtr<IDxcIncludeHandler> IDxcIncludeHandlerPtr;
+typedef Microsoft::WRL::ComPtr<IDxcOperationResult> IDxcOperationResultPtr;
+
 }

@@ -14,6 +14,7 @@
 #include "..\\InterfacePointers.h"
 #include "..\\Assert.h"
 #include "..\\MurmurHash.h"
+#include "..\\Containers.h"
 
 namespace SampleFramework12
 {
@@ -63,12 +64,12 @@ public:
     std::wstring FilePath;
     std::string FunctionName;
     CompileOptions CompileOpts;
-    ID3DBlobPtr ByteCode;
+    Array<uint8> ByteCode;
     ShaderType Type;
     Hash ByteCodeHash;
 
     CompiledShader(const wchar* filePath, const char* functionName,
-                   const CompileOptions& compileOptions, ShaderType type) : FilePath(filePath),                                                                            
+                   const CompileOptions& compileOptions, ShaderType type) : FilePath(filePath),
                                                                             CompileOpts(compileOptions),
                                                                             Type(type)
     {
@@ -110,8 +111,8 @@ public:
     {
         Assert_(ptr != nullptr);
         D3D12_SHADER_BYTECODE byteCode;
-        byteCode.pShaderBytecode = ptr->ByteCode->GetBufferPointer();
-        byteCode.BytecodeLength = ptr->ByteCode->GetBufferSize();
+        byteCode.pShaderBytecode = ptr->ByteCode.Data();
+        byteCode.BytecodeLength = ptr->ByteCode.Size();
         return byteCode;
     }
 

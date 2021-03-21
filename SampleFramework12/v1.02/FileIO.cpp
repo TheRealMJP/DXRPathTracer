@@ -133,6 +133,21 @@ void WriteStringAsFile(const wchar* filePath, const std::string& data)
     file.Write(data.length(), data.c_str());
 }
 
+void ReadFileAsByteArray(const wchar* filePath, Array<uint8>& data)
+{
+    File file(filePath, FileOpenMode::Read);
+    uint64 fileSize = file.Size();
+
+    data.Init(fileSize);
+    file.Read(fileSize, data.Data());
+}
+
+void WriteFileAsByteArray(const wchar* filePath, const Array<uint8>& data)
+{
+    File file(filePath, FileOpenMode::Write);
+    file.Write(data.Size(), data.Data());
+}
+
 // == File ========================================================================================
 
 File::File() : fileHandle(INVALID_HANDLE_VALUE), openMode(FileOpenMode::Read)

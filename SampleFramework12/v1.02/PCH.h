@@ -176,12 +176,8 @@ typedef uint32_t bool32;
 #pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "D3D12.lib")
 
-#if EnableDXC_
-    #include "..\\..\\Externals\\DXCompiler\\Include\\dxcapi.h"
-    #pragma comment(lib, "..\\Externals\\DXCompiler\\Lib\\dxcompiler.lib")
-#else
-    #pragma comment(lib, "d3dcompiler.lib")
-#endif
+#include "..\\..\\Externals\\DXCompiler\\Include\\dxcapi.h"
+#pragma comment(lib, "..\\Externals\\DXCompiler\\Lib\\dxcompiler.lib")
 
 #ifdef _DEBUG
     #pragma comment(lib, "comsuppwd.lib")

@@ -43,11 +43,6 @@ struct RayTraceConstants
 	uint NumLights;
 };
 
-struct HitConstants
-{
-    uint GeometryIdx;
-};
-
 struct LightConstants
 {
 	SpotLight Lights[MaxSpotLights];
@@ -61,7 +56,6 @@ StructuredBuffer<MeshVertex> VertexBuffers[] : register(t0, space101);
 StructuredBuffer<Material> MaterialBuffers[] : register(t0, space102);
 
 ConstantBuffer<RayTraceConstants> RayTraceCB : register(b0);
-ConstantBuffer<HitConstants> HitCB : register(b0, space200);
 
 ConstantBuffer<LightConstants> LightCBuffer : register(b1);
 
@@ -215,7 +209,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     float3 msEnergyCompensation = 1.0.xxx;
     if(AppSettings.ApplyMultiscatteringEnergyCompensation)
     {
-        float2 DFG = Tex2DTable[material.DFG].SampleLevel(LinearSampler, float2(saturate(dot(normalWS, -incomingRayDirWS)), roughness), 0.0f).xy;
+        float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalWS, -incomingRayDirWS)), sqrtRoughness);
 
         // Improve energy preservation by applying a scaled version of the original
         // single scattering specular lobe. Based on "Practical multiple scattering
@@ -316,7 +310,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 				float3 intensity = spotLight.Intensity * angularAttenuation;
 
 				radiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularAlbedo,
-					roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
+					                     roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
 			}
 		}
 	}
@@ -367,7 +361,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 
         if(AppSettings.ApplyMultiscatteringEnergyCompensation)
         {
-            float2 DFG = Tex2DTable[material.DFG].SampleLevel(LinearSampler, float2(saturate(dot(normalTS, -incomingRayDirTS)), roughness), 0.0f).xy;
+            float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalTS, -incomingRayDirWS)), sqrtRoughness);
 
             // Improve energy preservation by applying a scaled version of the original
             // single scattering specular lobe. Based on "Practical multiple scattering
@@ -485,8 +479,8 @@ Material GetGeometryMaterial(in uint geometryIdx)
 [shader("closesthit")]
 void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
-    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
+    const MeshVertex hitSurface = GetHitSurface(attr, GeometryIndex());
+    const Material material = GetGeometryMaterial(GeometryIndex());
 
     payload.Radiance = PathTrace(hitSurface, material, payload);
 }
@@ -494,8 +488,8 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
-    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
+    const MeshVertex hitSurface = GetHitSurface(attr, GeometryIndex());
+    const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing
     Texture2D opacityMap = Tex2DTable[material.Opacity];
@@ -506,8 +500,8 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr, HitCB.GeometryIdx);
-    const Material material = GetGeometryMaterial(HitCB.GeometryIdx);
+    const MeshVertex hitSurface = GetHitSurface(attr, GeometryIndex());
+    const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing
     Texture2D opacityMap = Tex2DTable[material.Opacity];

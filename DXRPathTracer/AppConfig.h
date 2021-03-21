@@ -10,5 +10,4 @@
 
 #define EnableSkyModel_ (1)
 #define EnableEmbree_ (0)
-#define EnableDXC_ (1)
 #define EnableDXR_ (1)
