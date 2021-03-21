@@ -5,7 +5,7 @@ This project is a very basic unidirectional path tracer that I wrote using Direc
 
 # Build Instructions
 
-The repository contains a Visual Studio 2017 project and solution file that's ready to build on Windows 10 using SDK 10.0.17763.0. All external dependencies are included in the repository (including a recent build of dxcompiler.dll), so there's no need to download additional libraries. Running the demo requires Windows 10 build 1809, as well as a GPU/driver combination that supports DXR.
+The repository contains a Visual Studio 2019 project and solution file that's ready to build on Windows 10 using SDK 10.0.19041.0. All external dependencies are included in the repository (including a recent build of dxcompiler.dll), so there's no need to download additional libraries. Running the demo requires Windows 10 build 2004 or later, as well as a GPU/driver combination that supports `D3D12_RAYTRACING_TIER_1_1`.
 
 The repository does *not* include textures for the Sponza and SunTemple scenes in order to avoid comitting lots of large binary files. To get the textures, download them from [this release](https://github.com/TheRealMJP/DXRPathTracer/releases/tag/v1.0).
 
