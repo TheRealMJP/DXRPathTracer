@@ -27,7 +27,7 @@ using std::map;
 namespace SampleFramework12
 {
 
-static const uint64 CacheVersion = 1;
+static const uint64 CacheVersion = 2;
 
 static const char* TypeStrings[] = { "vertex", "hull", "domain", "geometry", "pixel", "compute", "lib" };
 StaticAssert_(ArraySize_(TypeStrings) == uint64(ShaderType::NumTypes));
@@ -212,15 +212,14 @@ static HRESULT CompileShaderDXC(const wchar* path, const D3D_SHADER_MACRO* defin
 
     const wchar* arguments[] =
     {
-        L"/O3",
+        L"-O3",
         L"-all_resources_bound",
         L"-WX",
         L"-I",
         expandedFrameworkShaderDir,
 
-        // LLVM debug info seems to make the RT PSO croak
-        #if Debug_ && !EnableDXR_
-            L"/Zi",
+        #if Debug_
+            L"-Zs",
         #endif
     };
 

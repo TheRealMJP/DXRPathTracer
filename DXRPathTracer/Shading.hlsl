@@ -191,7 +191,7 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
             while(clusterElemMask)
             {
                 uint bitIdx = firstbitlow(clusterElemMask);
-                clusterElemMask &= ~(1 << bitIdx);
+                clusterElemMask &= ~(1u << bitIdx);
                 uint spotLightIdx = bitIdx + (elemIdx * 32);
                 SpotLight spotLight = input.LightCBuffer.Lights[spotLightIdx];
 

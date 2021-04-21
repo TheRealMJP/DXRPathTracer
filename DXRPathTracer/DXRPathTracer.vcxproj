@@ -225,7 +225,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="$(WindowsSdkDir)\bin\$(WindowsTargetPlatformVersion)\x64\dxil.dll">
+    <CustomBuild Include="..\Externals\DXCompiler\Bin\dxil.dll">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" $(OutDir)%(Filename)%(Extension)</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" $(OutDir)%(Filename)%(Extension)</Command>

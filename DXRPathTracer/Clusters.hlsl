@@ -80,7 +80,7 @@ void ClusterPS(in VSOutput input)
 {
     uint2 tilePosXY = uint2(input.Position.xy);
     uint elemIdx = input.Index / 32;
-    uint mask = 1 << (input.Index % 32);
+    uint mask = 1u << (input.Index % 32);
 
     // Estimate the minimum and maximum Z tile intersected by the current triangle, treating the triangle as a plane.
     // This estimate will be wrong if we end up extrapolating off of the triangle.
