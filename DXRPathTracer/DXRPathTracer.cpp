@@ -202,9 +202,6 @@ void DXRPathTracer::Initialize()
     // Check if the device supports conservative rasterization
     D3D12_FEATURE_DATA_D3D12_OPTIONS features = { };
     DX12::Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &features, sizeof(features));
-    if(features.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_2)
-        throw Exception("This demo requires a GPU that supports FEATURE_LEVEL_11_1 with D3D12_RESOURCE_BINDING_TIER_2");
-
     if(features.ConservativeRasterizationTier == D3D12_CONSERVATIVE_RASTERIZATION_TIER_NOT_SUPPORTED)
     {
         AppSettings::ClusterRasterizationMode.SetValue(ClusterRasterizationModes::MSAA8x);

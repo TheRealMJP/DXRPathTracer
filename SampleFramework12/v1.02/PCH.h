@@ -65,6 +65,12 @@ typedef uint32_t bool32;
 
 #define assert(expression) ((void)0)
 
+// DirectX Includes
+#include "..\\..\\Externals\\DXSDK\\Include\\d3d12.h"
+#include <dxgi.h>
+#include <dxgi1_6.h>
+#include <D3Dcompiler.h>
+
 // Windows Header Files:
 #include <windows.h>
 #include <commctrl.h>
@@ -81,18 +87,6 @@ typedef uint32_t bool32;
 #pragma warning(disable : 4458)
 #include <gdiplus.h>
 #pragma warning(pop)
-
-// DirectX Includes
-#ifdef _DEBUG
-#ifndef D3D_DEBUG_INFO
-#define D3D_DEBUG_INFO
-#endif
-#endif
-
-#include <dxgi.h>
-#include <dxgi1_6.h>
-#include <D3Dcompiler.h>
-#include <d3d12.h>
 
 // DirectX Math
 #include <DirectXMath.h>
