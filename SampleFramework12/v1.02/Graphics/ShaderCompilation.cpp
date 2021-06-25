@@ -27,14 +27,14 @@ using std::map;
 namespace SampleFramework12
 {
 
-static const uint64 CacheVersion = 2;
+static const uint64 CacheVersion = 3;
 
 static const char* TypeStrings[] = { "vertex", "hull", "domain", "geometry", "pixel", "compute", "lib" };
 StaticAssert_(ArraySize_(TypeStrings) == uint64(ShaderType::NumTypes));
 
 static const char* ProfileStrings[] =
 {
-    "vs_6_1", "hs_6_1", "ds_6_1", "gs_6_1", "ps_6_1", "cs_6_1", "lib_6_5",
+    "vs_6_6", "hs_6_6", "ds_6_6", "gs_6_6", "ps_6_6", "cs_6_6", "lib_6_6",
 };
 
 StaticAssert_(ArraySize_(ProfileStrings) == uint64(ShaderType::NumTypes));

@@ -19,7 +19,6 @@ namespace SampleFramework12
 
 enum RootParams : uint32
 {
-    RootParam_StandardDescriptors,
     RootParam_PerBatchCB,
     RootParam_SRVIndicesCB,
 
@@ -58,11 +57,6 @@ void SpriteRenderer::Initialize()
     {
         // Make the root signature
         D3D12_ROOT_PARAMETER1 rootParameters[NumRootParams] = { };
-        rootParameters[RootParam_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rootParameters[RootParam_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-        rootParameters[RootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
-
         rootParameters[RootParam_PerBatchCB].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
         rootParameters[RootParam_PerBatchCB].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
         rootParameters[RootParam_PerBatchCB].Descriptor.RegisterSpace = 0;
@@ -82,7 +76,7 @@ void SpriteRenderer::Initialize()
         rootSignatureDesc.pParameters = rootParameters;
         rootSignatureDesc.NumStaticSamplers = ArraySize_(staticSamplers);
         rootSignatureDesc.pStaticSamplers = staticSamplers;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
         DX12::CreateRootSignature(&rootSignature, rootSignatureDesc);
     }
@@ -139,8 +133,6 @@ void SpriteRenderer::Begin(ID3D12GraphicsCommandList* cmdList, Float2 viewportSi
 
     D3D12_INDEX_BUFFER_VIEW ibView = indexBuffer.IBView();
     cmdList->IASetIndexBuffer(&ibView);
-
-    DX12::BindStandardDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
 }
 
 void SpriteRenderer::Render(ID3D12GraphicsCommandList* cmdList, const Texture* texture, const SpriteTransform& transform,
