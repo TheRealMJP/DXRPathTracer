@@ -42,10 +42,6 @@ ConstantBuffer<ClusterConstants> CBuffer : register(b0);
 //=================================================================================================
 // Resources
 //=================================================================================================
-StructuredBuffer<ClusterBounds> BoundsBuffers[] : register(t0, space100);
-StructuredBuffer<float3> VertexBuffers[] : register(t0, space101);
-StructuredBuffer<uint> InstanceBuffers[] : register(t0, space102);
-
 RWByteAddressBuffer ClusterBuffer : register(u0);
 
 struct VSOutput
@@ -57,9 +53,9 @@ struct VSOutput
 
 VSOutput ClusterVS(in uint VertexIdx : SV_VertexID, in uint InstanceIdx : SV_InstanceID)
 {
-    StructuredBuffer<ClusterBounds> boundsBuffer = BoundsBuffers[CBuffer.BoundsBufferIdx];
-    StructuredBuffer<float3> vertexBuffer = VertexBuffers[CBuffer.VertexBufferIdx];
-    StructuredBuffer<uint> instanceBuffer = InstanceBuffers[CBuffer.InstanceBufferIdx];
+    StructuredBuffer<ClusterBounds> boundsBuffer = ResourceDescriptorHeap[CBuffer.BoundsBufferIdx];
+    StructuredBuffer<float3> vertexBuffer = ResourceDescriptorHeap[CBuffer.VertexBufferIdx];
+    StructuredBuffer<uint> instanceBuffer = ResourceDescriptorHeap[CBuffer.InstanceBufferIdx];
 
     uint idx = instanceBuffer[InstanceIdx + CBuffer.InstanceOffset];
     ClusterBounds bounds = boundsBuffer[idx];

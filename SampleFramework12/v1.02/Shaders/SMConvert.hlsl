@@ -12,7 +12,6 @@
 //=================================================================================================
 #include <EVSM.hlsl>
 #include <MSM.hlsl>
-#include <DescriptorTables.hlsl>
 
 //=================================================================================================
 // Constants
@@ -63,10 +62,10 @@ float4 SMConvert(in float4 Position : SV_Position) : SV_Target0
     {
         // Convert to EVSM representation
         #if MSAASamples_ > 1
-            Texture2DMS<float4> shadowMap = Tex2DMSTable[CBuffer.InputMapIdx];
+            Texture2DMS<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
             float depth = shadowMap.Load(coords, i).x;
         #else
-            Texture2D<float4> shadowMap = Tex2DTable[CBuffer.InputMapIdx];
+            Texture2D<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
             float depth = shadowMap[coords].x;
         #endif
 
@@ -94,11 +93,11 @@ float4 FilterSample(in float2 texelPos, in float offset, in float2 mapSize)
 
     #if Vertical_
         samplePos.y = clamp(texelPos.y + offset, 0, mapSize.y - 1.0f);
-        Texture2D<float4> shadowMap = Tex2DTable[CBuffer.InputMapIdx];
+        Texture2D<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
         return shadowMap[uint2(samplePos)];
     #else
         samplePos.x = clamp(texelPos.x + offset, 0, mapSize.x - 1.0f);
-        Texture2DArray<float4> shadowMap = Tex2DArrayTable[CBuffer.InputMapIdx];
+        Texture2DArray<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
         return shadowMap[uint3(samplePos, CBuffer.ArraySliceIdx)];
     #endif
 }
@@ -108,11 +107,11 @@ float4 FilterSM(in float4 Position : SV_Position) : SV_Target0
     #if Vertical_
         const float filterSize = CBuffer.FilterSizeU;
         const float texelSize = rcp(CBuffer.ShadowMapSize.y);
-        Texture2D<float4> shadowMap = Tex2DTable[CBuffer.InputMapIdx];
+        Texture2D<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
     #else
         const float filterSize = CBuffer.FilterSizeV;
         const float texelSize = rcp(CBuffer.ShadowMapSize.x);
-        Texture2DArray<float4> shadowMap = Tex2DArrayTable[CBuffer.InputMapIdx];
+        Texture2DArray<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
     #endif
 
     const float Radius = filterSize / 2.0f;
@@ -177,7 +176,7 @@ float4 FilterSM3x3(in float4 Position : SV_Position) : SV_Target0
     const float2 radius = float2(CBuffer.FilterSizeU, CBuffer.FilterSizeV) / 2.0f;
     float2 edgeFraction = radius - 0.5f;
 
-    Texture2D<float4> shadowMap = Tex2DTable[CBuffer.InputMapIdx];
+    Texture2D<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
 
     float4 sum = 0.0f;
 
@@ -243,7 +242,7 @@ float4 FilterSM5x5(in float4 Position : SV_Position) : SV_Target0
     const float2 radius = float2(CBuffer.FilterSizeU, CBuffer.FilterSizeV) / 2.0f;
     float2 edgeFraction = radius - 1.5f;
 
-    Texture2D<float4> shadowMap = Tex2DTable[CBuffer.InputMapIdx];
+    Texture2D<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
 
     float4 sum = 0.0f;
 
@@ -423,10 +422,10 @@ void SMConvertAndFilter(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : 
         {
             // Convert to EVSM representation
             #if MSAASamples_ > 1
-                Texture2DMS<float4> shadowMap = Tex2DMSTable[CBuffer.InputMapIdx];
+                Texture2DMS<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
                 float depth = shadowMap.Load(TexelIdx, i).x;
             #else
-                Texture2D<float4> shadowMap = Tex2DTable[CBuffer.InputMapIdx];
+                Texture2D<float4> shadowMap = ResourceDescriptorHeap[CBuffer.InputMapIdx];
                 float depth = shadowMap[TexelIdx].x;
             #endif
 

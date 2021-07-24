@@ -50,8 +50,6 @@ ConstantBuffer<SRVIndexConstants> SRVIndices : register(b4);
 //=================================================================================================
 // Resources
 //=================================================================================================
-StructuredBuffer<Material> MaterialBuffers[] : register(t0, space100);
-
 SamplerState AnisoSampler : register(s0);
 SamplerState LinearSampler : register(s1);
 SamplerComparisonState PCFSampler : register(s2);
@@ -139,13 +137,13 @@ float4 PSForward(in PSInput input) : SV_Target0
 	float3 bitangentWS = normalize(input.BitangentWS);
 	float3x3 tangentFrame = float3x3(tangentWS, bitangentWS, vtxNormalWS);
 
-    StructuredBuffer<Material> materialBuffer = MaterialBuffers[SRVIndices.MaterialTextureIndicesIdx];
+    StructuredBuffer<Material> materialBuffer = ResourceDescriptorHeap[SRVIndices.MaterialTextureIndicesIdx];
     Material material = materialBuffer[MatIndexCBuffer.MatIndex];
-    Texture2D AlbedoMap = Tex2DTable[material.Albedo];
-    Texture2D NormalMap = Tex2DTable[material.Normal];
-    Texture2D RoughnessMap = Tex2DTable[material.Roughness];
-    Texture2D MetallicMap = Tex2DTable[material.Metallic];
-    Texture2D EmissiveMap = Tex2DTable[material.Emissive];
+    Texture2D AlbedoMap = ResourceDescriptorHeap[material.Albedo];
+    Texture2D NormalMap = ResourceDescriptorHeap[material.Normal];
+    Texture2D RoughnessMap = ResourceDescriptorHeap[material.Roughness];
+    Texture2D MetallicMap = ResourceDescriptorHeap[material.Metallic];
+    Texture2D EmissiveMap = ResourceDescriptorHeap[material.Emissive];
 
     ShadingInput shadingInput;
     shadingInput.PositionSS = uint2(input.PositionSS.xy);
@@ -174,7 +172,7 @@ float4 PSForward(in PSInput input) : SV_Target0
     Texture2DArray spotLightShadowMap = Tex2DArrayTable[SRVIndices.SpotLightShadowMapIdx];
 
     #if AlphaTest_
-        Texture2D OpacityMap = Tex2DTable[material.Opacity];
+        Texture2D OpacityMap = ResourceDescriptorHeap[material.Opacity];
         if(OpacityMap.Sample(AnisoSampler, input.UV).x < 0.35f)
             discard;
     #endif

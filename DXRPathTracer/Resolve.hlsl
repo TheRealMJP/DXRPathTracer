@@ -11,7 +11,6 @@
 //=================================================================================================
 // Includes
 //=================================================================================================
-#include <DescriptorTables.hlsl>
 #include <Constants.hlsl>
 #include "AppSettings.hlsl"
 
@@ -33,7 +32,7 @@ float Luminance(in float3 clr)
 
 float4 ResolvePS(in float4 Position : SV_Position) : SV_Target0
 {
-    Texture2DMS<float4> inputTexture = Tex2DMSTable[CBuffer.InputTextureIdx];
+    Texture2DMS<float4> inputTexture = ResourceDescriptorHeap[CBuffer.InputTextureIdx];
 
     uint2 pixelPos = uint2(Position.xy);
 

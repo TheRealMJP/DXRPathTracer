@@ -7,8 +7,6 @@
 //
 //=================================================================================================
 
-#include <DescriptorTables.hlsl>
-
 //=================================================================================================
 // Resources
 //=================================================================================================
@@ -35,7 +33,7 @@ RWBuffer<float4> OutputBuffer : register(u0);
 [numthreads(TGSize_, TGSize_, 1)]
 void DecodeTextureCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : SV_GroupThreadID)
 {
-    Texture2D inputTexture = Tex2DTable[CBuffer.InputTextureIdx];
+    Texture2D inputTexture = ResourceDescriptorHeap[CBuffer.InputTextureIdx];
 
 	const uint2 texelIdx = GroupID.xy * uint2(TGSize_, TGSize_) + GroupThreadID.xy;
     const uint bufferIdx = texelIdx.y * CBuffer.Width + texelIdx.x;
@@ -45,7 +43,7 @@ void DecodeTextureCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : SV_
 [numthreads(TGSize_, TGSize_, TGSize_)]
 void DecodeTexture3DCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : SV_GroupThreadID)
 {
-    Texture3D inputTexture = Tex3DTable[CBuffer.InputTextureIdx];
+    Texture3D inputTexture = ResourceDescriptorHeap[CBuffer.InputTextureIdx];
 
     const uint3 texelIdx = uint3(GroupID.xy * uint2(TGSize_, TGSize_) + GroupThreadID.xy, GroupID.z);
     const uint bufferIdx = texelIdx.z * (CBuffer.Width * CBuffer.Height) + (texelIdx.y * CBuffer.Width) + texelIdx.x;
@@ -55,7 +53,7 @@ void DecodeTexture3DCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : S
 [numthreads(TGSize_, TGSize_, 1)]
 void DecodeTextureArrayCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : SV_GroupThreadID)
 {
-    Texture2DArray inputTexture = Tex2DArrayTable[CBuffer.InputTextureIdx];
+    Texture2DArray inputTexture = ResourceDescriptorHeap[CBuffer.InputTextureIdx];
 
 	const uint3 texelIdx = uint3(GroupID.xy * uint2(TGSize_, TGSize_) + GroupThreadID.xy, GroupID.z);
     const uint bufferIdx = texelIdx.z * (CBuffer.Width * CBuffer.Height) + (texelIdx.y * CBuffer.Width) + texelIdx.x;
@@ -65,7 +63,7 @@ void DecodeTextureArrayCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID 
 [numthreads(TGSize_, TGSize_, 1)]
 void DecodeTextureCubeCS(in uint3 GroupID : SV_GroupID, in uint3 GroupThreadID : SV_GroupThreadID)
 {
-    TextureCube inputTexture = TexCubeTable[CBuffer.InputTextureIdx];
+    TextureCube inputTexture = ResourceDescriptorHeap[CBuffer.InputTextureIdx];
 
     const uint3 texelIdx = uint3(GroupID.xy * uint2(TGSize_, TGSize_) + GroupThreadID.xy, GroupID.z);
     const uint bufferIdx = texelIdx.z * (CBuffer.Width * CBuffer.Height) + (texelIdx.y * CBuffer.Width) + texelIdx.x;
