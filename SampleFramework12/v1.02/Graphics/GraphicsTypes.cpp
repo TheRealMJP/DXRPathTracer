@@ -707,6 +707,10 @@ void StructuredBuffer::UpdateDynamicSRV() const
 {
     Assert_(InternalBuffer.Dynamic);
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = SRVDesc(InternalBuffer.CurrBuffer);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = DX12::SRVDescriptorHeap.CPUHandleFromIndex(SRV, DX12::CurrFrameIdx);
+    DX12::Device->CreateShaderResourceView(InternalBuffer.Resource, &srvDesc, handle);
+
     DX12::DeferredCreateSRV(InternalBuffer.Resource, srvDesc, SRV);
 }
 
@@ -786,6 +790,9 @@ void* FormattedBuffer::Map()
     MapResult mapResult = InternalBuffer.Map();
 
     GPUAddress = mapResult.GPUAddress;
+
+    UpdateDynamicSRV();
+
     return mapResult.CPUAddress;
 }
 
@@ -799,6 +806,8 @@ void FormattedBuffer::MapAndSetData(const void* data, uint64 numElements)
 void FormattedBuffer::UpdateData(const void* srcData, uint64 srcNumElements, uint64 dstElemOffset)
 {
     GPUAddress = InternalBuffer.UpdateData(srcData, srcNumElements * Stride, dstElemOffset * Stride);
+
+    UpdateDynamicSRV();
 }
 
 void FormattedBuffer::MultiUpdateData(const void* srcData[], uint64 srcNumElements[], uint64 dstElemOffset[], uint64 numUpdates)
@@ -813,6 +822,8 @@ void FormattedBuffer::MultiUpdateData(const void* srcData[], uint64 srcNumElemen
     }
 
     GPUAddress = InternalBuffer.MultiUpdateData(srcData, srcSizes, dstOffsets, numUpdates);
+
+    UpdateDynamicSRV();
 }
 
 void FormattedBuffer::Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const
@@ -854,6 +865,10 @@ void FormattedBuffer::UpdateDynamicSRV() const
 {
     Assert_(InternalBuffer.Dynamic);
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = SRVDesc(InternalBuffer.CurrBuffer);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = DX12::SRVDescriptorHeap.CPUHandleFromIndex(SRV, DX12::CurrFrameIdx);
+    DX12::Device->CreateShaderResourceView(InternalBuffer.Resource, &srvDesc, handle);
+
     DX12::DeferredCreateSRV(InternalBuffer.Resource, srvDesc, SRV);
 }
 
@@ -917,6 +932,9 @@ void* RawBuffer::Map()
 {
     MapResult mapResult = InternalBuffer.Map();
     GPUAddress = mapResult.GPUAddress;
+
+    UpdateDynamicSRV();
+
     return mapResult.CPUAddress;
 }
 
@@ -930,6 +948,8 @@ void RawBuffer::MapAndSetData(const void* data, uint64 numElements)
 void RawBuffer::UpdateData(const void* srcData, uint64 srcNumElements, uint64 dstElemOffset)
 {
     GPUAddress = InternalBuffer.UpdateData(srcData, srcNumElements * Stride, dstElemOffset * Stride);
+
+    UpdateDynamicSRV();
 }
 
 void RawBuffer::MultiUpdateData(const void* srcData[], uint64 srcNumElements[], uint64 dstElemOffset[], uint64 numUpdates)
@@ -944,6 +964,8 @@ void RawBuffer::MultiUpdateData(const void* srcData[], uint64 srcNumElements[], 
     }
 
     GPUAddress = InternalBuffer.MultiUpdateData(srcData, srcSizes, dstOffsets, numUpdates);
+
+    UpdateDynamicSRV();
 }
 
 void RawBuffer::Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) const
@@ -985,6 +1007,10 @@ void RawBuffer::UpdateDynamicSRV() const
 {
     Assert_(InternalBuffer.Dynamic);
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = SRVDesc(InternalBuffer.CurrBuffer);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = DX12::SRVDescriptorHeap.CPUHandleFromIndex(SRV, DX12::CurrFrameIdx);
+    DX12::Device->CreateShaderResourceView(InternalBuffer.Resource, &srvDesc, handle);
+
     DX12::DeferredCreateSRV(InternalBuffer.Resource, srvDesc, SRV);
 }
 
