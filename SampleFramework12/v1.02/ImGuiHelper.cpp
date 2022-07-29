@@ -140,8 +140,8 @@ void Initialize(Window& window)
         D3D12_ROOT_PARAMETER1 rootParameters[NumRootParams] = { };
         rootParameters[RootParam_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParameters[RootParam_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[RootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-        rootParameters[RootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+        rootParameters[RootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+        rootParameters[RootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
         rootParameters[RootParam_CBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
         rootParameters[RootParam_CBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
@@ -284,7 +284,7 @@ void EndFrame(ID3D12GraphicsCommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE rt
     cmdList->SetGraphicsRootSignature(RootSignature);
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    DX12::BindStandardDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
+    DX12::BindGlobalSRVDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
     DX12::BindTempConstantBuffer(cmdList, constants, RootParam_CBuffer, CmdListMode::Graphics);
 
     D3D12_VERTEX_BUFFER_VIEW vbView = { };

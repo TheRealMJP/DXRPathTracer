@@ -155,8 +155,6 @@ void MeshRenderer::Initialize(const Model* model_)
         spotLightDepthMap.Initialize(dbInit);
     }
 
-    const uint64 numMaterialTextures = model->MaterialTextures().Count();
-
     {
         // Create a structured buffer containing texture indices per-material
         const Array<MeshMaterial>& materials = model->Materials();
@@ -194,8 +192,8 @@ void MeshRenderer::Initialize(const Model* model_)
         // "Standard"  descriptor table
         rootParameters[MainPass_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParameters[MainPass_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[MainPass_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-        rootParameters[MainPass_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+        rootParameters[MainPass_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+        rootParameters[MainPass_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
         // VSCBuffer
         rootParameters[MainPass_VSCBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -381,7 +379,7 @@ void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Came
 
     ID3D12PipelineState* currPSO = mainPassPSO;
 
-    DX12::BindStandardDescriptorTable(cmdList, MainPass_StandardDescriptors, CmdListMode::Graphics);
+    DX12::BindGlobalSRVDescriptorTable(cmdList, MainPass_StandardDescriptors, CmdListMode::Graphics);
 
     Float4x4 world;
 

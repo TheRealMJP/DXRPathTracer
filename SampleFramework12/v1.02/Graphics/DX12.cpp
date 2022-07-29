@@ -29,7 +29,7 @@ StaticAssert_(D3D_SHADER_FEATURE_RESOURCE_DESCRIPTOR_HEAP_INDEXING);
 // Add our magic exports so that the D3D12 loader finds D3D12Core.dll
 extern "C" { _declspec(dllexport) extern const UINT D3D12SDKVersion = D3D12_SDK_VERSION;}
 
-extern "C" { _declspec(dllexport) extern const char* D3D12SDKPath = u8".\\D3D12\\"; }
+extern "C" { _declspec(dllexport) extern const char8_t* D3D12SDKPath = u8".\\D3D12\\"; }
 
 namespace SampleFramework12
 {
