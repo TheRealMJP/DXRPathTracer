@@ -108,8 +108,8 @@ struct RayTraceConstants
     uint32 IdxBufferIdx = uint32(-1);
     uint32 GeometryInfoBufferIdx = uint32(-1);
     uint32 MaterialBufferIdx = uint32(-1);
-	uint32 SkyTextureIdx = uint32(-1);
-	uint32 NumLights = 0;
+    uint32 SkyTextureIdx = uint32(-1);
+    uint32 NumLights = 0;
 };
 
 enum ClusterRootParams : uint32
@@ -136,8 +136,8 @@ enum RTRootParams : uint32
     RTParams_StandardDescriptors,
     RTParams_SceneDescriptor,
     RTParams_UAVDescriptor,
-	RTParams_CBuffer,
-	RTParams_LightCBuffer,
+    RTParams_CBuffer,
+    RTParams_LightCBuffer,
     RTParams_AppSettings,
 
     NumRTRootParams
@@ -233,7 +233,7 @@ void DXRPathTracer::Initialize()
     }
 
     {
-		// Spot light and shadow bounds buffer
+        // Spot light and shadow bounds buffer
         ConstantBufferInit cbInit;
         cbInit.Size = sizeof(LightConstants);
         cbInit.Dynamic = true;
@@ -690,12 +690,12 @@ void DXRPathTracer::InitRayTracing()
         rootParameters[RTParams_CBuffer].Descriptor.ShaderRegister = 0;
         rootParameters[RTParams_CBuffer].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
 
-		// LightCBuffer
-		rootParameters[RTParams_LightCBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-		rootParameters[RTParams_LightCBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-		rootParameters[RTParams_LightCBuffer].Descriptor.RegisterSpace = 0;
-		rootParameters[RTParams_LightCBuffer].Descriptor.ShaderRegister = 1;
-		rootParameters[RTParams_LightCBuffer].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE;
+        // LightCBuffer
+        rootParameters[RTParams_LightCBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+        rootParameters[RTParams_LightCBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+        rootParameters[RTParams_LightCBuffer].Descriptor.RegisterSpace = 0;
+        rootParameters[RTParams_LightCBuffer].Descriptor.ShaderRegister = 1;
+        rootParameters[RTParams_LightCBuffer].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE;
 
         // AppSettings
         rootParameters[RTParams_AppSettings].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -950,8 +950,8 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::EnableIndirect,
         &AppSettings::EnableIndirectSpecular,
         &AppSettings::EnableSky,
-		&AppSettings::EnableSun,
-		&AppSettings::RenderLights,
+        &AppSettings::EnableSun,
+        &AppSettings::RenderLights,
         &AppSettings::SunSize,
         &AppSettings::SunDirection,
         &AppSettings::Turbidity,
@@ -998,17 +998,17 @@ void DXRPathTracer::Render(const Timer& timer)
     CPUProfileBlock cpuProfileBlock("Render");
     ProfileBlock gpuProfileBlock(cmdList, "Render Total");
 
-	RenderTexture* finalRT = nullptr;
+    RenderTexture* finalRT = nullptr;
 
-	if (spotLights.Size() > 0)
-	{
-		// Update the light constant buffer
+    if (spotLights.Size() > 0)
+    {
+        // Update the light constant buffer
         MapResult staging = DX12::AcquireTempBufferMem(spotLightBuffer.InternalBuffer.Size, 0);
         memcpy(staging.CPUAddress, spotLights.Data(), spotLights.MemorySize());
         uint8* matrixData = reinterpret_cast<uint8*>(staging.CPUAddress) + sizeof(SpotLight) * AppSettings::MaxSpotLights;
         memcpy(matrixData, meshRenderer.SpotLightShadowMatrices(), spotLights.Size() * sizeof(Float4x4));
         spotLightBuffer.QueueUpload(staging.Resource, staging.ResourceOffset, spotLightBuffer.InternalBuffer.Size, 0);
-	}
+    }
 
     if(AppSettings::EnableRayTracing)
     {
@@ -1340,12 +1340,12 @@ void DXRPathTracer::RenderRayTracing()
     rtConstants.IdxBufferIdx = currentModel->IndexBuffer().SRV;
     rtConstants.GeometryInfoBufferIdx = rtGeoInfoBuffer.SRV;
     rtConstants.MaterialBufferIdx = meshRenderer.MaterialBuffer().SRV;
-	rtConstants.SkyTextureIdx = skyCache.CubeMap.SRV;
-	rtConstants.NumLights = Min<uint32>(uint32(spotLights.Size()), AppSettings::MaxLightClamp);
+    rtConstants.SkyTextureIdx = skyCache.CubeMap.SRV;
+    rtConstants.NumLights = Min<uint32>(uint32(spotLights.Size()), AppSettings::MaxLightClamp);
 
     DX12::BindTempConstantBuffer(cmdList, rtConstants, RTParams_CBuffer, CmdListMode::Compute);
 
-	spotLightBuffer.SetAsComputeRootParameter(cmdList, RTParams_LightCBuffer);
+    spotLightBuffer.SetAsComputeRootParameter(cmdList, RTParams_LightCBuffer);
 
     AppSettings::BindCBufferCompute(cmdList, RTParams_AppSettings);
 

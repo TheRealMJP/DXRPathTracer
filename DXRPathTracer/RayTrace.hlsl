@@ -40,13 +40,13 @@ struct RayTraceConstants
     uint GeometryInfoBufferIdx;
     uint MaterialBufferIdx;
     uint SkyTextureIdx;
-	uint NumLights;
+    uint NumLights;
 };
 
 struct LightConstants
 {
-	SpotLight Lights[MaxSpotLights];
-	float4x4 ShadowMatrices[MaxSpotLights];
+    SpotLight Lights[MaxSpotLights];
+    float4x4 ShadowMatrices[MaxSpotLights];
 };
 
 RaytracingAccelerationStructure Scene : register(t0, space200);
@@ -220,7 +220,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     Texture2D emissiveMap = ResourceDescriptorHeap[material.Emissive];
     float3 radiance = AppSettings.EnableWhiteFurnaceMode ? 0.0.xxx : emissiveMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
 
-	//Apply sun light
+    //Apply sun light
     if(AppSettings.EnableSun && !AppSettings.EnableWhiteFurnaceMode)
     {
         float3 sunDirection = RayTraceCB.SunDirectionWS;
@@ -261,56 +261,56 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
                                  roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
     }
 
-	// Apply spot lights
-	if (AppSettings.RenderLights)
-	{
-		//iterate all lights
-		for (uint spotLightIdx = 0; spotLightIdx < RayTraceCB.NumLights; spotLightIdx++)
-		{
-			SpotLight spotLight = LightCBuffer.Lights[spotLightIdx];
+    // Apply spot lights
+    if (AppSettings.RenderLights)
+    {
+        //iterate all lights
+        for (uint spotLightIdx = 0; spotLightIdx < RayTraceCB.NumLights; spotLightIdx++)
+        {
+            SpotLight spotLight = LightCBuffer.Lights[spotLightIdx];
 
-			float3 surfaceToLight = spotLight.Position - positionWS;
-			float distanceToLight = length(surfaceToLight);
-			surfaceToLight /= distanceToLight;
-			float angleFactor = saturate(dot(surfaceToLight, spotLight.Direction));
-			float angularAttenuation = smoothstep(spotLight.AngularAttenuationY, spotLight.AngularAttenuationX, angleFactor);
+            float3 surfaceToLight = spotLight.Position - positionWS;
+            float distanceToLight = length(surfaceToLight);
+            surfaceToLight /= distanceToLight;
+            float angleFactor = saturate(dot(surfaceToLight, spotLight.Direction));
+            float angularAttenuation = smoothstep(spotLight.AngularAttenuationY, spotLight.AngularAttenuationX, angleFactor);
 
-			float d = distanceToLight / spotLight.Range;
-			float falloff = saturate(1.0f - (d * d * d * d));
-			falloff = (falloff * falloff) / (distanceToLight * distanceToLight + 1.0f);
+            float d = distanceToLight / spotLight.Range;
+            float falloff = saturate(1.0f - (d * d * d * d));
+            falloff = (falloff * falloff) / (distanceToLight * distanceToLight + 1.0f);
 
-			angularAttenuation *= falloff;
+            angularAttenuation *= falloff;
 
-			if (angularAttenuation > 0.0f)
-			{
-				// Shoot a shadow ray to see if the sun is occluded
-				RayDesc ray;
-				ray.Origin = positionWS + normalWS * 0.01f;
-				ray.Direction = surfaceToLight;
-				ray.TMin = SpotShadowNearClip;
-				ray.TMax = distanceToLight - SpotShadowNearClip;
+            if (angularAttenuation > 0.0f)
+            {
+                // Shoot a shadow ray to see if the sun is occluded
+                RayDesc ray;
+                ray.Origin = positionWS + normalWS * 0.01f;
+                ray.Direction = surfaceToLight;
+                ray.TMin = SpotShadowNearClip;
+                ray.TMax = distanceToLight - SpotShadowNearClip;
 
-				ShadowPayload payload;
-				payload.Visibility = 1.0f;
+                ShadowPayload payload;
+                payload.Visibility = 1.0f;
 
-				uint traceRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+                uint traceRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
 
-				// Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
-				if (inPayload.PathLength > AppSettings.MaxAnyHitPathLength)
-					traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
+                // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
+                if (inPayload.PathLength > AppSettings.MaxAnyHitPathLength)
+                    traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
-				const uint hitGroupOffset = RayTypeShadow;
-				const uint hitGroupGeoMultiplier = NumRayTypes;
-				const uint missShaderIdx = RayTypeShadow;
-				TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+                const uint hitGroupOffset = RayTypeShadow;
+                const uint hitGroupGeoMultiplier = NumRayTypes;
+                const uint missShaderIdx = RayTypeShadow;
+                TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
-				float3 intensity = spotLight.Intensity * angularAttenuation;
+                float3 intensity = spotLight.Intensity * angularAttenuation;
 
-				radiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularAlbedo,
-					                     roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
-			}
-		}
-	}
+                radiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularAlbedo,
+                                         roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
+            }
+        }
+    }
 
     // Choose our next path by importance sampling our BRDFs
     float2 brdfSample = SamplePoint(inPayload.PixelIdx, inPayload.SampleSetIdx);

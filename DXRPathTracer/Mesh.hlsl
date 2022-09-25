@@ -21,7 +21,7 @@
 struct VSConstants
 {
     row_major float4x4 World;
-	row_major float4x4 View;
+    row_major float4x4 View;
     row_major float4x4 WorldViewProjection;
     float NearClip;
     float FarClip;
@@ -59,35 +59,35 @@ SamplerComparisonState PCFSampler : register(s2);
 //=================================================================================================
 struct VSInput
 {
-    float3 PositionOS 		    : POSITION;
-    float3 NormalOS 		    : NORMAL;
-    float2 UV 		            : UV;
-	float3 TangentOS 		    : TANGENT;
-	float3 BitangentOS		    : BITANGENT;
+    float3 PositionOS           : POSITION;
+    float3 NormalOS             : NORMAL;
+    float2 UV                   : UV;
+    float3 TangentOS            : TANGENT;
+    float3 BitangentOS          : BITANGENT;
 };
 
 struct VSOutput
 {
-    float4 PositionCS 		    : SV_Position;
+    float4 PositionCS           : SV_Position;
 
-    float3 NormalWS 		    : NORMALWS;
+    float3 NormalWS             : NORMALWS;
     float3 PositionWS           : POSITIONWS;
     float DepthVS               : DEPTHVS;
-	float3 TangentWS 		    : TANGENTWS;
-	float3 BitangentWS 		    : BITANGENTWS;
-	float2 UV 		            : UV;
+    float3 TangentWS            : TANGENTWS;
+    float3 BitangentWS          : BITANGENTWS;
+    float2 UV                   : UV;
 };
 
 struct PSInput
 {
-    float4 PositionSS 		    : SV_Position;
+    float4 PositionSS           : SV_Position;
 
-    float3 NormalWS 		    : NORMALWS;
+    float3 NormalWS             : NORMALWS;
     float3 PositionWS           : POSITIONWS;
     float DepthVS               : DEPTHVS;
-    float3 TangentWS 		    : TANGENTWS;
-	float3 BitangentWS 		    : BITANGENTWS;
-    float2 UV 		            : UV;
+    float3 TangentWS            : TANGENTWS;
+    float3 BitangentWS          : BITANGENTWS;
+    float2 UV                   : UV;
 };
 
 struct PSOutputForward
@@ -112,12 +112,12 @@ VSOutput VS(in VSInput input, in uint VertexID : SV_VertexID)
     output.PositionCS = mul(float4(positionOS, 1.0f), VSCBuffer.WorldViewProjection);
     output.DepthVS = output.PositionCS.w;
 
-	// Rotate the normal into world space
+    // Rotate the normal into world space
     output.NormalWS = normalize(mul(float4(input.NormalOS, 0.0f), VSCBuffer.World)).xyz;
 
-	// Rotate the rest of the tangent frame into world space
-	output.TangentWS = normalize(mul(float4(input.TangentOS, 0.0f), VSCBuffer.World)).xyz;
-	output.BitangentWS = normalize(mul(float4(input.BitangentOS, 0.0f), VSCBuffer.World)).xyz;
+    // Rotate the rest of the tangent frame into world space
+    output.TangentWS = normalize(mul(float4(input.TangentOS, 0.0f), VSCBuffer.World)).xyz;
+    output.BitangentWS = normalize(mul(float4(input.BitangentOS, 0.0f), VSCBuffer.World)).xyz;
 
     // Pass along the texture coordinates
     output.UV = input.UV;
@@ -130,12 +130,12 @@ VSOutput VS(in VSInput input, in uint VertexID : SV_VertexID)
 //=================================================================================================
 float4 PSForward(in PSInput input) : SV_Target0
 {
-	float3 vtxNormalWS = normalize(input.NormalWS);
+    float3 vtxNormalWS = normalize(input.NormalWS);
     float3 positionWS = input.PositionWS;
 
-	float3 tangentWS = normalize(input.TangentWS);
-	float3 bitangentWS = normalize(input.BitangentWS);
-	float3x3 tangentFrame = float3x3(tangentWS, bitangentWS, vtxNormalWS);
+    float3 tangentWS = normalize(input.TangentWS);
+    float3 bitangentWS = normalize(input.BitangentWS);
+    float3x3 tangentFrame = float3x3(tangentWS, bitangentWS, vtxNormalWS);
 
     StructuredBuffer<Material> materialBuffer = ResourceDescriptorHeap[SRVIndices.MaterialTextureIndicesIdx];
     Material material = materialBuffer[MatIndexCBuffer.MatIndex];
