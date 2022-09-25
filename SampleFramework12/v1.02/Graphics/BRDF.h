@@ -85,8 +85,7 @@ inline Float3 CalcLighting(const Float3& normal, const Float3& lightIrradiance,
 
     if(includeSpecular && Float3::Dot(normal, lightDir) > 0.0f)
     {
-        Float3 view = Float3::Normalize(cameraPos - position);
-        const float nDotV = Saturate(Float3::Dot(normal, view));
+        Float3 view = Float3::Normalize(cameraPos - position);        
         Float3 h = Float3::Normalize(view + lightDir);
 
         Float3 fresnel = Fresnel(specAlbedo, h, lightDir);

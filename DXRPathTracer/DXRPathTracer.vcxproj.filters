@@ -318,7 +318,13 @@
     <CustomBuild Include="..\Externals\Assimp-4.1.0\bin\assimp-vc140-mt.dll">
       <Filter>SampleFramework12\External DLLs</Filter>
     </CustomBuild>
-    <CustomBuild Include="$(WindowsSdkDir)\bin\$(WindowsTargetPlatformVersion)\x64\dxil.dll">
+    <CustomBuild Include="..\Externals\DXCompiler\Bin\dxil.dll">
+      <Filter>SampleFramework12\External DLLs</Filter>
+    </CustomBuild>
+    <CustomBuild Include="..\Externals\DXSDK\Bin\D3D12Core.dll">
+      <Filter>SampleFramework12\External DLLs</Filter>
+    </CustomBuild>
+    <CustomBuild Include="..\Externals\DXSDK\Bin\d3d12SDKLayers.dll">
       <Filter>SampleFramework12\External DLLs</Filter>
     </CustomBuild>
   </ItemGroup>

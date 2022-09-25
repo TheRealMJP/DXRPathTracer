@@ -42,10 +42,6 @@ ConstantBuffer<ClusterConstants> CBuffer : register(b0);
 //=================================================================================================
 // Resources
 //=================================================================================================
-StructuredBuffer<ClusterBounds> BoundsBuffers[] : register(t0, space100);
-StructuredBuffer<float3> VertexBuffers[] : register(t0, space101);
-StructuredBuffer<uint> InstanceBuffers[] : register(t0, space102);
-
 RWByteAddressBuffer ClusterBuffer : register(u0);
 
 struct VSOutput
@@ -57,9 +53,9 @@ struct VSOutput
 
 VSOutput ClusterVS(in uint VertexIdx : SV_VertexID, in uint InstanceIdx : SV_InstanceID)
 {
-    StructuredBuffer<ClusterBounds> boundsBuffer = BoundsBuffers[CBuffer.BoundsBufferIdx];
-    StructuredBuffer<float3> vertexBuffer = VertexBuffers[CBuffer.VertexBufferIdx];
-    StructuredBuffer<uint> instanceBuffer = InstanceBuffers[CBuffer.InstanceBufferIdx];
+    StructuredBuffer<ClusterBounds> boundsBuffer = ResourceDescriptorHeap[CBuffer.BoundsBufferIdx];
+    StructuredBuffer<float3> vertexBuffer = ResourceDescriptorHeap[CBuffer.VertexBufferIdx];
+    StructuredBuffer<uint> instanceBuffer = ResourceDescriptorHeap[CBuffer.InstanceBufferIdx];
 
     uint idx = instanceBuffer[InstanceIdx + CBuffer.InstanceOffset];
     ClusterBounds bounds = boundsBuffer[idx];
@@ -80,7 +76,7 @@ void ClusterPS(in VSOutput input)
 {
     uint2 tilePosXY = uint2(input.Position.xy);
     uint elemIdx = input.Index / 32;
-    uint mask = 1 << (input.Index % 32);
+    uint mask = 1u << (input.Index % 32);
 
     // Estimate the minimum and maximum Z tile intersected by the current triangle, treating the triangle as a plane.
     // This estimate will be wrong if we end up extrapolating off of the triangle.

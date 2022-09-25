@@ -23,6 +23,14 @@
     #define UseGPUValidation_ 0
 #endif
 
+// Make sure we've got the right version of d3d12.h from the DX Agility SDK
+StaticAssert_(D3D_SHADER_FEATURE_RESOURCE_DESCRIPTOR_HEAP_INDEXING);
+
+// Add our magic exports so that the D3D12 loader finds D3D12Core.dll
+extern "C" { _declspec(dllexport) extern const UINT D3D12SDKVersion = D3D12_SDK_VERSION;}
+
+extern "C" { _declspec(dllexport) extern const char8_t* D3D12SDKPath = u8".\\D3D12\\"; }
+
 namespace SampleFramework12
 {
 
@@ -118,11 +126,12 @@ void Initialize(D3D_FEATURE_LEVEL minFeatureLevel, uint32 adapterIdx)
     DXCall(D3D12CreateDevice(Adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&Device)));
 
     // Check the maximum feature level, and make sure it's above our minimum
-    D3D_FEATURE_LEVEL featureLevelsArray[4];
+    D3D_FEATURE_LEVEL featureLevelsArray[5];
     featureLevelsArray[0] = D3D_FEATURE_LEVEL_11_0;
     featureLevelsArray[1] = D3D_FEATURE_LEVEL_11_1;
     featureLevelsArray[2] = D3D_FEATURE_LEVEL_12_0;
     featureLevelsArray[3] = D3D_FEATURE_LEVEL_12_1;
+    featureLevelsArray[4] = D3D_FEATURE_LEVEL_12_2;
     D3D12_FEATURE_DATA_FEATURE_LEVELS featureLevels = { };
     featureLevels.NumFeatureLevels = ArraySize_(featureLevelsArray);
     featureLevels.pFeatureLevelsRequested = featureLevelsArray;
@@ -139,8 +148,14 @@ void Initialize(D3D_FEATURE_LEVEL minFeatureLevel, uint32 adapterIdx)
     // Check the required shader model
     D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = { D3D_SHADER_MODEL_6_6 };
     DXCall(Device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)));
-    if(shaderModel.HighestShaderModel < D3D_SHADER_MODEL_6_1)
-        throw Exception(L"The device does not support the minimum shader model required to run this sample (SM 6.1)");
+    if(shaderModel.HighestShaderModel < D3D_SHADER_MODEL_6_6)
+        throw Exception(L"The device does not support the minimum shader model required to run this sample (SM 6.6)");
+
+    // Check the requires resource binding tier
+    D3D12_FEATURE_DATA_D3D12_OPTIONS features = { };
+    Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &features, sizeof(features));
+    if(features.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3)
+        throw Exception("The does not support the minimum resource binding tier required to run this sample (D3D12_RESOURCE_BINDING_TIER_3)");
 
     #if EnableDXR_
         D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = { };

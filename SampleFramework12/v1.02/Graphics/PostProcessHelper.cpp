@@ -56,8 +56,8 @@ void PostProcessHelper::Initialize()
 
         rootParameters[RootParam_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParameters[RootParam_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[RootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-        rootParameters[RootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+        rootParameters[RootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+        rootParameters[RootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
         rootParameters[RootParam_SRVIndices].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
         rootParameters[RootParam_SRVIndices].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -80,7 +80,7 @@ void PostProcessHelper::Initialize()
         rootSignatureDesc.pParameters = rootParameters;
         rootSignatureDesc.NumStaticSamplers = ArraySize_(staticSamplers);
         rootSignatureDesc.pStaticSamplers = staticSamplers;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
         DX12::CreateRootSignature(&rootSignature, rootSignatureDesc);
         rootSignature->SetName(L"PostProcessHelper");
@@ -256,7 +256,7 @@ void PostProcessHelper::PostProcess(CompiledShaderPtr pixelShader, const char* n
     cmdList->SetGraphicsRootSignature(rootSignature);
     cmdList->SetPipelineState(pso);
 
-    DX12::BindStandardDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
+    DX12::BindGlobalSRVDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
 
     AppSettings::BindCBufferGfx(cmdList, RootParam_AppSettings);
 

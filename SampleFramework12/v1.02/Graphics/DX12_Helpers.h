@@ -1,7 +1,7 @@
 //=================================================================================================
 //
 //  MJP's DX12 Sample Framework
-//  http://mynameismjp.wordpress.com/
+//  https://therealmjp.github.io/
 //
 //  All code licensed under the MIT license
 //
@@ -10,6 +10,7 @@
 #pragma once
 
 #include "..\\PCH.h"
+#include "..\\Assert.h"
 #include "DX12.h"
 
 namespace SampleFramework12
@@ -19,6 +20,8 @@ namespace SampleFramework12
 struct DescriptorHeap;
 struct DescriptorHandle;
 struct LinearDescriptorHeap;
+struct Texture;
+struct ReadbackBuffer;
 
 enum class BlendState : uint64
 {
@@ -35,10 +38,11 @@ enum class BlendState : uint64
 enum class RasterizerState : uint64
 {
     NoCull = 0,
+    NoCullNoMS,
+    NoCullNoZClip,
     BackFaceCull,
     BackFaceCullNoZClip,
     FrontFaceCull,
-    NoCullNoMS,
     Wireframe,
 
     NumValues
@@ -76,6 +80,19 @@ enum class CmdListMode : uint64
     Compute,
 };
 
+// Universal root signature enum
+enum UniversalRootSignatureParams : uint32
+{
+    URS_GlobalSRVTable,
+    URS_UAVTable,
+    URS_ConstantBuffers,
+    URS_ConstantBuffersEnd = URS_ConstantBuffers + 7,
+    URS_AppSettings,
+
+    NumUniversalRootSignatureParams,
+    NumUniversalRootSignatureConstantBuffers = (URS_ConstantBuffersEnd - URS_ConstantBuffers) + 1
+};
+
 struct TempDescriptorTable
 {
     D3D12_CPU_DESCRIPTOR_HANDLE CPUStart;
@@ -98,6 +115,9 @@ const uint64 VertexBufferAlignment = 4;
 const uint64 IndexBufferAlignment = 4;
 const uint32 StandardMSAAPattern = 0xFFFFFFFF;
 
+const uint32 NumUserDescriptorRanges = 16;
+const uint32 NumGlobalSRVDescriptorRanges = 7 + NumUserDescriptorRanges;
+
 // Externals
 extern uint32 RTVDescriptorSize;
 extern uint32 SRVDescriptorSize;
@@ -111,9 +131,12 @@ extern DescriptorHeap DSVDescriptorHeap;
 extern DescriptorHeap UAVDescriptorHeap;
 
 extern uint32 NullTexture2DSRV;
+extern D3D12_CPU_DESCRIPTOR_HANDLE NullTexture2DUAV;
+extern D3D12_CPU_DESCRIPTOR_HANDLE NullStructuredBufferUAV;
+extern D3D12_CPU_DESCRIPTOR_HANDLE NullRawBufferUAV;
 
-const uint32 NumUserDescriptorRanges = 16;
-const uint32 NumStandardDescriptorRanges = 7 + NumUserDescriptorRanges;
+extern ID3D12RootSignature* UniversalRootSignature;
+extern ID3D12RootSignature* UniversalRootSignatureWithIA;
 
 // Lifetime
 void Initialize_Helpers();
@@ -122,6 +145,8 @@ void Shutdown_Helpers();
 void EndFrame_Helpers();
 
 // Resource Barriers
+D3D12_RESOURCE_BARRIER MakeTransitionBarrier(ID3D12Resource* resource, D3D12_RESOURCE_STATES before,
+                                             D3D12_RESOURCE_STATES after, uint32 subResource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 void TransitionResource(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* resource, D3D12_RESOURCE_STATES before,
                         D3D12_RESOURCE_STATES after, uint32 subResource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
 
@@ -154,6 +179,7 @@ void SetDescriptorHeaps(ID3D12GraphicsCommandList* cmdList);
 D3D12_GPU_DESCRIPTOR_HANDLE TempDescriptorTable(const D3D12_CPU_DESCRIPTOR_HANDLE* handles, uint64 count);
 void BindTempDescriptorTable(ID3D12GraphicsCommandList* cmdList, const D3D12_CPU_DESCRIPTOR_HANDLE* handles,
                              uint64 count, uint32 rootParameter, CmdListMode cmdListMode);
+void BindUAVDescriptorTableToURS(ID3D12GraphicsCommandList* cmdList, const D3D12_CPU_DESCRIPTOR_HANDLE* handles, uint64 count, CmdListMode cmdListMode);
 
 // Helpers for buffer types that use temporary buffer memory from the upload helper
 TempBuffer TempConstantBuffer(uint64 cbSize, bool makeDescriptor = false);
@@ -164,20 +190,36 @@ template<typename T> void BindTempConstantBuffer(ID3D12GraphicsCommandList* cmdL
     BindTempConstantBuffer(cmdList, &cbData, sizeof(T), rootParameter, cmdListMode);
 }
 
+template<typename T> void BindTempConstantBufferToURS(ID3D12GraphicsCommandList* cmdList, const T& cbData, uint32 cbIdx, CmdListMode cmdListMode)
+{
+    Assert_(cbIdx < NumUniversalRootSignatureConstantBuffers);
+    BindTempConstantBuffer(cmdList, &cbData, sizeof(T), URS_ConstantBuffers + cbIdx, cmdListMode);
+}
+
 template<uint32 N> void BindTempConstantBuffer(ID3D12GraphicsCommandList* cmdList, const uint32 (&cbData)[N], uint32 rootParameter, CmdListMode cmdListMode)
 {
     BindTempConstantBuffer(cmdList, cbData, N * sizeof(uint32), rootParameter, cmdListMode);
+}
+
+template<uint32 N> void BindTempConstantBufferToURS(ID3D12GraphicsCommandList* cmdList, const uint32 (&cbData)[N], uint32 cbIdx, CmdListMode cmdListMode)
+{
+    Assert_(cbIdx < NumUniversalRootSignatureConstantBuffers);
+    BindTempConstantBuffer(cmdList, cbData, N * sizeof(uint32), URS_ConstantBuffers + cbIdx, cmdListMode);
 }
 
 TempBuffer TempStructuredBuffer(uint64 numElements, uint64 stride, bool makeDescriptor = true);
 TempBuffer TempFormattedBuffer(uint64 numElements, DXGI_FORMAT format, bool makeDescriptor = true);
 TempBuffer TempRawBuffer(uint64 numElements, bool makeDescriptor = true);
 
-const D3D12_DESCRIPTOR_RANGE1* StandardDescriptorRanges();
-void InsertStandardDescriptorRanges(D3D12_DESCRIPTOR_RANGE1* ranges);
+const D3D12_DESCRIPTOR_RANGE1* GlobalSRVDescriptorRanges();
+void InsertGlobalSRVDescriptorRanges(D3D12_DESCRIPTOR_RANGE1* ranges);
 
 void BindAsDescriptorTable(ID3D12GraphicsCommandList* cmdList, uint32 descriptorIdx, uint32 rootParameter, CmdListMode cmdListMode);
-void BindStandardDescriptorTable(ID3D12GraphicsCommandList* cmdList, uint32 rootParameter, CmdListMode cmdListMode);
+void BindGlobalSRVDescriptorTable(ID3D12GraphicsCommandList* cmdList, uint32 rootParameter, CmdListMode cmdListMode);
+void BindGlobalSRVDescriptorTableToURS(ID3D12GraphicsCommandList* cmdList, CmdListMode cmdListMode);
+
+// Decode a texture read it back on the CPU
+void ConvertAndReadbackTexture(const Texture& texture, DXGI_FORMAT outputFormat, ReadbackBuffer& buffer);
 
 } // namespace DX12
 

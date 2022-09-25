@@ -7,7 +7,6 @@
 //  All code and content licensed under the MIT license
 //
 //=================================================================================================
-#include <Descriptortables.hlsl>
 #include <PPCommon.hlsl>
 #include <Constants.hlsl>
 #include "AppSettings.hlsl"
@@ -26,7 +25,7 @@ float CalcGaussianWeight(int sampleDist, float sigma)
 // Performs a gaussian blur in one direction
 float4 Blur(in PSInput input, float2 texScale, float sigma, bool nrmlize)
 {
-    Texture2D inputTexture = Tex2DTable[SRVIndices.Idx0];
+    Texture2D inputTexture = ResourceDescriptorHeap[SRVIndices.Idx0];
 
     float2 inputSize = 0.0f;
     inputTexture.GetDimensions(inputSize.x, inputSize.y);
@@ -67,7 +66,7 @@ float3 ToneMapFilmicALU(in float3 color)
 // Initial pass for bloom
 float4 Bloom(in PSInput input) : SV_Target
 {
-    Texture2D inputTexture = Tex2DTable[SRVIndices.Idx0];
+    Texture2D inputTexture = ResourceDescriptorHeap[SRVIndices.Idx0];
 
     float4 reds = inputTexture.GatherRed(LinearSampler, input.TexCoord);
     float4 greens = inputTexture.GatherGreen(LinearSampler, input.TexCoord);
@@ -91,7 +90,7 @@ float4 Bloom(in PSInput input) : SV_Target
 // Uses hw bilinear filtering for upscaling or downscaling
 float4 Scale(in PSInput input) : SV_Target
 {
-    Texture2D inputTexture = Tex2DTable[SRVIndices.Idx0];
+    Texture2D inputTexture = ResourceDescriptorHeap[SRVIndices.Idx0];
     return inputTexture.Sample(LinearSampler, input.TexCoord);
 }
 
@@ -110,8 +109,8 @@ float4 BlurV(in PSInput input) : SV_Target
 // Applies exposure and tone mapping to the input
 float4 ToneMap(in PSInput input) : SV_Target0
 {
-    Texture2D inputTexture0 = Tex2DTable[SRVIndices.Idx0];
-    Texture2D inputTexture1 = Tex2DTable[SRVIndices.Idx1];
+    Texture2D inputTexture0 = ResourceDescriptorHeap[SRVIndices.Idx0];
+    Texture2D inputTexture1 = ResourceDescriptorHeap[SRVIndices.Idx1];
 
     float3 color = inputTexture0.Sample(PointSampler, input.TexCoord).xyz;
 

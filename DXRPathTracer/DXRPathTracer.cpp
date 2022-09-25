@@ -202,9 +202,6 @@ void DXRPathTracer::Initialize()
     // Check if the device supports conservative rasterization
     D3D12_FEATURE_DATA_D3D12_OPTIONS features = { };
     DX12::Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &features, sizeof(features));
-    if(features.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_2)
-        throw Exception("This demo requires a GPU that supports FEATURE_LEVEL_11_1 with D3D12_RESOURCE_BINDING_TIER_2");
-
     if(features.ConservativeRasterizationTier == D3D12_CONSERVATIVE_RASTERIZATION_TIER_NOT_SUPPORTED)
     {
         AppSettings::ClusterRasterizationMode.SetValue(ClusterRasterizationModes::MSAA8x);
@@ -300,8 +297,8 @@ void DXRPathTracer::Initialize()
         // Standard SRV descriptors
         rootParameters[ClusterParams_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParameters[ClusterParams_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-        rootParameters[ClusterParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-        rootParameters[ClusterParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+        rootParameters[ClusterParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+        rootParameters[ClusterParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
         // PS UAV descriptors
         rootParameters[ClusterParams_UAVDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -328,7 +325,7 @@ void DXRPathTracer::Initialize()
         rootSignatureDesc.pParameters = rootParameters;
         rootSignatureDesc.NumStaticSamplers = 0;
         rootSignatureDesc.pStaticSamplers = nullptr;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
         DX12::CreateRootSignature(&clusterRS, rootSignatureDesc);
     }
@@ -340,8 +337,8 @@ void DXRPathTracer::Initialize()
         // Standard SRV descriptors
         rootParameters[ResolveParams_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParameters[ResolveParams_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[ResolveParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-        rootParameters[ResolveParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+        rootParameters[ResolveParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+        rootParameters[ResolveParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
         // CBuffer
         rootParameters[ResolveParams_Constants].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
@@ -362,7 +359,7 @@ void DXRPathTracer::Initialize()
         rootSignatureDesc.pParameters = rootParameters;
         rootSignatureDesc.NumStaticSamplers = 0;
         rootSignatureDesc.pStaticSamplers = nullptr;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
         DX12::CreateRootSignature(&resolveRootSignature, rootSignatureDesc);
     }
@@ -579,6 +576,7 @@ void DXRPathTracer::CreateRenderTargets()
         RawBufferInit rbInit;
         rbInit.NumElements = numXYZTiles * AppSettings::SpotLightElementsPerCluster;
         rbInit.CreateUAV = true;
+        rbInit.InitialState = D3D12_RESOURCE_STATE_COMMON;
         rbInit.Name = L"Spot Light Cluster Buffer";
         spotLightClusterBuffer.Initialize(rbInit);
     }
@@ -625,8 +623,6 @@ void DXRPathTracer::InitializeScene()
     DX12::FlushGPU();
     meshRenderer.Initialize(currentModel);
 
-    const uint64 numMaterialTextures = currentModel->MaterialTextures().Count();
-
     camera.SetPosition(SceneCameraPositions[currSceneIdx]);
     camera.SetXRotation(SceneCameraRotations[currSceneIdx].x);
     camera.SetYRotation(SceneCameraRotations[currSceneIdx].y);
@@ -672,8 +668,8 @@ void DXRPathTracer::InitRayTracing()
         // Standard SRV descriptors
         rootParameters[RTParams_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
         rootParameters[RTParams_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-        rootParameters[RTParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+        rootParameters[RTParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+        rootParameters[RTParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
         // Acceleration structure SRV descriptor
         rootParameters[RTParams_SceneDescriptor].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
@@ -717,7 +713,7 @@ void DXRPathTracer::InitRayTracing()
         rootSignatureDesc.pParameters = rootParameters;
         rootSignatureDesc.NumStaticSamplers = ArraySize_(staticSamplers);
         rootSignatureDesc.pStaticSamplers = staticSamplers;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
         DX12::CreateRootSignature(&rtRootSignature, rootSignatureDesc);
     }
@@ -1007,10 +1003,11 @@ void DXRPathTracer::Render(const Timer& timer)
 	if (spotLights.Size() > 0)
 	{
 		// Update the light constant buffer
-		const void* srcData[2] = { spotLights.Data(), meshRenderer.SpotLightShadowMatrices() };
-		uint64 sizes[2] = { spotLights.MemorySize(), spotLights.Size() * sizeof(Float4x4) };
-		uint64 offsets[2] = { 0, sizeof(SpotLight) * AppSettings::MaxSpotLights };
-		spotLightBuffer.MultiUpdateData(srcData, sizes, offsets, ArraySize_(srcData));
+        MapResult staging = DX12::AcquireTempBufferMem(spotLightBuffer.InternalBuffer.Size, 0);
+        memcpy(staging.CPUAddress, spotLights.Data(), spotLights.MemorySize());
+        uint8* matrixData = reinterpret_cast<uint8*>(staging.CPUAddress) + sizeof(SpotLight) * AppSettings::MaxSpotLights;
+        memcpy(matrixData, meshRenderer.SpotLightShadowMatrices(), spotLights.Size() * sizeof(Float4x4));
+        spotLightBuffer.QueueUpload(staging.Resource, staging.ResourceOffset, spotLightBuffer.InternalBuffer.Size, 0);
 	}
 
     if(AppSettings::EnableRayTracing)
@@ -1168,7 +1165,7 @@ void DXRPathTracer::RenderClusters()
 
     cmdList->SetGraphicsRootSignature(clusterRS);
 
-    DX12::BindStandardDescriptorTable(cmdList, ClusterParams_StandardDescriptors, CmdListMode::Graphics);
+    DX12::BindGlobalSRVDescriptorTable(cmdList, ClusterParams_StandardDescriptors, CmdListMode::Graphics);
 
     if(AppSettings::RenderLights)
     {
@@ -1296,7 +1293,7 @@ void DXRPathTracer::RenderResolve()
     cmdList->SetGraphicsRootSignature(resolveRootSignature);
     cmdList->SetPipelineState(resolvePSO);
 
-    DX12::BindStandardDescriptorTable(cmdList, ResolveParams_StandardDescriptors, CmdListMode::Graphics);
+    DX12::BindGlobalSRVDescriptorTable(cmdList, ResolveParams_StandardDescriptors, CmdListMode::Graphics);
 
     cmdList->SetGraphicsRoot32BitConstant(ResolveParams_Constants, uint32(mainTarget.Width()), 0);
     cmdList->SetGraphicsRoot32BitConstant(ResolveParams_Constants, uint32(mainTarget.Height()), 1);
@@ -1322,7 +1319,7 @@ void DXRPathTracer::RenderRayTracing()
     ID3D12GraphicsCommandList4* cmdList = DX12::CmdList;
     cmdList->SetComputeRootSignature(rtRootSignature);
 
-    DX12::BindStandardDescriptorTable(cmdList, RTParams_StandardDescriptors, CmdListMode::Compute);
+    DX12::BindGlobalSRVDescriptorTable(cmdList, RTParams_StandardDescriptors, CmdListMode::Compute);
 
     cmdList->SetComputeRootShaderResourceView(RTParams_SceneDescriptor, rtTopLevelAccelStructure.GPUAddress);
     DX12::BindTempDescriptorTable(cmdList, &rtTarget.UAV, 1, RTParams_UAVDescriptor, CmdListMode::Compute);
@@ -1519,7 +1516,7 @@ void DXRPathTracer::BuildRTAccelerationStructure()
         RawBufferInit bufferInit;
         bufferInit.NumElements = Max(topLevelPrebuildInfo.ScratchDataSizeInBytes, bottomLevelPrebuildInfo.ScratchDataSizeInBytes) / RawBuffer::Stride;
         bufferInit.CreateUAV = true;
-        bufferInit.InitialState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        bufferInit.InitialState = D3D12_RESOURCE_STATE_COMMON;
         bufferInit.Name = L"RT Scratch Buffer";
         scratchBuffer.Initialize(bufferInit);
     }

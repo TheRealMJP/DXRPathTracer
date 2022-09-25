@@ -1,7 +1,7 @@
 //=================================================================================================
 //
 //  MJP's DX12 Sample Framework
-//  http://mynameismjp.wordpress.com/
+//  https://therealmjp.github.io/
 //
 //  All code licensed under the MIT license
 //
@@ -31,9 +31,6 @@ struct UploadContext
     void* Submission = nullptr;
 };
 
-struct ReadbackBuffer;
-struct Texture;
-
 namespace DX12
 {
 
@@ -46,12 +43,13 @@ void Flush_Upload();
 
 // Resource upload/init
 UploadContext ResourceUploadBegin(uint64 size);
-void ResourceUploadEnd(UploadContext& context);
+void ResourceUploadEnd(UploadContext& context, bool syncOnGraphicsQueue = true);
 
 // Temporary CPU-writable buffer memory
 MapResult AcquireTempBufferMem(uint64 size, uint64 alignment);
 
-void ConvertAndReadbackTexture(const Texture& texture, DXGI_FORMAT outputFormat, ReadbackBuffer& buffer);
+// Fast in-frame upload path through the copy queue
+void QueueFastUpload(ID3D12Resource* srcBuffer, uint64 srcOffset, ID3D12Resource* dstBuffer, uint64 dstOffset, uint64 copySize);
 
 }
 

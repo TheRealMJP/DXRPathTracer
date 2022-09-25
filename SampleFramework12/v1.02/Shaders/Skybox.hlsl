@@ -8,7 +8,6 @@
 //=================================================================================================
 
 #include <Constants.hlsl>
-#include <DescriptorTables.hlsl>
 
 //=================================================================================================
 // Constant buffers
@@ -78,7 +77,7 @@ VSOutput SkyboxVS(in VSInput input)
 float4 SkyboxPS(in VSOutput input) : SV_Target
 {
     // Sample the environment map
-    TextureCube envMap = TexCubeTable[PSCBuffer.EnvMapIdx];
+    TextureCube envMap = ResourceDescriptorHeap[PSCBuffer.EnvMapIdx];
     float3 color = envMap.Sample(LinearSampler, normalize(input.TexCoord)).xyz;
 
     // Draw a circle for the sun

@@ -7,8 +7,6 @@
 //
 //=================================================================================================
 
-#include <DescriptorTables.hlsl>
-
 //=================================================================================================
 // Constant buffers
 //=================================================================================================
@@ -37,7 +35,6 @@ struct SpriteDrawData
 //=================================================================================================
 // Resources
 //=================================================================================================
-StructuredBuffer<SpriteDrawData> SpriteBuffers[] : register(t0, space100);
 SamplerState PointSampler : register(s0);
 SamplerState LinearSampler : register(s1);
 
@@ -65,7 +62,7 @@ VSOutput SpriteVS(in uint VertexIdx : SV_VertexID, in uint InstanceIdx : SV_Inst
     else if(VertexIdx == 3)
         vtxPosition = float2(0.0f, 1.0f);
 
-    StructuredBuffer<SpriteDrawData> spriteBuffer = SpriteBuffers[SpriteBufferIdx];
+    StructuredBuffer<SpriteDrawData> spriteBuffer = ResourceDescriptorHeap[SpriteBufferIdx];
     SpriteDrawData instanceData = spriteBuffer[InstanceIdx];
 
     // Scale the quad so that it's texture-sized
@@ -102,7 +99,7 @@ VSOutput SpriteVS(in uint VertexIdx : SV_VertexID, in uint InstanceIdx : SV_Inst
 //=================================================================================================
 float4 SpritePS(in VSOutput input) : SV_Target
 {
-    Texture2D spriteTexture = Tex2DTable[SpriteTextureIdx];
+    Texture2D spriteTexture = ResourceDescriptorHeap[SpriteTextureIdx];
 
     float4 texColor = 0.0f;
     if(LinearSampling)

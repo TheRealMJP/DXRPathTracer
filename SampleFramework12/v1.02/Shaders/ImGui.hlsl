@@ -7,8 +7,6 @@
 //
 //=================================================================================================
 
-#include <DescriptorTables.hlsl>
-
 struct VSInput
 {
     float2 Position : POSITION;
@@ -49,6 +47,6 @@ VSOutput ImGuiVS(in VSInput input)
 
 float4 ImGuiPS(in VSOutput input) : SV_Target0
 {
-    Texture2D imGuiTexture = Tex2DTable[SRVIndices.TextureIdx];
+    Texture2D imGuiTexture = ResourceDescriptorHeap[SRVIndices.TextureIdx];
     return imGuiTexture.Sample(LinearSampler, input.UV) * input.Color;
 }

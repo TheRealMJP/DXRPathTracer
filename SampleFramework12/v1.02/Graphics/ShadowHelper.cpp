@@ -137,8 +137,8 @@ void Initialize(ShadowMapMode smMode, ShadowMSAAMode msaaMode)
             D3D12_ROOT_PARAMETER1 rootParameters[NumRootParams] = { };
             rootParameters[RootParam_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
             rootParameters[RootParam_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-            rootParameters[RootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-            rootParameters[RootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+            rootParameters[RootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+            rootParameters[RootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
             rootParameters[RootParam_CBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
             rootParameters[RootParam_CBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -153,7 +153,7 @@ void Initialize(ShadowMapMode smMode, ShadowMSAAMode msaaMode)
             rootSignatureDesc.pParameters = rootParameters;
             rootSignatureDesc.NumStaticSamplers = ArraySize_(staticSamplers);
             rootSignatureDesc.pStaticSamplers = staticSamplers;
-            rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+            rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
             DX12::CreateRootSignature(&rootSignature, rootSignatureDesc);
         }
@@ -169,8 +169,8 @@ void Initialize(ShadowMapMode smMode, ShadowMSAAMode msaaMode)
             D3D12_ROOT_PARAMETER1 rootParameters[NumComputeRootParams] = { };
             rootParameters[CSRootParam_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
             rootParameters[CSRootParam_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-            rootParameters[CSRootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::StandardDescriptorRanges();
-            rootParameters[CSRootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumStandardDescriptorRanges;
+            rootParameters[CSRootParam_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
+            rootParameters[CSRootParam_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
             rootParameters[CSRootParam_CBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
             rootParameters[CSRootParam_CBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -188,7 +188,7 @@ void Initialize(ShadowMapMode smMode, ShadowMSAAMode msaaMode)
             rootSignatureDesc.pParameters = rootParameters;
             rootSignatureDesc.NumStaticSamplers = 0;
             rootSignatureDesc.pStaticSamplers = nullptr;
-            rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+            rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
             DX12::CreateRootSignature(&rootSignatureCS, rootSignatureDesc);
         }
@@ -331,7 +331,7 @@ void ConvertShadowMap(ID3D12GraphicsCommandList* cmdList, const DepthBuffer& dep
         cmdList->SetComputeRootSignature(rootSignatureCS);
         cmdList->SetPipelineState(smConvertAndFilterPSO[sampleRadius]);
 
-        DX12::BindStandardDescriptorTable(cmdList, CSRootParam_StandardDescriptors, CmdListMode::Compute);
+        DX12::BindGlobalSRVDescriptorTable(cmdList, CSRootParam_StandardDescriptors, CmdListMode::Compute);
 
         DX12::BindTempConstantBuffer(cmdList, constants, CSRootParam_CBuffer, CmdListMode::Compute);
 
@@ -357,7 +357,7 @@ void ConvertShadowMap(ID3D12GraphicsCommandList* cmdList, const DepthBuffer& dep
         cmdList->SetGraphicsRootSignature(rootSignature);
         cmdList->SetPipelineState(smConvertPSO);
 
-        DX12::BindStandardDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
+        DX12::BindGlobalSRVDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
 
         DX12::BindTempConstantBuffer(cmdList, constants, RootParam_CBuffer, CmdListMode::Graphics);
 
@@ -388,7 +388,7 @@ void ConvertShadowMap(ID3D12GraphicsCommandList* cmdList, const DepthBuffer& dep
         cmdList->SetGraphicsRootSignature(rootSignature);
         cmdList->SetPipelineState(smConvertPSO);
 
-        DX12::BindStandardDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
+        DX12::BindGlobalSRVDescriptorTable(cmdList, RootParam_StandardDescriptors, CmdListMode::Graphics);
 
         DX12::BindTempConstantBuffer(cmdList, constants, RootParam_CBuffer, CmdListMode::Graphics);
 

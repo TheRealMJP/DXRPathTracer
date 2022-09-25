@@ -27,14 +27,14 @@ using std::map;
 namespace SampleFramework12
 {
 
-static const uint64 CacheVersion = 1;
+static const uint64 CacheVersion = 3;
 
 static const char* TypeStrings[] = { "vertex", "hull", "domain", "geometry", "pixel", "compute", "lib" };
 StaticAssert_(ArraySize_(TypeStrings) == uint64(ShaderType::NumTypes));
 
 static const char* ProfileStrings[] =
 {
-    "vs_6_1", "hs_6_1", "ds_6_1", "gs_6_1", "ps_6_1", "cs_6_1", "lib_6_5",
+    "vs_6_6", "hs_6_6", "ds_6_6", "gs_6_6", "ps_6_6", "cs_6_6", "lib_6_6",
 };
 
 StaticAssert_(ArraySize_(ProfileStrings) == uint64(ShaderType::NumTypes));
@@ -212,15 +212,14 @@ static HRESULT CompileShaderDXC(const wchar* path, const D3D_SHADER_MACRO* defin
 
     const wchar* arguments[] =
     {
-        L"/O3",
+        L"-O3",
         L"-all_resources_bound",
         L"-WX",
         L"-I",
         expandedFrameworkShaderDir,
 
-        // LLVM debug info seems to make the RT PSO croak
-        #if Debug_ && !EnableDXR_
-            L"/Zi",
+        #if Debug_
+            L"-Zs",
         #endif
     };
 
