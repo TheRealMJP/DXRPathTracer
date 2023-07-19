@@ -1347,26 +1347,21 @@ void DepthBuffer::Initialize(const DepthBufferInit& init)
     Assert_(init.Height > 0);
     Assert_(init.MSAASamples > 0);
 
-    DXGI_FORMAT texFormat = init.Format;
     DXGI_FORMAT srvFormat = init.Format;
     if(init.Format == DXGI_FORMAT_D16_UNORM)
     {
-        texFormat = DXGI_FORMAT_R16_TYPELESS;
         srvFormat = DXGI_FORMAT_R16_UNORM;
     }
     else if(init.Format == DXGI_FORMAT_D24_UNORM_S8_UINT)
     {
-        texFormat = DXGI_FORMAT_R24G8_TYPELESS;
         srvFormat = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
     }
     else if(init.Format == DXGI_FORMAT_D32_FLOAT)
     {
-        texFormat = DXGI_FORMAT_R32_TYPELESS;
         srvFormat = DXGI_FORMAT_R32_FLOAT;
     }
     else if(init.Format == DXGI_FORMAT_D32_FLOAT_S8X24_UINT)
     {
-        texFormat = DXGI_FORMAT_R32G8X24_TYPELESS;
         srvFormat = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
     }
     else
@@ -1376,7 +1371,7 @@ void DepthBuffer::Initialize(const DepthBufferInit& init)
 
     D3D12_RESOURCE_DESC textureDesc = { };
     textureDesc.MipLevels = 1;
-    textureDesc.Format = texFormat;
+    textureDesc.Format = init.Format;
     textureDesc.Width = uint32(init.Width);
     textureDesc.Height = uint32(init.Height);
     textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
