@@ -23,12 +23,12 @@ struct Hash
     Hash(uint64 a, uint64 b) : A(a), B(b) {}
 
     std::wstring ToString() const;
-
-    bool operator==(const Hash& other)
-    {
-        return A == other.A && B == other.B;
-    }
 };
+
+inline bool operator==(const Hash& a, const Hash& b)
+{
+    return a.A == b.A && a.B == b.B;
+}
 
 Hash GenerateHash(const void* key, int32 len, uint32 seed = 0);
 Hash CombineHashes(Hash a, Hash b);
