@@ -168,7 +168,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     if(AppSettings.EnableNormalMaps)
     {
         // Sample the normal map, and convert the normal to world space
-        Texture2D normalMap = ResourceDescriptorHeap[material.Normal];
+        Texture2D normalMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Normal)];
 
         float3 normalTS;
         normalTS.xy = normalMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xy * 2.0f - 1.0f;
@@ -181,11 +181,11 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     float3 baseColor = 1.0f;
     if(AppSettings.EnableAlbedoMaps && !AppSettings.EnableWhiteFurnaceMode)
     {
-        Texture2D albedoMap = ResourceDescriptorHeap[material.Albedo];
+        Texture2D albedoMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Albedo)];
         baseColor = albedoMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
     }
 
-    Texture2D metallicMap = ResourceDescriptorHeap[material.Metallic];
+    Texture2D metallicMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Metallic)];
     const float metallic = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : metallicMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x) * AppSettings.MetallicScale);
 
     const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f) || AppSettings.EnableWhiteFurnaceMode;
@@ -194,7 +194,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     if(enableDiffuse == false && enableSpecular == false)
         return 0.0f;
 
-    Texture2D roughnessMap = ResourceDescriptorHeap[material.Roughness];
+    Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
     const float sqrtRoughness = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : roughnessMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x) * AppSettings.RoughnessScale);
 
     const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
@@ -217,7 +217,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         msEnergyCompensation = 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
     }
 
-    Texture2D emissiveMap = ResourceDescriptorHeap[material.Emissive];
+    Texture2D emissiveMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Emissive)];
     float3 radiance = AppSettings.EnableWhiteFurnaceMode ? 0.0.xxx : emissiveMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
 
     //Apply sun light
@@ -489,7 +489,7 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
     const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing
-    Texture2D opacityMap = ResourceDescriptorHeap[material.Opacity];
+    Texture2D opacityMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Opacity)];
     if(opacityMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x < 0.35f)
         IgnoreHit();
 }
@@ -501,7 +501,7 @@ void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
     const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing
-    Texture2D opacityMap = ResourceDescriptorHeap[material.Opacity];
+    Texture2D opacityMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Opacity)];
     if(opacityMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x < 0.35f)
         IgnoreHit();
 }
