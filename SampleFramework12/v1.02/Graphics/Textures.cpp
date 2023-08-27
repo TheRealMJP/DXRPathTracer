@@ -70,20 +70,20 @@ void LoadTexture(Texture& texture, const wchar* filePath, bool forceSRGB)
 
     D3D12_RESOURCE_DESC textureDesc = { };
     textureDesc.MipLevels = uint16(metaData.mipLevels);
-	textureDesc.Format = format;
-	textureDesc.Width = uint32(metaData.width);
-	textureDesc.Height = uint32(metaData.height);
-	textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	textureDesc.DepthOrArraySize = is3D ? uint16(metaData.depth) : uint16(metaData.arraySize);
-	textureDesc.SampleDesc.Count = 1;
-	textureDesc.SampleDesc.Quality = 0;
-	textureDesc.Dimension = is3D ? D3D12_RESOURCE_DIMENSION_TEXTURE3D : D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    textureDesc.Format = format;
+    textureDesc.Width = uint32(metaData.width);
+    textureDesc.Height = uint32(metaData.height);
+    textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+    textureDesc.DepthOrArraySize = is3D ? uint16(metaData.depth) : uint16(metaData.arraySize);
+    textureDesc.SampleDesc.Count = 1;
+    textureDesc.SampleDesc.Quality = 0;
+    textureDesc.Dimension = is3D ? D3D12_RESOURCE_DIMENSION_TEXTURE3D : D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     textureDesc.Alignment = 0;
 
     ID3D12Device* device = DX12::Device;
     DXCall(device->CreateCommittedResource(DX12::GetDefaultHeapProps(), D3D12_HEAP_FLAG_NONE, &textureDesc,
-			                               D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&texture.Resource)));
+                                           D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&texture.Resource)));
     texture.Resource->SetName(filePath);
 
     PersistentDescriptorAlloc srvAlloc = DX12::SRVDescriptorHeap.AllocatePersistent();
@@ -110,10 +110,10 @@ void LoadTexture(Texture& texture, const wchar* filePath, bool forceSRGB)
     uint32* numRows = (uint32*)_alloca(sizeof(uint32) * numSubResources);
     uint64* rowSizes = (uint64*)_alloca(sizeof(uint64) * numSubResources);
 
-	uint64 textureMemSize = 0;
+    uint64 textureMemSize = 0;
     device->GetCopyableFootprints(&textureDesc, 0, uint32(numSubResources), 0, layouts, numRows, rowSizes, &textureMemSize);
 
-	// Get a GPU upload buffer
+    // Get a GPU upload buffer
     UploadContext uploadContext = DX12::ResourceUploadBegin(textureMemSize);
     uint8* uploadMem = reinterpret_cast<uint8*>(uploadContext.CPUAddress);
 
