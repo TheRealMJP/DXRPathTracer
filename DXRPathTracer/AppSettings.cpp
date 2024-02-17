@@ -67,6 +67,8 @@ namespace AppSettings
     BoolSetting EnableWhiteFurnaceMode;
     BoolSetting AlwaysResetPathTrace;
     BoolSetting ShowProgressBar;
+    FloatSetting FocalLength;
+    FloatSetting FNumber;
 
     ConstantBuffer CBuffer;
     const uint32 CBufferRegister = 12;
@@ -74,7 +76,9 @@ namespace AppSettings
     void Initialize()
     {
 
-        Settings.Initialize(7);
+        Settings.Initialize(8);
+
+        Settings.AddGroup("Camera", true);
 
         Settings.AddGroup("Sun And Sky", true);
 
@@ -89,6 +93,12 @@ namespace AppSettings
         Settings.AddGroup("Post Processing", false);
 
         Settings.AddGroup("Debug", true);
+
+        FocalLength.Initialize("FocalLength", "Camera", "Focal Length", "Focal Length", 1, 0, 10, 1, ConversionMode::None, 1.0000f);
+        Settings.AddSetting(&FocalLength);
+
+        FNumber.Initialize("FNumber", "Camera", "F Number", "F Number", 32, 16, 64, 16, ConversionMode::None, 1.0000f);
+        Settings.AddSetting(&FNumber);
 
         EnableSun.Initialize("EnableSun", "Sun And Sky", "Enable Sun", "Enables the sun light", true);
         Settings.AddSetting(&EnableSun);
@@ -218,6 +228,8 @@ namespace AppSettings
     void UpdateCBuffer()
     {
         AppSettingsCBuffer cbData;
+        cbData.FocalLength = FocalLength;
+        cbData.FNumber = FNumber;
         cbData.EnableSun = EnableSun;
         cbData.EnableSky = EnableSky;
         cbData.SunAreaLightApproximation = SunAreaLightApproximation;

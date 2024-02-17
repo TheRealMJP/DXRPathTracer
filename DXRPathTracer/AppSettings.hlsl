@@ -28,6 +28,8 @@ struct AppSettings_Layout
     float RoughnessScale;
     float MetallicScale;
     bool EnableWhiteFurnaceMode;
+    float FocalLength;
+    float FNumber;
 };
 
 ConstantBuffer<AppSettings_Layout> AppSettings : register(b12);

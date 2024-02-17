@@ -33,10 +33,17 @@ struct RayTraceConstants
     uint Padding;
     float3 CameraPosWS;
     uint CurrSampleIdx;
+
+    float3 CameraF;
     uint TotalNumPixels;
 
+    float3 CameraU;
     uint VtxBufferIdx;
+
+    float3 CameraR;
     uint IdxBufferIdx;
+
+    uint FrameCount;
     uint GeometryInfoBufferIdx;
     uint MaterialBufferIdx;
     uint SkyTextureIdx;
@@ -89,6 +96,24 @@ static float2 SamplePoint(in uint pixelIdx, inout uint setIdx)
     return SampleCMJ2D(RayTraceCB.CurrSampleIdx, AppSettings.SqrtNumSamples, AppSettings.SqrtNumSamples, permutation);
 }
 
+uint initRand(uint val0, uint val1, uint backoff = 16) {
+	uint v0 = val0, v1 = val1, s0 = 0;
+
+	[unroll]
+	for (uint n = 0; n < backoff; n++)
+	{
+		s0 += 0x9e3779b9;
+		v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
+		v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
+	}
+	return v0;
+}
+
+float nextRand(inout uint s) {
+	s = (1664525u * s + 1013904223u);
+	return float(s & 0x00FFFFFF) / float(0x01000000);
+}
+
 [shader("raygeneration")]
 void RaygenShader()
 {
@@ -98,9 +123,9 @@ void RaygenShader()
     uint sampleSetIdx = 0;
 
     // Form a primary ray by un-projecting the pixel coordinate using the inverse view * projection matrix
-    float2 primaryRaySample = SamplePoint(pixelIdx, sampleSetIdx);
+    float2 jitterSample = SamplePoint(pixelIdx, sampleSetIdx);
 
-    float2 rayPixelPos = pixelCoord + primaryRaySample;
+    float2 rayPixelPos = pixelCoord + jitterSample;
     float2 ncdXY = (rayPixelPos / (DispatchRaysDimensions().xy * 0.5f)) - 1.0f;
     ncdXY.y *= -1.0f;
     float4 rayStart = mul(float4(ncdXY, 0.0f, 1.0f), RayTraceCB.InvViewProjection);
@@ -117,6 +142,82 @@ void RaygenShader()
     ray.Direction = rayDir;
     ray.TMin = 0.0f;
     ray.TMax = rayLength;
+
+    // float2 lensOffset = jitterSample;
+
+    // float theta = lensOffset.x * 2.f * Pi;
+    // float radius = lensOffset.y;
+
+    // float u = cos(theta) * sqrt(radius);
+    // float v = sin(theta) * sqrt(radius);
+
+    // float imagePlaneDistance = 1;
+    // float lensFocalLength = 2;
+
+    // float focusPlane = (imagePlaneDistance * lensFocalLength) / (imagePlaneDistance - lensFocalLength);
+
+    // float3 focusPoint = ray.Direction * (focusPlane / dot(ray.Direction, float3(0.f, 0.f, -1.f)));
+
+    // float circleOfConfusionRadius = lensFocalLength / (2.f * 0.3);
+
+    // float3 origin = float3(1.f, 0.f, 0.f) * (u * circleOfConfusionRadius) + float3(0.f, 1.f, 0.f) * (v * circleOfConfusionRadius);
+
+    // ray.Direction = normalize(focusPoint - origin);
+    // ray.Origin = origin;
+
+
+
+
+
+    // The DispatchRaysIndex() intrinsic gives the index of this thread's ray. We use it to
+	// identify the pixel.
+	uint2 pixelIndex = DispatchRaysIndex().xy;
+
+	// The DispatchRaysDimensions() intrinsic gives the number of rays launched and corresponds
+	// to RayLaunch::execute()'s 2nd parameter: the total number of pixels.
+	uint2 pixelCount = DispatchRaysDimensions().xy;
+
+	// The interval [0,1) is subdivided uniformly into subintervals of size 1/pixelCount. pixelIndex
+	// locates the subinterval that corresponds to this pixel. Without jitter, pixelCenter corresponds
+	// to the left endpoint of the subinterval. With jitterSample, which is in [-0.5,0.5], the center
+	// moves into the previous subinterval, if negative, or into the subinterval, if positive, by up
+	// to half a pixel.
+	float2 pixelCenter = (pixelIndex + jitterSample) / pixelCount;
+
+	// Map pixelCenter to [-1,1]x[1,-1]. Note that before the y-coordinate transformation, the image is
+	// upside-down.  
+	float2 ndc = float2(2, -2) * pixelCenter + float2(-1, 1);
+    ndc.y *= -1;
+
+	// The view space basis is (CameraR, CameraU, CameraF). The primary ray's
+	// direction is a linear combination of this basis with coefficients given by the pixel center's
+	// NDC coordinates.
+	float3 worldSpaceRayDir = ndc.x*RayTraceCB.CameraR + ndc.y*RayTraceCB.CameraU + RayTraceCB.CameraF;
+	worldSpaceRayDir /= length(RayTraceCB.CameraF);
+
+	// The origin of the ray is the camera's world-space position and the focal point lies on the line
+	// along the ray's world-space direction vector, a focalLength distance away from the origin. 
+    float focalLength = AppSettings.FocalLength;
+	float3 focalPoint = RayTraceCB.CameraPosWS + focalLength*worldSpaceRayDir;
+
+	// Sample a point on the lens at random, in polar coordinates, (theta, radius) in [0,2PI]x[0,lensRadius].
+	float PI = 3.14159265f;
+	uint seed = initRand(pixelIndex.x + pixelIndex.y*pixelCount.x, RayTraceCB.FrameCount, 16);
+    float fNumber = AppSettings.FNumber;
+    float lensRadius = focalLength / (2.0f * fNumber);
+	float2 lensSamplePoint = float2(2*PI*nextRand(seed), lensRadius*nextRand(seed));
+
+	// Move the ray's origin from the world-space position of the camera to the sample point on the lens.
+	float3 rayOriginOnLens = 
+        RayTraceCB.CameraPosWS 
+        + lensSamplePoint.y*cos(lensSamplePoint.x)*normalize(RayTraceCB.CameraR) 
+        + lensSamplePoint.y*sin(lensSamplePoint.x)*normalize(RayTraceCB.CameraU);
+
+    ray.Origin = rayOriginOnLens;
+	ray.Direction = normalize(focalPoint - rayOriginOnLens);
+
+    // RenderTarget[pixelCoord] = float4(normalize(RayTraceCB.CameraR)*255.f, 1.0f);
+    // return;
 
     PrimaryPayload payload;
     payload.Radiance = 0.0f;

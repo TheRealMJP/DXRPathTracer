@@ -102,10 +102,17 @@ struct RayTraceConstants
     uint32 Padding = 0;
     Float3 CameraPosWS;
     uint32 CurrSampleIdx = 0;
-    uint32 TotalNumPixels = 0;
 
+    Float3 CameraU;
+    uint32 TotalNumPixels = 0;
+    
+    Float3 CameraF;
     uint32 VtxBufferIdx = uint32(-1);
+
+    Float3 CameraR;
     uint32 IdxBufferIdx = uint32(-1);
+
+    uint32 FrameCount;
     uint32 GeometryInfoBufferIdx = uint32(-1);
     uint32 MaterialBufferIdx = uint32(-1);
     uint32 SkyTextureIdx = uint32(-1);
@@ -962,7 +969,9 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::MaxAnyHitPathLength,
         &AppSettings::AvoidCausticPaths,
         &AppSettings::ClampRoughness,
-        &AppSettings::ApplyMultiscatteringEnergyCompensation
+        &AppSettings::ApplyMultiscatteringEnergyCompensation,
+        &AppSettings::FocalLength,
+        &AppSettings::FNumber
     };
 
     for(const Setting* setting : settingsToCheck)
@@ -1310,6 +1319,7 @@ void DXRPathTracer::RenderResolve()
     resolveTarget.MakeReadable(cmdList);
 }
 
+static unsigned int frameCount = 0;
 void DXRPathTracer::RenderRayTracing()
 {
     // Don't keep tracing rays if we've hit our maximum per-pixel sample count
@@ -1342,6 +1352,11 @@ void DXRPathTracer::RenderRayTracing()
     rtConstants.MaterialBufferIdx = meshRenderer.MaterialBuffer().SRV;
     rtConstants.SkyTextureIdx = skyCache.CubeMap.SRV;
     rtConstants.NumLights = Min<uint32>(uint32(spotLights.Size()), AppSettings::MaxLightClamp);
+
+    rtConstants.CameraF = -camera.Forward();
+    rtConstants.CameraR = camera.Right();
+    rtConstants.CameraU = camera.Up();
+    rtConstants.FrameCount = frameCount++;
 
     DX12::BindTempConstantBuffer(cmdList, rtConstants, RTParams_CBuffer, CmdListMode::Compute);
 

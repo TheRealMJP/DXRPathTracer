@@ -91,6 +91,8 @@ namespace AppSettings
     extern BoolSetting EnableWhiteFurnaceMode;
     extern BoolSetting AlwaysResetPathTrace;
     extern BoolSetting ShowProgressBar;
+    extern FloatSetting FocalLength;
+    extern FloatSetting FNumber;
 
     struct AppSettingsCBuffer
     {
@@ -122,6 +124,8 @@ namespace AppSettings
         float RoughnessScale;
         float MetallicScale;
         bool32 EnableWhiteFurnaceMode;
+        float FocalLength;
+        float FNumber;
     };
 
     extern ConstantBuffer CBuffer;
