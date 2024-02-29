@@ -82,6 +82,56 @@ float BeckmannSpecular(in float m, in float3 n, in float3 h, in float3 v, in flo
     return d * g * (1.0f / (4.0f * nDotL * nDotV));
 }
 
+float AbsCosTheta(float3 w) { return abs(w.z); }
+
+float Cos2Theta(float3 w) { return w.z * w.z; }
+
+float Sin2Theta(float3 w) {
+    return max((float)0, (float)1 - Cos2Theta(w));
+}
+
+float SinTheta(float3 w) {
+    return sqrt(Sin2Theta(w));
+}
+
+float CosPhi(float3 w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 1 : clamp(w.x / sinTheta, -1, 1);
+}
+
+float Cos2Phi(float3 w) {
+    return CosPhi(w) * CosPhi(w);
+}
+
+float SinPhi(float3 w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 0 : clamp(w.y / sinTheta, -1, 1);
+}
+
+float Sin2Phi(float3 w) {
+    return SinPhi(w) * SinPhi(w);
+}
+
+float AbsDot(float3 v1, float3 v2) {
+    return abs(dot(v1, v2));
+}
+
+float Tan2Theta(float3 w) {
+    return Sin2Theta(w) / Cos2Theta(w);
+}
+
+float BeckmannDistribution(float3 wh, float alphax, float alphay) {
+    float tan2Theta = Tan2Theta(wh);
+    if (isinf(tan2Theta)) return 0.;
+    float cos4Theta = Cos2Theta(wh) * Cos2Theta(wh);
+    return exp(-tan2Theta * (Cos2Phi(wh) / (alphax * alphax) +
+                                  Sin2Phi(wh) / (alphay * alphay))) /
+        (Pi * alphax * alphay * cos4Theta);
+}
+
+float3 SchlickFresnel(float cosTheta, float3 specularAlbedo) {
+    return specularAlbedo + pow(1 - cosTheta, 5) * (float3(1, 1, 1) - specularAlbedo);
+}
 
 //-------------------------------------------------------------------------------------------------
 // Helper for computing the GGX visibility term

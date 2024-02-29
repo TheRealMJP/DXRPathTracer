@@ -324,12 +324,72 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     else if(enableDiffuse == false)
         selector = 1.0f;
 
+    // if(selector < 0.5f)
+    // {
+    //     // We're sampling the diffuse BRDF, so sample a cosine-weighted hemisphere
+    //     if(enableSpecular) {
+    //         // TODO: why?
+    //         brdfSample.x *= 2.0f;
+    //     }
+    //     rayDirTS = SampleDirectionCosineHemisphere(brdfSample.x, brdfSample.y);
+
+    //     // The PDF of sampling a cosine hemisphere is NdotL / Pi, which cancels out those terms
+    //     // from the diffuse BRDF and the irradiance integral
+    //     throughput = diffuseAlbedo;
+    // }
+    // else
+    // {
+    //     // We're sampling the GGX specular BRDF by sampling the distribution of visible normals. See this post
+    //     // for more info: https://schuttejoe.github.io/post/ggximportancesamplingpart2/.
+    //     // Also see: https://hal.inria.fr/hal-00996995v1/document and https://hal.archives-ouvertes.fr/hal-01509746/document
+    //     if(enableDiffuse) {
+    //         // Remap sample from [0,1] to [-1,1].
+    //         brdfSample.x = (brdfSample.x - 0.5f) * 2.0f;
+    //     }
+
+    //     float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
+    //     float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, brdfSample.x, brdfSample.y);
+    //     float3 sampleDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
+
+    //     // Macro surface normal.
+    //     float3 normalTS = float3(0.0f, 0.0f, 1.0f);
+
+    //     float3 F = AppSettings.EnableWhiteFurnaceMode ? 1.0.xxx : Fresnel(specularAlbedo, microfacetNormalTS, sampleDirTS);
+    //     float G1 = SmithGGXMasking(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
+    //     float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
+
+    //     throughput = (F * (G2 / G1));
+    //     rayDirTS = sampleDirTS;
+
+    //     if(AppSettings.ApplyMultiscatteringEnergyCompensation)
+    //     {
+    //         float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalTS, -incomingRayDirWS)), sqrtRoughness);
+
+    //         // Improve energy preservation by applying a scaled version of the original
+    //         // single scattering specular lobe. Based on "Practical multiple scattering
+    //         // compensation for microfacet models" [Turquin19].
+    //         //
+    //         // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
+    //         float Ess = DFG.x;
+    //         throughput *= 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
+    //     }
+    // }
+
+    float3x3 worldToTangent = transpose(tangentToWorld);
+    float3 woW = -incomingRayDirWS;
+    float3 wo = normalize(mul(woW, worldToTangent));
+    float3 wi, wiW;
+
     if(selector < 0.5f)
     {
         // We're sampling the diffuse BRDF, so sample a cosine-weighted hemisphere
-        if(enableSpecular)
+        if(enableSpecular) {
+            // Since brdfSample.x < 0.5 here, remap brdfSample.x from [0,0.5) to [0,1] for use
+            // in SampleDirectionCosineHemisphere().
             brdfSample.x *= 2.0f;
-        rayDirTS = SampleDirectionCosineHemisphere(brdfSample.x, brdfSample.y);
+        }
+
+        wi = SampleDirectionCosineHemisphere(brdfSample.x, brdfSample.y);
 
         // The PDF of sampling a cosine hemisphere is NdotL / Pi, which cancels out those terms
         // from the diffuse BRDF and the irradiance integral
@@ -340,21 +400,31 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         // We're sampling the GGX specular BRDF by sampling the distribution of visible normals. See this post
         // for more info: https://schuttejoe.github.io/post/ggximportancesamplingpart2/.
         // Also see: https://hal.inria.fr/hal-00996995v1/document and https://hal.archives-ouvertes.fr/hal-01509746/document
-        if(enableDiffuse)
+        if(enableDiffuse) {
+            // Since brdfSample.x >= 0.5, remap brdfSample.x from [0.5,1] to [0,1] to use in SampleGGXVisibleNormal().
             brdfSample.x = (brdfSample.x - 0.5f) * 2.0f;
+        }
 
-        float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
-        float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, brdfSample.x, brdfSample.y);
-        float3 sampleDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
+        float3 microfacetNormalTS = SampleGGXVisibleNormal(wo, roughness, roughness, brdfSample.x, brdfSample.y);
+        float3 wh = microfacetNormalTS;
+        float3 sampleDirTS = reflect(wo, wh);
+        float3 wi = sampleDirTS;
 
+        // Macro surface normal.
         float3 normalTS = float3(0.0f, 0.0f, 1.0f);
 
-        float3 F = AppSettings.EnableWhiteFurnaceMode ? 1.0.xxx : Fresnel(specularAlbedo, microfacetNormalTS, sampleDirTS);
-        float G1 = SmithGGXMasking(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
-        float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
+        float3 diffuse = (28.f/(23.f*Pi))
+            * diffuseAlbedo
+            * (float3(1, 1, 1) - specularAlbedo)
+            * (1 - pow(1 - .5f * AbsCosTheta(wi), 5))
+            * (1 - pow(1 - .5f * AbsCosTheta(wo), 5));
 
-        throughput = (F * (G2 / G1));
-        rayDirTS = sampleDirTS;
+        float3 specular = BeckmannSpecular(roughness, normalTS, wh, wo, wi)
+            / (4 * AbsDot(wi, wh) 
+            * max(AbsCosTheta(wi), AbsCosTheta(wo)))
+            * SchlickFresnel(dot(wi, wh), specularAlbedo);
+
+        throughput = (diffuse + specular) * AbsDot(wi, wh) / SampleDirectionGGX_PDF(normalTS, wh, wo, roughness);
 
         if(AppSettings.ApplyMultiscatteringEnergyCompensation)
         {
@@ -369,6 +439,8 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
             throughput *= 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
         }
     }
+
+    rayDirTS = wi;
 
     const float3 rayDirWS = normalize(mul(rayDirTS, tangentToWorld));
 
