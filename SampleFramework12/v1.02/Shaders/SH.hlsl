@@ -11,6 +11,7 @@
 #define SH_HLSL_
 
 #include <Constants.hlsl>
+#include <Reflection.hlsl>
 #include <BRDF.hlsl>
 
 struct SH4

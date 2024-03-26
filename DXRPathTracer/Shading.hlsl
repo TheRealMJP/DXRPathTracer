@@ -19,6 +19,7 @@
 #include <DescriptorTables.hlsl>
 #include <SH.hlsl>
 #include <Shadows.hlsl>
+#include <Reflection.hlsl>
 #include <BRDF.hlsl>
 #include <Quaternion.hlsl>
 #include "AppSettings.hlsl"
