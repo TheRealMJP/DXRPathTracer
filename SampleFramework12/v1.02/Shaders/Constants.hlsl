@@ -26,4 +26,9 @@ static const float FP16Max = 65000.0f;
 // Scale factor used for storing physical light units in fp16 floats (equal to 2^-10).
 static const float FP16Scale = 0.0009765625f;
 
+#define ONE_MINUS_EPSILON 0.99999994
+#define M_1_PI 0.318309886183790671538
+#define M_PI_2 1.57079632679489661923
+#define M_PI_4 0.78539816339744830961
+
 #endif // CONSTANTS_HLSL_
