@@ -962,7 +962,9 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::MaxAnyHitPathLength,
         &AppSettings::AvoidCausticPaths,
         &AppSettings::ClampRoughness,
-        &AppSettings::ApplyMultiscatteringEnergyCompensation
+        &AppSettings::ApplyMultiscatteringEnergyCompensation,
+        &AppSettings::Roughness,
+        &AppSettings::UseAshikhminShirley
     };
 
     for(const Setting* setting : settingsToCheck)

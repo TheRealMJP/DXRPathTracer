@@ -28,6 +28,8 @@ struct AppSettings_Layout
     float RoughnessScale;
     float MetallicScale;
     bool EnableWhiteFurnaceMode;
+    float Roughness;
+    bool UseAshikhminShirley;
 };
 
 ConstantBuffer<AppSettings_Layout> AppSettings : register(b12);

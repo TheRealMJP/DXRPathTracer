@@ -67,6 +67,8 @@ namespace AppSettings
     BoolSetting EnableWhiteFurnaceMode;
     BoolSetting AlwaysResetPathTrace;
     BoolSetting ShowProgressBar;
+    FloatSetting Roughness;
+    BoolSetting UseAshikhminShirley;
 
     ConstantBuffer CBuffer;
     const uint32 CBufferRegister = 12;
@@ -74,13 +76,15 @@ namespace AppSettings
     void Initialize()
     {
 
-        Settings.Initialize(7);
+        Settings.Initialize(8);
 
         Settings.AddGroup("Sun And Sky", true);
 
         Settings.AddGroup("Anti Aliasing", false);
 
         Settings.AddGroup("Scene", true);
+
+        Settings.AddGroup("Materials", true);
 
         Settings.AddGroup("Rendering", false);
 
@@ -202,6 +206,12 @@ namespace AppSettings
         ShowProgressBar.Initialize("ShowProgressBar", "Debug", "Show Progress Bar", "", true);
         Settings.AddSetting(&ShowProgressBar);
 
+        Roughness.Initialize("Roughness", "Materials", "Roughness", "...", 0.5f, 0.0f, 1.0f, 0.1f, ConversionMode::None, 1.0000f);
+        Settings.AddSetting(&Roughness);
+
+        UseAshikhminShirley.Initialize("UseAshikhminShirley", "Materials", "Use Ashikhmin-Shirley BRDF", "Use Ashikhmin-Shirley BRDF. GGX otherwise", false);
+        Settings.AddSetting(&UseAshikhminShirley);
+
         ConstantBufferInit cbInit;
         cbInit.Size = sizeof(AppSettingsCBuffer);
         cbInit.Dynamic = true;
@@ -246,6 +256,8 @@ namespace AppSettings
         cbData.RoughnessScale = RoughnessScale;
         cbData.MetallicScale = MetallicScale;
         cbData.EnableWhiteFurnaceMode = EnableWhiteFurnaceMode;
+        cbData.Roughness = Roughness;
+        cbData.UseAshikhminShirley = UseAshikhminShirley;
 
         CBuffer.MapAndSetData(cbData);
     }
