@@ -231,7 +231,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
             float3 R = reflect(incomingRayDirWS, normalWS);
             float r = RayTraceCB.SinSunAngularRadius;
             float d = RayTraceCB.CosSunAngularRadius;
-            float3 DDotR = dot(D, R);
+            float DDotR = dot(D, R);
             float3 S = R - DDotR * D;
             sunDirection = DDotR < d ? normalize(d * D + normalize(S) * r) : R;
         }

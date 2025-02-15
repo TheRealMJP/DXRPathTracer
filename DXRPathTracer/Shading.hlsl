@@ -164,7 +164,7 @@ float3 ShadePixel(in ShadingInput input, in Texture2DArray sunShadowMap,
             float3 R = reflect(-viewWS, normalWS);
             float r = CBuffer.SinSunAngularRadius;
             float d = CBuffer.CosSunAngularRadius;
-            float3 DDotR = dot(D, R);
+            float DDotR = dot(D, R);
             float3 S = R - DDotR * D;
             sunDirection = DDotR < d ? normalize(d * D + normalize(S) * r) : R;
         }
