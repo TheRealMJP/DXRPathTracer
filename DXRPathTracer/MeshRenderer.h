@@ -45,8 +45,8 @@ struct ShadingConstants
     float SinSunAngularRadius = 0.0f;
     Float4Align Float3 CameraPosWS;
 
-    uint32 NumXTiles = 0;
-    uint32 NumXYTiles = 0;
+    uint32_t NumXTiles = 0;
+    uint32_t NumXYTiles = 0;
     float NearClip = 0.0f;
     float FarClip = 0.0f;
 
@@ -64,16 +64,16 @@ public:
     void Initialize(const Model* sceneModel);
     void Shutdown();
 
-    void CreatePSOs(DXGI_FORMAT mainRTFormat, DXGI_FORMAT depthFormat, uint32 numMSAASamples);
+    void CreatePSOs(DXGI_FORMAT mainRTFormat, DXGI_FORMAT depthFormat, uint32_t numMSAASamples);
     void DestroyPSOs();
 
-    void RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Camera& camera, const MainPassData& mainPassData);
+    void RenderMainPass(ID3D12GraphicsCommandList10* cmdList, const Camera& camera, const MainPassData& mainPassData);
 
-    void RenderSunShadowDepth(ID3D12GraphicsCommandList* cmdList, const OrthographicCamera& camera);
-    void RenderSpotLightShadowDepth(ID3D12GraphicsCommandList* cmdList, const Camera& camera);
+    void RenderSunShadowDepth(ID3D12GraphicsCommandList10* cmdList, const OrthographicCamera& camera);
+    void RenderSpotLightShadowDepth(ID3D12GraphicsCommandList10* cmdList, const Camera& camera);
 
-    void RenderSunShadowMap(ID3D12GraphicsCommandList* cmdList, const Camera& camera);
-    void RenderSpotLightShadowMap(ID3D12GraphicsCommandList* cmdList, const Camera& camera);
+    void RenderSunShadowMap(ID3D12GraphicsCommandList10* cmdList, const Camera& camera);
+    void RenderSpotLightShadowMap(ID3D12GraphicsCommandList10* cmdList, const Camera& camera);
 
     const Float4x4* SpotLightShadowMatrices() const { return spotLightShadowMatrices; }
     const StructuredBuffer& MaterialBuffer() const { return materialBuffer; }
@@ -81,7 +81,7 @@ public:
 protected:
 
     void LoadShaders();
-    void RenderDepth(ID3D12GraphicsCommandList* cmdList, const Camera& camera, ID3D12PipelineState* pso, uint64 numVisible, const uint32* meshDrawIndices);
+    void RenderDepth(ID3D12GraphicsCommandList10* cmdList, const Camera& camera, ID3D12PipelineState* pso, uint64_t numVisible, const uint32_t* meshDrawIndices);
 
     const Model* model = nullptr;
 
@@ -102,10 +102,9 @@ protected:
     ID3D12PipelineState* depthPSO = nullptr;
     ID3D12PipelineState* sunShadowPSO = nullptr;
     ID3D12PipelineState* spotLightShadowPSO = nullptr;
-    ID3D12RootSignature* depthRootSignature = nullptr;
 
     Array<DirectX::BoundingBox> meshBoundingBoxes;
-    Array<uint32> frustumCulledIndices;
+    Array<uint32_t> frustumCulledIndices;
     Array<float> meshZDepths;
 
     SunShadowConstantsDepthMap sunShadowConstants;

@@ -1,16 +1,24 @@
 #include <PCH.h>
+#include <Graphics\ShaderCompilation.h>
 #include "AppSettings.h"
 
 using namespace SampleFramework12;
 
-static const char* MSAAModesLabels[] =
+const char* MSAAModesLabels[uint32_t(MSAAModes::NumValues)] =
 {
     "None",
     "2x",
     "4x",
 };
 
-static const char* ScenesLabels[] =
+const MSAAModes MSAAModesValues[uint32_t(MSAAModes::NumValues)] =
+{
+    MSAAModes::MSAANone,
+    MSAAModes::MSAA2x,
+    MSAAModes::MSAA4x,
+};
+
+const char* ScenesLabels[uint32_t(Scenes::NumValues)] =
 {
     "Sponza",
     "SunTemple",
@@ -18,12 +26,12 @@ static const char* ScenesLabels[] =
     "WhiteFurnace",
 };
 
-static const char* ClusterRasterizationModesLabels[] =
+const Scenes ScenesValues[uint32_t(Scenes::NumValues)] =
 {
-    "Normal",
-    "MSAA4x",
-    "MSAA8x",
-    "Conservative",
+    Scenes::Sponza,
+    Scenes::SunTemple,
+    Scenes::BoxTest,
+    Scenes::WhiteFurnace,
 };
 
 namespace AppSettings
@@ -41,7 +49,6 @@ namespace AppSettings
     ScenesSetting CurrentScene;
     BoolSetting RenderLights;
     IntSetting MaxLightClamp;
-    ClusterRasterizationModesSetting ClusterRasterizationMode;
     BoolSetting EnableRayTracing;
     BoolSetting ClampRoughness;
     BoolSetting AvoidCausticPaths;
@@ -69,7 +76,7 @@ namespace AppSettings
     BoolSetting ShowProgressBar;
 
     ConstantBuffer CBuffer;
-    const uint32 CBufferRegister = 12;
+    const uint32_t CBufferRegister = 12;
 
     void Initialize()
     {
@@ -111,7 +118,7 @@ namespace AppSettings
         GroundAlbedo.Initialize("GroundAlbedo", "Sun And Sky", "Ground Albedo", "Ground albedo color used for procedural sun and sky model", Float3(0.2500f, 0.2500f, 0.2500f), false, -340282300000000000000000000000000000000.0000f, 340282300000000000000000000000000000000.0000f, 0.0100f, ColorUnit::None);
         Settings.AddSetting(&GroundAlbedo);
 
-        MSAAMode.Initialize("MSAAMode", "Anti Aliasing", "MSAA Mode", "MSAA mode to use for rendering", MSAAModes::MSAA4x, 3, MSAAModesLabels);
+        MSAAMode.Initialize("MSAAMode", "Anti Aliasing", "MSAA Mode", "MSAA mode to use for rendering", MSAAModes::MSAANone, 3, MSAAModesLabels);
         Settings.AddSetting(&MSAAMode);
 
         CurrentScene.Initialize("CurrentScene", "Scene", "Current Scene", "", Scenes::BoxTest, 4, ScenesLabels);
@@ -122,9 +129,6 @@ namespace AppSettings
 
         MaxLightClamp.Initialize("MaxLightClamp", "Rendering", "Max Lights", "Limits the number of lights in the scene", 32, 0, 32);
         Settings.AddSetting(&MaxLightClamp);
-
-        ClusterRasterizationMode.Initialize("ClusterRasterizationMode", "Rendering", "Cluster Rasterization Mode", "Conservative rasterization mode to use for light binning", ClusterRasterizationModes::Conservative, 4, ClusterRasterizationModesLabels);
-        Settings.AddSetting(&ClusterRasterizationMode);
 
         EnableRayTracing.Initialize("EnableRayTracing", "Path Tracing", "Enable Ray Tracing", "", true);
         Settings.AddSetting(&EnableRayTracing);
@@ -205,11 +209,11 @@ namespace AppSettings
         ConstantBufferInit cbInit;
         cbInit.Size = sizeof(AppSettingsCBuffer);
         cbInit.Dynamic = true;
-        cbInit.Name = L"AppSettings Constant Buffer";
+        cbInit.Name = "AppSettings Constant Buffer";
         CBuffer.Initialize(cbInit);
     }
 
-    void Update(uint32 displayWidth, uint32 displayHeight, const Float4x4& viewMatrix)
+    void Update(uint32_t displayWidth, uint32_t displayHeight, const Float4x4& viewMatrix)
     {
         Settings.Update(displayWidth, displayHeight, viewMatrix);
 
@@ -249,14 +253,27 @@ namespace AppSettings
 
         CBuffer.MapAndSetData(cbData);
     }
-    void BindCBufferGfx(ID3D12GraphicsCommandList* cmdList, uint32 rootParameter)
+
+    void BindCBufferGfx(ID3D12GraphicsCommandList* cmdList, uint32_t rootParameter)
     {
         CBuffer.SetAsGfxRootParameter(cmdList, rootParameter);
     }
-    void BindCBufferCompute(ID3D12GraphicsCommandList* cmdList, uint32 rootParameter)
+
+    void BindCBufferCompute(ID3D12GraphicsCommandList* cmdList, uint32_t rootParameter)
     {
         CBuffer.SetAsComputeRootParameter(cmdList, rootParameter);
     }
+
+    void GetShaderCompileOptions(CompileOptions& opts)
+    {
+    }
+
+    bool ShaderCompileOptionsChanged()
+    {
+        bool changed = false;
+        return changed;
+    }
+
     void Shutdown()
     {
         CBuffer.Shutdown();
@@ -267,8 +284,8 @@ namespace AppSettings
 
 namespace AppSettings
 {
-    uint64 NumXTiles = 0;
-    uint64 NumYTiles = 0;
+    uint64_t NumXTiles = 0;
+    uint64_t NumYTiles = 0;
 
     void UpdateUI()
     {

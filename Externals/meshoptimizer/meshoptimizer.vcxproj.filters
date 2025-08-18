@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="spatialorder.cpp" />
+    <ClCompile Include="stripifier.cpp" />
+    <ClCompile Include="vcacheanalyzer.cpp" />
+    <ClCompile Include="vcacheoptimizer.cpp" />
+    <ClCompile Include="vertexcodec.cpp" />
+    <ClCompile Include="vertexfilter.cpp" />
+    <ClCompile Include="vfetchanalyzer.cpp" />
+    <ClCompile Include="vfetchoptimizer.cpp" />
+    <ClCompile Include="allocator.cpp" />
+    <ClCompile Include="clusterizer.cpp" />
+    <ClCompile Include="indexcodec.cpp" />
+    <ClCompile Include="indexgenerator.cpp" />
+    <ClCompile Include="overdrawanalyzer.cpp" />
+    <ClCompile Include="overdrawoptimizer.cpp" />
+    <ClCompile Include="quantization.cpp" />
+    <ClCompile Include="simplifier.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="meshoptimizer.h" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,5 @@
+## Exclusions for SampleFramework12
+
+!SettingsCompiler.exe
+!SettingsCompilerAttributes.dll
+!Packager.exe

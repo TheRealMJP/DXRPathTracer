@@ -5,10 +5,10 @@
             "path": ".",
             "name": "Local",
             "file_exclude_patterns": ["*.sln", "*.vcxproj", "*.filters", "*.rc", "*.props", "*.user", "*.opensdf", "*.ico"],
-            "folder_exclude_patterns": ["Debug", "Release", "bin", "obj", "Properties", "ipch", "x64", "ShaderCache", ".vs"]
+            "folder_exclude_patterns": ["Debug", "Release", "bin", "obj", "Properties", "ipch", "x64", "ShaderCache", ".vs", "ModelCache"]
         },
         {
-            "path": "../SampleFramework12/v1.02/",
+            "path": "../SampleFramework12/v1.05/",
             "name": "SampleFramework",
             "file_exclude_patterns": ["*.sln", "*.vcxproj", "*.filters", "*.rc", "*.props", "*.user", "*.opensdf", "*.ico"],
             "folder_exclude_patterns": ["Debug", "Release", "bin", "obj", "Properties", "ipch", "x64", ".vs"]
@@ -17,7 +17,7 @@
             "path": "../Externals/",
             "name": "Externals",
             "file_exclude_patterns": ["*.sln", "*.vcxproj", "*.filters", "*.rc", "*.props", "*.user", "*.opensdf", "*.ico", "*.lib", "*.dll", "*.pdb"],
-            "folder_exclude_patterns": ["Debug", "Release", "x64", "obj", "Properties", "ipch", "x64", "Lib*", "bin"]
+            "folder_exclude_patterns": ["Debug", "Release", "x64", "obj", "Properties", "ipch", "x64", "Lib*", "bin", "Assimp-3.1.1", "Assimp-4.1.0", "DirectXTex Aug 2015", "Embree-2.0", "Embree-2.4", "Embree-2.8", "imgui-1.46"]
         }
     ],
     "settings":

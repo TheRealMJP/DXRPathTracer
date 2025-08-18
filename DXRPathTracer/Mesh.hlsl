@@ -13,7 +13,8 @@
 //=================================================================================================
 // Includes
 //=================================================================================================
-#include "Shading.hlsl"
+#include "Shading.hlsli"
+#include <StaticSamplers.hlsli>
 
 //=================================================================================================
 // Constant buffers
@@ -34,10 +35,10 @@ struct MatIndexConstants
 
 struct SRVIndexConstants
 {
-    uint SunShadowMapIdx;
-    uint SpotLightShadowMapIdx;
-    uint MaterialTextureIndicesIdx;
-    uint SpotLightClusterBufferIdx;
+    DescriptorIndex SunShadowMapIdx;
+    DescriptorIndex SpotLightShadowMapIdx;
+    DescriptorIndex MaterialTextureIndicesIdx;
+    DescriptorIndex SpotLightClusterBufferIdx;
 };
 
 ConstantBuffer<VSConstants> VSCBuffer : register(b0);
@@ -46,13 +47,6 @@ ConstantBuffer<SunShadowConstants> ShadowCBuffer : register(b1);
 ConstantBuffer<MatIndexConstants> MatIndexCBuffer : register(b2);
 ConstantBuffer<LightConstants> LightCBuffer : register(b3);
 ConstantBuffer<SRVIndexConstants> SRVIndices : register(b4);
-
-//=================================================================================================
-// Resources
-//=================================================================================================
-SamplerState AnisoSampler : register(s0);
-SamplerState LinearSampler : register(s1);
-SamplerComparisonState PCFSampler : register(s2);
 
 //=================================================================================================
 // Input/Output structs
@@ -153,31 +147,31 @@ float4 PSForward(in PSInput input) : SV_Target0
     shadingInput.DepthVS = input.DepthVS;
     shadingInput.TangentFrame = tangentFrame;
 
-    shadingInput.AlbedoMap = AlbedoMap.Sample(AnisoSampler, input.UV);
-    shadingInput.NormalMap = NormalMap.Sample(AnisoSampler, input.UV).xy;
-    shadingInput.RoughnessMap = RoughnessMap.Sample(AnisoSampler, input.UV).x;
-    shadingInput.MetallicMap = MetallicMap.Sample(AnisoSampler, input.UV).x;
-    shadingInput.EmissiveMap = EmissiveMap.Sample(AnisoSampler, input.UV).xyz;
+    shadingInput.AlbedoMap = AlbedoMap.Sample(AnisotropicSampler, input.UV);
+    shadingInput.NormalMap = NormalMap.Sample(AnisotropicSampler, input.UV).xy;
+    shadingInput.RoughnessMap = RoughnessMap.Sample(AnisotropicSampler, input.UV).x;
+    shadingInput.MetallicMap = MetallicMap.Sample(AnisotropicSampler, input.UV).x;
+    shadingInput.EmissiveMap = EmissiveMap.Sample(AnisotropicSampler, input.UV).xyz;
 
-    shadingInput.SpotLightClusterBuffer = RawBufferTable[SRVIndices.SpotLightClusterBufferIdx];
+    shadingInput.SpotLightClusterBuffer = ResourceDescriptorHeap[SRVIndices.SpotLightClusterBufferIdx];
 
-    shadingInput.AnisoSampler = AnisoSampler;
+    shadingInput.AnisoSampler = AnisotropicSampler;
     shadingInput.LinearSampler = LinearSampler;
 
     shadingInput.ShadingCBuffer = PSCBuffer;
     shadingInput.ShadowCBuffer = ShadowCBuffer;
     shadingInput.LightCBuffer = LightCBuffer;
 
-    Texture2DArray sunShadowMap = Tex2DArrayTable[SRVIndices.SunShadowMapIdx];
-    Texture2DArray spotLightShadowMap = Tex2DArrayTable[SRVIndices.SpotLightShadowMapIdx];
+    Texture2DArray sunShadowMap = ResourceDescriptorHeap[SRVIndices.SunShadowMapIdx];
+    Texture2DArray spotLightShadowMap = ResourceDescriptorHeap[SRVIndices.SpotLightShadowMapIdx];
 
     #if AlphaTest_
         Texture2D OpacityMap = ResourceDescriptorHeap[material.Opacity];
-        if(OpacityMap.Sample(AnisoSampler, input.UV).x < 0.35f)
+        if(OpacityMap.Sample(AnisotropicSampler, input.UV).x < 0.35f)
             discard;
     #endif
 
-    float3 shadingResult = ShadePixel(shadingInput, sunShadowMap, spotLightShadowMap, PCFSampler);
+    float3 shadingResult = ShadePixel(shadingInput, sunShadowMap, spotLightShadowMap, ShadowMapPCFSampler);
 
     return float4(shadingResult, 1.0f);
 }

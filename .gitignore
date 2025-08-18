@@ -57,8 +57,6 @@ ipch/
 *.VC.opendb
 *.VC.db
 
-.vs/
-
 # Visual Studio profiler
 *.psess
 *.vsp
@@ -138,6 +136,8 @@ UpgradeLog*.htm
 App_Data/*.mdf
 App_Data/*.ldf
 
+.vs/
+
 #############
 ## Windows detritus
 #############
@@ -160,6 +160,7 @@ $RECYCLE.BIN/
 ####################
 
 ShaderCache/
+ModelCache/
 *.exe
 *.dll
 *.deps

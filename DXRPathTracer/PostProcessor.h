@@ -29,11 +29,11 @@ public:
     void CreatePSOs();
     void DestroyPSOs();
 
-    void Render(ID3D12GraphicsCommandList* cmdList, const RenderTexture& input, const RenderTexture& output);
+    void Render(ID3D12GraphicsCommandList7* cmdList, const RenderTexture& input, const RenderTexture& output);
 
 protected:
 
-    TempRenderTarget* Bloom(ID3D12GraphicsCommandList* cmdList, const RenderTexture& input);
+    TempRenderTarget* Bloom(ID3D12GraphicsCommandList7* cmdList, const RenderTexture& input);
 
     PostProcessHelper helper;
 

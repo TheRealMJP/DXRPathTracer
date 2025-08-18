@@ -11,9 +11,9 @@
 //=================================================================================================
 // Includes
 //=================================================================================================
-#include <Quaternion.hlsl>
+#include <Quaternion.hlsli>
 #include "SharedTypes.h"
-#include "AppSettings.hlsl"
+#include "AppSettings.hlsli"
 
 //=================================================================================================
 // Constant buffers
@@ -32,17 +32,13 @@ struct ClusterConstants
     uint InstanceOffset;
     uint NumLights;
 
-    uint BoundsBufferIdx;
-    uint VertexBufferIdx;
-    uint InstanceBufferIdx;
+    DescriptorIndex BoundsBufferIdx;
+    DescriptorIndex VertexBufferIdx;
+    DescriptorIndex InstanceBufferIdx;
+    DescriptorIndex ClusterBuffer;
 };
 
 ConstantBuffer<ClusterConstants> CBuffer : register(b0);
-
-//=================================================================================================
-// Resources
-//=================================================================================================
-RWByteAddressBuffer ClusterBuffer : register(u0);
 
 struct VSOutput
 {
@@ -112,6 +108,8 @@ void ClusterPS(in VSOutput input)
         uint zTileEnd = input.ZTileRange.y;
     #endif
 
+    RWByteAddressBuffer clusterBuffer = ResourceDescriptorHeap[CBuffer.ClusterBuffer];
+
     for(uint zTile = zTileStart; zTile <= zTileEnd; ++zTile)
     {
         uint3 tileCoords = uint3(tilePosXY, zTile);
@@ -119,10 +117,10 @@ void ClusterPS(in VSOutput input)
         uint address = clusterIndex * CBuffer.ElementsPerCluster + elemIdx;
 
         #if FrontFace_
-            if(ClusterBuffer.Load(address * 4) & mask)
+            if(clusterBuffer.Load(address * 4) & mask)
                 break;
         #endif
 
-        ClusterBuffer.InterlockedOr(address * 4, mask);
+        clusterBuffer.InterlockedOr(address * 4, mask);
     }
 }

@@ -11,15 +11,15 @@
 //=================================================================================================
 // Includes
 //=================================================================================================
-#include <DescriptorTables.hlsl>
-#include <Constants.hlsl>
-#include <Quaternion.hlsl>
-#include <BRDF.hlsl>
-#include <RayTracing.hlsl>
-#include <Sampling.hlsl>
+#include <StaticSamplers.hlsli>
+#include <Constants.hlsli>
+#include <Quaternion.hlsli>
+#include <BRDF.hlsli>
+#include <RayTracing.hlsli>
+#include <Sampling.hlsli>
 
 #include "SharedTypes.h"
-#include "AppSettings.hlsl"
+#include "AppSettings.hlsli"
 
 struct RayTraceConstants
 {
@@ -35,12 +35,15 @@ struct RayTraceConstants
     uint CurrSampleIdx;
     uint TotalNumPixels;
 
-    uint VtxBufferIdx;
-    uint IdxBufferIdx;
-    uint GeometryInfoBufferIdx;
-    uint MaterialBufferIdx;
-    uint SkyTextureIdx;
-    uint NumLights;
+    DescriptorIndex VtxBufferIdx;
+    DescriptorIndex IdxBufferIdx;
+    DescriptorIndex GeometryInfoBufferIdx;
+    DescriptorIndex MaterialBufferIdx;
+    DescriptorIndex SkyTextureIdx;
+    DescriptorIndex NumLights;
+
+    DescriptorIndex SceneAS;
+    DescriptorIndex RenderTarget;
 };
 
 struct LightConstants
@@ -49,30 +52,29 @@ struct LightConstants
     float4x4 ShadowMatrices[MaxSpotLights];
 };
 
-RaytracingAccelerationStructure Scene : register(t0, space200);
-RWTexture2D<float4> RenderTarget : register(u0);
-
 ConstantBuffer<RayTraceConstants> RayTraceCB : register(b0);
-
 ConstantBuffer<LightConstants> LightCBuffer : register(b1);
 
-SamplerState MeshSampler : register(s0);
-SamplerState LinearSampler : register(s1);
+RaytracingAccelerationStructure GetSceneAS()
+{
+    return ResourceDescriptorHeap[RayTraceCB.SceneAS];
+}
 
 typedef BuiltInTriangleIntersectionAttributes HitAttributes;
-struct PrimaryPayload
+
+struct [raypayload] PrimaryPayload
 {
-    float3 Radiance;
-    float Roughness;
-    uint PathLength;
-    uint PixelIdx;
-    uint SampleSetIdx;
-    bool IsDiffuse;
+    float3 Radiance : read(caller) : write(caller, closesthit, miss);
+    float Roughness : read(closesthit) : write(caller);
+    uint PathLength : read(closesthit, miss) : write(caller);
+    uint PixelIdx : read(closesthit) : write(caller);
+    uint SampleSetIdx : read(closesthit) : write(caller);
+    bool IsDiffuse : read(closesthit) : write(caller);
 };
 
-struct ShadowPayload
+struct [raypayload] ShadowPayload
 {
-    float Visibility;
+    float Visibility : read(caller) : write(caller, closesthit, miss);
 };
 
 enum RayTypes {
@@ -135,17 +137,19 @@ void RaygenShader()
     const uint hitGroupOffset = RayTypeRadiance;
     const uint hitGroupGeoMultiplier = NumRayTypes;
     const uint missShaderIdx = RayTypeRadiance;
-    TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+    TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
     payload.Radiance = clamp(payload.Radiance, 0.0f, FP16Max);
+
+    RWTexture2D<float4> renderTarget = ResourceDescriptorHeap[RayTraceCB.RenderTarget];
 
     // Update the progressive result with the new radiance sample
     const float lerpFactor = RayTraceCB.CurrSampleIdx / (RayTraceCB.CurrSampleIdx + 1.0f);
     float3 newSample = payload.Radiance;
-    float3 currValue = RenderTarget[pixelCoord].xyz;
+    float3 currValue = renderTarget[pixelCoord].xyz;
     float3 newValue = lerp(newSample, currValue, lerpFactor);
 
-    RenderTarget[pixelCoord] = float4(newValue, 1.0f);
+    renderTarget[pixelCoord] = float4(newValue, 1.0f);
 }
 
 static float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPayload inPayload)
@@ -171,7 +175,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         Texture2D normalMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Normal)];
 
         float3 normalTS;
-        normalTS.xy = normalMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xy * 2.0f - 1.0f;
+        normalTS.xy = normalMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xy * 2.0f - 1.0f;
         normalTS.z = sqrt(1.0f - saturate(normalTS.x * normalTS.x + normalTS.y * normalTS.y));
         normalWS = normalize(mul(normalTS, tangentToWorld));
 
@@ -182,11 +186,11 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     if(AppSettings.EnableAlbedoMaps && !AppSettings.EnableWhiteFurnaceMode)
     {
         Texture2D albedoMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Albedo)];
-        baseColor = albedoMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
+        baseColor = albedoMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz;
     }
 
     Texture2D metallicMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Metallic)];
-    const float metallic = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : metallicMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x) * AppSettings.MetallicScale);
+    const float metallic = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x) * AppSettings.MetallicScale);
 
     const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f) || AppSettings.EnableWhiteFurnaceMode;
     const bool enableSpecular = (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && inPayload.IsDiffuse) : (inPayload.PathLength == 1)));
@@ -195,7 +199,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         return 0.0f;
 
     Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
-    const float sqrtRoughness = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : roughnessMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x) * AppSettings.RoughnessScale);
+    const float sqrtRoughness = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x) * AppSettings.RoughnessScale);
 
     const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
     const float3 specularAlbedo = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
@@ -218,7 +222,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
     }
 
     Texture2D emissiveMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Emissive)];
-    float3 radiance = AppSettings.EnableWhiteFurnaceMode ? 0.0.xxx : emissiveMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).xyz;
+    float3 radiance = AppSettings.EnableWhiteFurnaceMode ? 0.0.xxx : emissiveMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz;
 
     //Apply sun light
     if(AppSettings.EnableSun && !AppSettings.EnableWhiteFurnaceMode)
@@ -255,7 +259,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeShadow;
-        TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularAlbedo,
                                  roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
@@ -302,7 +306,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
                 const uint hitGroupOffset = RayTypeShadow;
                 const uint hitGroupGeoMultiplier = NumRayTypes;
                 const uint missShaderIdx = RayTypeShadow;
-                TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+                TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
                 float3 intensity = spotLight.Intensity * angularAttenuation;
 
@@ -329,7 +333,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         // We're sampling the diffuse BRDF, so sample a cosine-weighted hemisphere
         if(enableSpecular)
             brdfSample.x *= 2.0f;
-        rayDirTS = SampleDirectionCosineHemisphere(brdfSample.x, brdfSample.y);
+        rayDirTS = SampleDirectionCosineHemisphere(brdfSample);
 
         // The PDF of sampling a cosine hemisphere is NdotL / Pi, which cancels out those terms
         // from the diffuse BRDF and the irradiance integral
@@ -344,7 +348,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
             brdfSample.x = (brdfSample.x - 0.5f) * 2.0f;
 
         float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
-        float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, brdfSample.x, brdfSample.y);
+        float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, brdfSample);
         float3 sampleDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
 
         float3 normalTS = float3(0.0f, 0.0f, 1.0f);
@@ -404,7 +408,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         const uint hitGroupOffset = RayTypeRadiance;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeRadiance;
-        TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += payload.Radiance * throughput;
     }
@@ -422,7 +426,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         const uint hitGroupOffset = RayTypeShadow;
         const uint hitGroupGeoMultiplier = NumRayTypes;
         const uint missShaderIdx = RayTypeShadow;
-        TraceRay(Scene, traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
+        TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         if(AppSettings.EnableWhiteFurnaceMode)
         {
@@ -430,7 +434,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         }
         else
         {
-            TextureCube skyTexture = TexCubeTable[RayTraceCB.SkyTextureIdx];
+            TextureCube skyTexture = ResourceDescriptorHeap[RayTraceCB.SkyTextureIdx];
             float3 skyRadiance = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDirWS, 0.0f).xyz : 0.0.xxx;
 
             radiance += payload.Visibility * skyRadiance * throughput;
@@ -490,7 +494,7 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 
     // Standard alpha testing
     Texture2D opacityMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Opacity)];
-    if(opacityMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x < 0.35f)
+    if(opacityMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x < 0.35f)
         IgnoreHit();
 }
 
@@ -502,13 +506,15 @@ void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
 
     // Standard alpha testing
     Texture2D opacityMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Opacity)];
-    if(opacityMap.SampleLevel(MeshSampler, hitSurface.UV, 0.0f).x < 0.35f)
+    if(opacityMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x < 0.35f)
         IgnoreHit();
 }
 
 [shader("miss")]
 void MissShader(inout PrimaryPayload payload)
 {
+    payload.Radiance = 0.0f;
+
     if(AppSettings.EnableWhiteFurnaceMode)
     {
         payload.Radiance = 1.0.xxx;

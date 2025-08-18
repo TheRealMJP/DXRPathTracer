@@ -15,6 +15,10 @@ enum class MSAAModes
     NumValues
 };
 
+extern const char* MSAAModesLabels[uint32_t(MSAAModes::NumValues)];
+
+extern const MSAAModes MSAAModesValues[uint32_t(MSAAModes::NumValues)];
+
 typedef EnumSettingT<MSAAModes> MSAAModesSetting;
 
 enum class Scenes
@@ -27,32 +31,24 @@ enum class Scenes
     NumValues
 };
 
+extern const char* ScenesLabels[uint32_t(Scenes::NumValues)];
+
+extern const Scenes ScenesValues[uint32_t(Scenes::NumValues)];
+
 typedef EnumSettingT<Scenes> ScenesSetting;
-
-enum class ClusterRasterizationModes
-{
-    Normal = 0,
-    MSAA4x = 1,
-    MSAA8x = 2,
-    Conservative = 3,
-
-    NumValues
-};
-
-typedef EnumSettingT<ClusterRasterizationModes> ClusterRasterizationModesSetting;
 
 namespace AppSettings
 {
-    static const uint64 ClusterTileSize = 16;
-    static const uint64 NumZTiles = 16;
-    static const uint64 MaxSpotLights = 32;
-    static const uint64 SpotLightElementsPerCluster = 1;
+    static const uint64_t ClusterTileSize = 16;
+    static const uint64_t NumZTiles = 16;
+    static const uint64_t MaxSpotLights = 32;
+    static const uint64_t SpotLightElementsPerCluster = 1;
     static const float SpotLightRange = 7.5000f;
     static const float SpotShadowNearClip = 0.1000f;
-    static const uint64 NumSampleSets = 8;
-    static const uint64 SampleTileSize = 32;
-    static const uint64 NumPixelsPerTile = 1024;
-    static const uint64 MaxPathLengthSetting = 8;
+    static const uint64_t NumSampleSets = 8;
+    static const uint64_t SampleTileSize = 32;
+    static const uint64_t NumPixelsPerTile = 1024;
+    static const uint64_t MaxPathLengthSetting = 8;
 
     extern BoolSetting EnableSun;
     extern BoolSetting EnableSky;
@@ -65,7 +61,6 @@ namespace AppSettings
     extern ScenesSetting CurrentScene;
     extern BoolSetting RenderLights;
     extern IntSetting MaxLightClamp;
-    extern ClusterRasterizationModesSetting ClusterRasterizationMode;
     extern BoolSetting EnableRayTracing;
     extern BoolSetting ClampRoughness;
     extern BoolSetting AvoidCausticPaths;
@@ -99,14 +94,14 @@ namespace AppSettings
         bool32 SunAreaLightApproximation;
         float SunSize;
         Float3 SunDirection;
-        int32 MSAAMode;
+        int32_t MSAAMode;
         bool32 RenderLights;
         bool32 EnableRayTracing;
         bool32 ClampRoughness;
         bool32 AvoidCausticPaths;
-        int32 SqrtNumSamples;
-        int32 MaxPathLength;
-        int32 MaxAnyHitPathLength;
+        int32_t SqrtNumSamples;
+        int32_t MaxPathLength;
+        int32_t MaxAnyHitPathLength;
         float Exposure;
         float BloomExposure;
         float BloomMagnitude;
@@ -125,33 +120,35 @@ namespace AppSettings
     };
 
     extern ConstantBuffer CBuffer;
-    const extern uint32 CBufferRegister;
+    const extern uint32_t CBufferRegister;
 
     void Initialize();
     void Shutdown();
-    void Update(uint32 displayWidth, uint32 displayHeight, const Float4x4& viewMatrix);
+    void Update(uint32_t displayWidth, uint32_t displayHeight, const Float4x4& viewMatrix);
     void UpdateCBuffer();
-    void BindCBufferGfx(ID3D12GraphicsCommandList* cmdList, uint32 rootParameter);
-    void BindCBufferCompute(ID3D12GraphicsCommandList* cmdList, uint32 rootParameter);
+    void BindCBufferGfx(ID3D12GraphicsCommandList* cmdList, uint32_t rootParameter);
+    void BindCBufferCompute(ID3D12GraphicsCommandList* cmdList, uint32_t rootParameter);
+    void GetShaderCompileOptions(CompileOptions& opts);
+    bool ShaderCompileOptionsChanged();
 };
 
 // ================================================================================================
 
-const uint64 NumMSAAModes = uint64(MSAAModes::NumValues);
+const uint64_t NumMSAAModes = uint64_t(MSAAModes::NumValues);
 
 namespace AppSettings
 {
-    extern uint64 NumXTiles;
-    extern uint64 NumYTiles;
+    extern uint64_t NumXTiles;
+    extern uint64_t NumYTiles;
 
-    inline uint32 NumMSAASamples(MSAAModes mode)
+    inline uint32_t NumMSAASamples(MSAAModes mode)
     {
-        static const uint32 NumSamples[] = { 1, 2, 4 };
-        StaticAssert_(ArraySize_(NumSamples) >= uint64(MSAAModes::NumValues));
-        return NumSamples[uint32(mode)];
+        static const uint32_t NumSamples[] = { 1, 2, 4 };
+        StaticAssert_(ArraySize_(NumSamples) >= uint64_t(MSAAModes::NumValues));
+        return NumSamples[uint32_t(mode)];
     }
 
-    inline uint32 NumMSAASamples()
+    inline uint32_t NumMSAASamples()
     {
         return NumMSAASamples(MSAAMode);
     }

@@ -21,12 +21,11 @@
 #include "AppSettings.h"
 
 // Constants
-static const uint64 SunShadowMapSize = 2048;
-static const uint64 SpotLightShadowMapSize = 1024;
+static const uint64_t SunShadowMapSize = 2048;
+static const uint64_t SpotLightShadowMapSize = 1024;
 
 enum MainPassRootParams
 {
-    MainPass_StandardDescriptors,
     MainPass_VSCBuffer,
     MainPass_PSCBuffer,
     MainPass_ShadowCBuffer,
@@ -48,24 +47,24 @@ struct MeshVSConstants
 };
 
 // Frustum culls meshes, and produces a buffer of visible mesh indices
-static uint64 CullMeshes(const Camera& camera, const Array<DirectX::BoundingBox>& boundingBoxes, Array<uint32>& drawIndices)
+static uint64_t CullMeshes(const Camera& camera, const Array<DirectX::BoundingBox>& boundingBoxes, Array<uint32_t>& drawIndices)
 {
     DirectX::BoundingFrustum frustum(camera.ProjectionMatrix().ToSIMD());
     frustum.Transform(frustum, 1.0f, camera.Orientation().ToSIMD(), camera.Position().ToSIMD());
 
-    uint64 numVisible = 0;
-    const uint64 numMeshes = boundingBoxes.Size();
-    for(uint64 i = 0; i < numMeshes; ++i)
+    uint64_t numVisible = 0;
+    const uint64_t numMeshes = boundingBoxes.Size();
+    for(uint64_t i = 0; i < numMeshes; ++i)
     {
         if(frustum.Intersects(boundingBoxes[i]))
-            drawIndices[numVisible++] = uint32(i);
+            drawIndices[numVisible++] = uint32_t(i);
     }
 
     return numVisible;
 }
 
 // Frustum culls meshes for an orthographic projection, and produces a buffer of visible mesh indices
-static uint64 CullMeshesOrthographic(const OrthographicCamera& camera, bool ignoreNearZ, const Array<DirectX::BoundingBox>& boundingBoxes, Array<uint32>& drawIndices)
+static uint64_t CullMeshesOrthographic(const OrthographicCamera& camera, bool ignoreNearZ, const Array<DirectX::BoundingBox>& boundingBoxes, Array<uint32_t>& drawIndices)
 {
     Float3 mins = Float3(camera.MinX(), camera.MinY(), camera.NearClip());
     Float3 maxes = Float3(camera.MaxX(), camera.MaxY(), camera.FarClip());
@@ -82,12 +81,12 @@ static uint64 CullMeshesOrthographic(const OrthographicCamera& camera, bool igno
     obb.Center = center.ToXMFLOAT3();
     obb.Orientation = camera.Orientation().ToXMFLOAT4();
 
-    uint64 numVisible = 0;
-    const uint64 numMeshes = boundingBoxes.Size();
-    for(uint64 i = 0; i < numMeshes; ++i)
+    uint64_t numVisible = 0;
+    const uint64_t numMeshes = boundingBoxes.Size();
+    for(uint64_t i = 0; i < numMeshes; ++i)
     {
         if(obb.Intersects(boundingBoxes[i]))
-            drawIndices[numVisible++] = uint32(i);
+            drawIndices[numVisible++] = uint32_t(i);
     }
 
     return numVisible;
@@ -100,14 +99,14 @@ MeshRenderer::MeshRenderer()
 void MeshRenderer::LoadShaders()
 {
     // Load the mesh shaders
-    meshDepthVS = CompileFromFile(L"DepthOnly.hlsl", "VS", ShaderType::Vertex);
+    meshDepthVS = CompileFromFile("DepthOnly.hlsl", "VS", ShaderType::Vertex);
 
     CompileOptions opts;
-    meshVS = CompileFromFile(L"Mesh.hlsl", "VS", ShaderType::Vertex, opts);
-    meshPS = CompileFromFile(L"Mesh.hlsl", "PSForward", ShaderType::Pixel, opts);
+    meshVS = CompileFromFile("Mesh.hlsl", "VS", ShaderType::Vertex, opts);
+    meshPS = CompileFromFile("Mesh.hlsl", "PSForward", ShaderType::Pixel, opts);
 
     opts.Add("AlphaTest_", 1);
-    meshAlphaTestPS = CompileFromFile(L"Mesh.hlsl", "PSForward", ShaderType::Pixel, opts);
+    meshAlphaTestPS = CompileFromFile("Mesh.hlsl", "PSForward", ShaderType::Pixel, opts);
 }
 
 // Loads resources
@@ -115,11 +114,11 @@ void MeshRenderer::Initialize(const Model* model_)
 {
     model = model_;
 
-    const uint64 numMeshes = model->Meshes().Size();
+    const uint64_t numMeshes = model->Meshes().Size();
     meshBoundingBoxes.Init(numMeshes);
-    frustumCulledIndices.Init(numMeshes, uint32(-1));
+    frustumCulledIndices.Init(numMeshes, uint32_t(-1));
     meshZDepths.Init(numMeshes, FloatMax);
-    for(uint64 i = 0; i < numMeshes; ++i)
+    for(uint64_t i = 0; i < numMeshes; ++i)
     {
         const Mesh& mesh = model->Meshes()[i];
         DirectX::BoundingBox& boundingBox = meshBoundingBoxes[i];
@@ -138,8 +137,7 @@ void MeshRenderer::Initialize(const Model* model_)
         dbInit.Format = DXGI_FORMAT_D32_FLOAT;
         dbInit.MSAASamples = ShadowHelper::NumMSAASamples();
         dbInit.ArraySize = NumCascades;
-        dbInit.InitialState = D3D12_RESOURCE_STATE_DEPTH_READ | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        dbInit.Name = L"Sun Shadow Map";
+        dbInit.Name = "Sun Shadow Map";
         sunDepthMap.Initialize(dbInit);
     }
 
@@ -149,31 +147,30 @@ void MeshRenderer::Initialize(const Model* model_)
         dbInit.Height = SpotLightShadowMapSize;
         dbInit.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
         dbInit.MSAASamples = ShadowHelper::NumMSAASamples();
-        dbInit.ArraySize = Max(model->SpotLights().Size(), 1ull);
-        dbInit.InitialState = D3D12_RESOURCE_STATE_DEPTH_READ | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        dbInit.Name = L"Spot Light Shadow Map";
+        dbInit.ArraySize = Max(uint32_t(model->SpotLights().Size()), 1u);
+        dbInit.Name = "Spot Light Shadow Map";
         spotLightDepthMap.Initialize(dbInit);
     }
 
     {
         // Create a structured buffer containing texture indices per-material
         const Array<MeshMaterial>& materials = model->Materials();
-        const uint64 numMaterials = materials.Size();
+        const uint64_t numMaterials = materials.Size();
         Array<Material> matBufferData(numMaterials);
-        for(uint64 i = 0; i < numMaterials; ++i)
+        for(uint64_t i = 0; i < numMaterials; ++i)
         {
             Material& matIndices = matBufferData[i];
             const MeshMaterial& material = materials[i];
 
-            matIndices.Albedo = material.Textures[uint64(MaterialTextures::Albedo)]->SRV;
-            matIndices.Normal = material.Textures[uint64(MaterialTextures::Normal)]->SRV;
-            matIndices.Roughness = material.Textures[uint64(MaterialTextures::Roughness)]->SRV;
-            matIndices.Metallic = material.Textures[uint64(MaterialTextures::Metallic)]->SRV;
-            matIndices.Emissive = material.Textures[uint64(MaterialTextures::Emissive)]->SRV;
+            matIndices.Albedo = material.Textures[uint64_t(MaterialTextures::Albedo)]->SRV;
+            matIndices.Normal = material.Textures[uint64_t(MaterialTextures::Normal)]->SRV;
+            matIndices.Roughness = material.Textures[uint64_t(MaterialTextures::Roughness)]->SRV;
+            matIndices.Metallic = material.Textures[uint64_t(MaterialTextures::Metallic)]->SRV;
+            matIndices.Emissive = material.Textures[uint64_t(MaterialTextures::Emissive)]->SRV;
 
             // Opacity is optional
-            const Texture* opacity = material.Textures[uint64(MaterialTextures::Opacity)];
-            matIndices.Opacity = opacity ? opacity->SRV : uint32(-1);
+            const Texture* opacity = material.Textures[uint64_t(MaterialTextures::Opacity)];
+            matIndices.Opacity = opacity ? opacity->SRV : InvalidDescriptorIndex;
         }
 
         StructuredBufferInit sbInit;
@@ -188,12 +185,6 @@ void MeshRenderer::Initialize(const Model* model_)
     {
         // Main pass root signature
         D3D12_ROOT_PARAMETER1 rootParameters[NumMainPassRootParams] = {};
-
-        // "Standard"  descriptor table
-        rootParameters[MainPass_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rootParameters[MainPass_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[MainPass_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
-        rootParameters[MainPass_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
 
         // VSCBuffer
         rootParameters[MainPass_VSCBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -244,10 +235,11 @@ void MeshRenderer::Initialize(const Model* model_)
         rootParameters[MainPass_AppSettings].Descriptor.ShaderRegister = AppSettings::CBufferRegister;
         rootParameters[MainPass_AppSettings].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
 
-        D3D12_STATIC_SAMPLER_DESC staticSamplers[3] = {};
-        staticSamplers[0] = DX12::GetStaticSamplerState(SamplerState::Anisotropic, 0);
-        staticSamplers[1] = DX12::GetStaticSamplerState(SamplerState::LinearClamp, 1);
-        staticSamplers[2] = DX12::GetStaticSamplerState(SamplerState::ShadowMapPCF, 2);
+        // Static samplers
+        D3D12_STATIC_SAMPLER_DESC staticSamplers[uint64_t(SamplerState::NumValues)] = {};
+        for(uint32_t i = 0; i < uint32_t(SamplerState::NumValues); ++i)
+            staticSamplers[i] = DX12::GetStaticSamplerState(SamplerState(i), i, 0, D3D12_SHADER_VISIBILITY_ALL);
+
 
         D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
         rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
@@ -258,26 +250,6 @@ void MeshRenderer::Initialize(const Model* model_)
 
         DX12::CreateRootSignature(&mainPassRootSignature, rootSignatureDesc);
     }
-
-    {
-        // Depth only root signature
-        D3D12_ROOT_PARAMETER1 rootParameters[1] = {};
-
-        // VSCBuffer
-        rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-        rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-        rootParameters[0].Descriptor.RegisterSpace = 0;
-        rootParameters[0].Descriptor.ShaderRegister = 0;
-
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
-        rootSignatureDesc.pParameters = rootParameters;
-        rootSignatureDesc.NumStaticSamplers = 0;
-        rootSignatureDesc.pStaticSamplers = nullptr;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
-
-        DX12::CreateRootSignature(&depthRootSignature, rootSignatureDesc);
-    }
 }
 
 void MeshRenderer::Shutdown()
@@ -287,10 +259,9 @@ void MeshRenderer::Shutdown()
     spotLightDepthMap.Shutdown();
     materialBuffer.Shutdown();
     DX12::Release(mainPassRootSignature);
-    DX12::Release(depthRootSignature);
 }
 
-void MeshRenderer::CreatePSOs(DXGI_FORMAT mainRTFormat, DXGI_FORMAT depthFormat, uint32 numMSAASamples)
+void MeshRenderer::CreatePSOs(DXGI_FORMAT mainRTFormat, DXGI_FORMAT depthFormat, uint32_t numMSAASamples)
 {
     if(model == nullptr)
         return;
@@ -314,7 +285,7 @@ void MeshRenderer::CreatePSOs(DXGI_FORMAT mainRTFormat, DXGI_FORMAT depthFormat,
         psoDesc.DSVFormat = depthFormat;
         psoDesc.SampleDesc.Count = numMSAASamples;
         psoDesc.SampleDesc.Quality = numMSAASamples > 1 ? DX12::StandardMSAAPattern : 0;
-        psoDesc.InputLayout.NumElements = uint32(Model::NumInputElements());
+        psoDesc.InputLayout.NumElements = uint32_t(Model::NumInputElements());
         psoDesc.InputLayout.pInputElementDescs = Model::InputElements();
         DXCall(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mainPassPSO)));
 
@@ -325,7 +296,7 @@ void MeshRenderer::CreatePSOs(DXGI_FORMAT mainRTFormat, DXGI_FORMAT depthFormat,
     {
         // Depth-only PSO
         D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = depthRootSignature;
+        psoDesc.pRootSignature = DX12::UniversalRootSignatureWithIA;
         psoDesc.VS = meshVS.ByteCode();
         psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::BackFaceCull);
         psoDesc.BlendState = DX12::GetBlendState(BlendState::Disabled);
@@ -336,7 +307,7 @@ void MeshRenderer::CreatePSOs(DXGI_FORMAT mainRTFormat, DXGI_FORMAT depthFormat,
         psoDesc.DSVFormat = depthFormat;
         psoDesc.SampleDesc.Count = numMSAASamples;
         psoDesc.SampleDesc.Quality = numMSAASamples > 1 ? DX12::StandardMSAAPattern : 0;
-        psoDesc.InputLayout.NumElements = uint32(Model::NumInputElements());
+        psoDesc.InputLayout.NumElements = uint32_t(Model::NumInputElements());
         psoDesc.InputLayout.pInputElementDescs = Model::InputElements();
         DXCall(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&depthPSO)));
 
@@ -366,20 +337,18 @@ void MeshRenderer::DestroyPSOs()
 }
 
 // Renders all meshes in the model, with shadows
-void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Camera& camera, const MainPassData& mainPassData)
+void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList10* cmdList, const Camera& camera, const MainPassData& mainPassData)
 {
     PIXMarker marker(cmdList, "Mesh Rendering");
 
-    const uint64 numVisible = CullMeshes(camera, meshBoundingBoxes, frustumCulledIndices);
-    const uint32* meshDrawIndices = frustumCulledIndices.Data();
+    const uint64_t numVisible = CullMeshes(camera, meshBoundingBoxes, frustumCulledIndices);
+    const uint32_t* meshDrawIndices = frustumCulledIndices.Data();
 
     cmdList->SetGraphicsRootSignature(mainPassRootSignature);
     cmdList->SetPipelineState(mainPassPSO);
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     ID3D12PipelineState* currPSO = mainPassPSO;
-
-    DX12::BindGlobalSRVDescriptorTable(cmdList, MainPass_StandardDescriptors, CmdListMode::Graphics);
 
     Float4x4 world;
 
@@ -397,8 +366,8 @@ void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Came
     psConstants.SinSunAngularRadius = std::sin(DegToRad(AppSettings::SunSize));
     psConstants.CameraPosWS = camera.Position();
 
-    psConstants.NumXTiles = uint32(AppSettings::NumXTiles);
-    psConstants.NumXYTiles = uint32(AppSettings::NumXTiles * AppSettings::NumYTiles);
+    psConstants.NumXTiles = uint32_t(AppSettings::NumXTiles);
+    psConstants.NumXYTiles = uint32_t(AppSettings::NumXTiles * AppSettings::NumYTiles);
     psConstants.NearClip = camera.NearClip();
     psConstants.FarClip = camera.FarClip();
 
@@ -411,7 +380,7 @@ void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Came
 
     AppSettings::BindCBufferGfx(cmdList, MainPass_AppSettings);
 
-    uint32 psSRVs[] =
+    uint32_t psSRVs[] =
     {
         sunDepthMap.SRV(),
         spotLightDepthMap.SRV(),
@@ -428,14 +397,14 @@ void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Came
     cmdList->IASetIndexBuffer(&ibView);
 
     // Draw all visible meshes
-    uint32 currMaterial = uint32(-1);
-    for(uint64 i = 0; i < numVisible; ++i)
+    uint32_t currMaterial = uint32_t(-1);
+    for(uint64_t i = 0; i < numVisible; ++i)
     {
-        uint64 meshIdx = meshDrawIndices[i];
+        uint64_t meshIdx = meshDrawIndices[i];
         const Mesh& mesh = model->Meshes()[meshIdx];
 
         // Draw all parts
-        for(uint64 partIdx = 0; partIdx < mesh.NumMeshParts(); ++partIdx)
+        for(uint64_t partIdx = 0; partIdx < mesh.NumMeshParts(); ++partIdx)
         {
             const MeshPart& part = mesh.MeshParts()[partIdx];
             if(part.MaterialIdx != currMaterial)
@@ -446,7 +415,7 @@ void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Came
 
             ID3D12PipelineState* newPSO = mainPassPSO;
             const MeshMaterial& material = model->Materials()[part.MaterialIdx];
-            if(material.Textures[uint64(MaterialTextures::Opacity)] != nullptr)
+            if(material.Textures[uint64_t(MaterialTextures::Opacity)] != nullptr)
                 newPSO = mainPassAlphaTestPSO;
 
             if(currPSO != newPSO)
@@ -461,9 +430,9 @@ void MeshRenderer::RenderMainPass(ID3D12GraphicsCommandList* cmdList, const Came
 }
 
 // Renders all meshes using depth-only rendering
-void MeshRenderer::RenderDepth(ID3D12GraphicsCommandList* cmdList, const Camera& camera, ID3D12PipelineState* pso, uint64 numVisible, const uint32* meshDrawIndices)
+void MeshRenderer::RenderDepth(ID3D12GraphicsCommandList10* cmdList, const Camera& camera, ID3D12PipelineState* pso, uint64_t numVisible, const uint32_t* meshDrawIndices)
 {
-    cmdList->SetGraphicsRootSignature(depthRootSignature);
+    cmdList->SetGraphicsRootSignature(DX12::UniversalRootSignatureWithIA);
     cmdList->SetPipelineState(pso);
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -474,7 +443,7 @@ void MeshRenderer::RenderDepth(ID3D12GraphicsCommandList* cmdList, const Camera&
     vsConstants.World = world;
     vsConstants.View = camera.ViewMatrix();
     vsConstants.WorldViewProjection = world * camera.ViewProjectionMatrix();
-    DX12::BindTempConstantBuffer(cmdList, vsConstants, 0, CmdListMode::Graphics);
+    DX12::BindTempConstantBufferToURS(cmdList, vsConstants, 0, CmdListMode::Graphics);
 
     // Bind vertices and indices
     D3D12_VERTEX_BUFFER_VIEW vbView = model->VertexBuffer().VBView();
@@ -483,9 +452,9 @@ void MeshRenderer::RenderDepth(ID3D12GraphicsCommandList* cmdList, const Camera&
     cmdList->IASetIndexBuffer(&ibView);
 
     // Draw all meshes
-    for(uint64 i = 0; i < numVisible; ++i)
+    for(uint64_t i = 0; i < numVisible; ++i)
     {
-        uint64 meshIdx = meshDrawIndices[i];
+        uint64_t meshIdx = meshDrawIndices[i];
         const Mesh& mesh = model->Meshes()[meshIdx];
 
         // Draw the whole mesh
@@ -494,22 +463,22 @@ void MeshRenderer::RenderDepth(ID3D12GraphicsCommandList* cmdList, const Camera&
 }
 
 // Renders all meshes using depth-only rendering for a sun shadow map
-void MeshRenderer::RenderSunShadowDepth(ID3D12GraphicsCommandList* cmdList, const OrthographicCamera& camera)
+void MeshRenderer::RenderSunShadowDepth(ID3D12GraphicsCommandList10* cmdList, const OrthographicCamera& camera)
 {
-    const uint64 numVisible = CullMeshesOrthographic(camera, true, meshBoundingBoxes, frustumCulledIndices);
+    const uint64_t numVisible = CullMeshesOrthographic(camera, true, meshBoundingBoxes, frustumCulledIndices);
     RenderDepth(cmdList, camera, sunShadowPSO, numVisible, frustumCulledIndices.Data());
 }
 
-void MeshRenderer::RenderSpotLightShadowDepth(ID3D12GraphicsCommandList* cmdList, const Camera& camera)
+void MeshRenderer::RenderSpotLightShadowDepth(ID3D12GraphicsCommandList10* cmdList, const Camera& camera)
 {
-    const uint64 numVisible = CullMeshes(camera, meshBoundingBoxes, frustumCulledIndices);
+    const uint64_t numVisible = CullMeshes(camera, meshBoundingBoxes, frustumCulledIndices);
     RenderDepth(cmdList, camera, spotLightShadowPSO, numVisible, frustumCulledIndices.Data());
 }
 
 // Renders meshes using cascaded shadow mapping
-void MeshRenderer::RenderSunShadowMap(ID3D12GraphicsCommandList* cmdList, const Camera& camera)
+void MeshRenderer::RenderSunShadowMap(ID3D12GraphicsCommandList10* cmdList, const Camera& camera)
 {
-    PIXMarker marker(cmdList, L"Sun Shadow Map Rendering");
+    PIXMarker marker(cmdList, "Sun Shadow Map Rendering");
     CPUProfileBlock cpuProfileBlock("Sun Shadow Map Rendering");
     ProfileBlock profileBlock(cmdList, "Sun Shadow Map Rendering");
 
@@ -517,12 +486,12 @@ void MeshRenderer::RenderSunShadowMap(ID3D12GraphicsCommandList* cmdList, const 
     ShadowHelper::PrepareCascades(AppSettings::SunDirection, SunShadowMapSize, true, camera, sunShadowConstants.Base, cascadeCameras);
 
     // Transition all of the cascade array slices to a writable state
-    sunDepthMap.MakeWritable(cmdList);
+    DX12::Barrier(cmdList, sunDepthMap.DepthWritableBarrier({ .FirstAccess = true }));
 
     // Render the meshes to each cascade
-    for(uint64 cascadeIdx = 0; cascadeIdx < NumCascades; ++cascadeIdx)
+    for(uint64_t cascadeIdx = 0; cascadeIdx < NumCascades; ++cascadeIdx)
     {
-        PIXMarker cascadeMarker(cmdList, MakeString(L"Rendering Shadow Map Cascade %u", cascadeIdx).c_str());
+        PIXMarker cascadeMarker(cmdList, MakeString("Rendering Shadow Map Cascade %u", cascadeIdx).c_str());
 
         // Set the viewport
         DX12::SetViewport(cmdList, SunShadowMapSize, SunShadowMapSize);
@@ -537,27 +506,27 @@ void MeshRenderer::RenderSunShadowMap(ID3D12GraphicsCommandList* cmdList, const 
         RenderSunShadowDepth(cmdList, cascadeCam);
     }
 
-    sunDepthMap.MakeReadable(cmdList);
+    DX12::Barrier(cmdList, sunDepthMap.DepthReadableBarrier());
 }
 
 // Render shadows for all spot lights
-void MeshRenderer::RenderSpotLightShadowMap(ID3D12GraphicsCommandList* cmdList, const Camera& camera)
+void MeshRenderer::RenderSpotLightShadowMap(ID3D12GraphicsCommandList10* cmdList, const Camera& camera)
 {
     const Array<ModelSpotLight>& spotLights = model->SpotLights();
-    const uint64 numSpotLights = Min<uint64>(spotLights.Size(), AppSettings::MaxLightClamp);
+    const uint64_t numSpotLights = Min<uint64_t>(spotLights.Size(), AppSettings::MaxLightClamp);
     if(numSpotLights == 0)
         return;
 
-    PIXMarker marker(cmdList, L"Spot Light Shadow Map Rendering");
+    PIXMarker marker(cmdList, "Spot Light Shadow Map Rendering");
     CPUProfileBlock cpuProfileBlock("Spot Light Shadow Map Rendering");
     ProfileBlock profileBlock(cmdList, "Spot Light Shadow Map Rendering");
 
     // Transition all of the shadow array slices to a writable state
-    spotLightDepthMap.MakeWritable(cmdList);
+    DX12::Barrier(cmdList, spotLightDepthMap.DepthWritableBarrier({ .FirstAccess = true }));
 
-    for(uint64 i = 0; i < numSpotLights; ++i)
+    for(uint64_t i = 0; i < numSpotLights; ++i)
     {
-        PIXMarker lightMarker(cmdList, MakeString(L"Rendering Spot Light Shadow %u", i).c_str());
+        PIXMarker lightMarker(cmdList, MakeString("Rendering Spot Light Shadow %u", i).c_str());
 
         // Set the viewport
         DX12::SetViewport(cmdList, SpotLightShadowMapSize, SpotLightShadowMapSize);
@@ -580,5 +549,5 @@ void MeshRenderer::RenderSpotLightShadowMap(ID3D12GraphicsCommandList* cmdList, 
         spotLightShadowMatrices[i] = Float4x4::Transpose(shadowMatrix);
     }
 
-    spotLightDepthMap.MakeReadable(cmdList);
+    DX12::Barrier(cmdList, spotLightDepthMap.DepthReadableBarrier());
 }

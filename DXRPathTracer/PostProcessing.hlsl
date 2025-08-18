@@ -7,9 +7,9 @@
 //  All code and content licensed under the MIT license
 //
 //=================================================================================================
-#include <PPCommon.hlsl>
-#include <Constants.hlsl>
-#include "AppSettings.hlsl"
+#include <PPCommon.hlsli>
+#include <Constants.hlsli>
+#include "AppSettings.hlsli"
 
 //=================================================================================================
 // Helper Functions

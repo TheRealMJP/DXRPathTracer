@@ -23,6 +23,7 @@
 #include <Graphics/DX12_Helpers.h>
 #include <Graphics/DXRHelper.h>
 #include <Graphics/BRDF.h>
+#include <Graphics/ShaderDebug.h>
 #include <EnkiTS/TaskScheduler_c.h>
 #include <ImGui/ImGui.h>
 #include <ImGuiHelper.h>
@@ -33,28 +34,28 @@
 using namespace SampleFramework12;
 
 // Model filenames
-static const wchar* ScenePaths[] =
+static const char* ScenePaths[] =
 {
-    L"..\\Content\\Models\\Sponza\\Sponza.fbx",
-    L"..\\Content\\Models\\SunTemple\\SunTemple.fbx",
+    "..\\Content\\Models\\Sponza\\Sponza.fbx",
+    "..\\Content\\Models\\SunTemple\\SunTemple.fbx",
     nullptr,
-    L"..\\Content\\Models\\WhiteFurnace\\WhiteFurnace.fbx",
+    "..\\Content\\Models\\WhiteFurnace\\WhiteFurnace.fbx",
 };
 
-static const wchar* SceneTextureDirs[] = { nullptr, L"Textures", nullptr, nullptr };
+static const char* SceneTextureDirs[] = { nullptr, "Textures", nullptr, nullptr };
 static const float SceneScales[] = { 0.01f, 0.005f, 1.0f, 1.0f };
 static const Float3 SceneCameraPositions[] = { Float3(-11.5f, 1.85f, -0.45f), Float3(-1.0f, 5.5f, 12.0f), Float3(0.0f, 2.5f, -10.0f), Float3(0.0f, 0.0f, -3.0f) };
 static const Float2 SceneCameraRotations[] = { Float2(0.0f, 1.544f), Float2(0.2f, 3.0f), Float2(0.0f, 0.0f), Float2(0.0f, 0.0f) };
 static const Float3 SceneSunDirections[] = { Float3(0.26f, 0.987f, -0.16f), Float3(-0.133022308f, 0.642787635f, 0.75440651f), Float3(0.26f, 0.987f, -0.16f), Float3(0.0f, 1.0f, 0.0f) };
 
-StaticAssert_(ArraySize_(ScenePaths) == uint64(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneTextureDirs) == uint64(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneScales) == uint64(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneCameraPositions) == uint64(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneCameraRotations) == uint64(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneSunDirections) == uint64(Scenes::NumValues));
+StaticAssert_(ArraySize_(ScenePaths) == uint64_t(Scenes::NumValues));
+StaticAssert_(ArraySize_(SceneTextureDirs) == uint64_t(Scenes::NumValues));
+StaticAssert_(ArraySize_(SceneScales) == uint64_t(Scenes::NumValues));
+StaticAssert_(ArraySize_(SceneCameraPositions) == uint64_t(Scenes::NumValues));
+StaticAssert_(ArraySize_(SceneCameraRotations) == uint64_t(Scenes::NumValues));
+StaticAssert_(ArraySize_(SceneSunDirections) == uint64_t(Scenes::NumValues));
 
-static const uint64 NumConeSides = 16;
+static const uint64_t NumConeSides = 16;
 
 static const bool Benchmark = false;
 
@@ -78,16 +79,17 @@ struct ClusterConstants
     float NearClip = 0.0f;
     float FarClip = 0.0f;
     float InvClipRange = 0.0f;
-    uint32 NumXTiles = 0;
-    uint32 NumYTiles = 0;
-    uint32 NumXYTiles = 0;
-    uint32 ElementsPerCluster = 0;
-    uint32 InstanceOffset = 0;
-    uint32 NumLights = 0;
+    uint32_t NumXTiles = 0;
+    uint32_t NumYTiles = 0;
+    uint32_t NumXYTiles = 0;
+    uint32_t ElementsPerCluster = 0;
+    uint32_t InstanceOffset = 0;
+    uint32_t NumLights = 0;
 
-    uint32 BoundsBufferIdx = uint32(-1);
-    uint32 VertexBufferIdx = uint32(-1);
-    uint32 InstanceBufferIdx = uint32(-1);
+    DescriptorIndex BoundsBufferIdx = InvalidDescriptorIndex;
+    DescriptorIndex VertexBufferIdx = InvalidDescriptorIndex;
+    DescriptorIndex InstanceBufferIdx = InvalidDescriptorIndex;
+    DescriptorIndex ClusterBuffer = InvalidDescriptorIndex;
 };
 
 struct RayTraceConstants
@@ -99,48 +101,20 @@ struct RayTraceConstants
     Float3 SunIrradiance;
     float SinSunAngularRadius = 0.0f;
     Float3 SunRenderColor;
-    uint32 Padding = 0;
+    uint32_t Padding = 0;
     Float3 CameraPosWS;
-    uint32 CurrSampleIdx = 0;
-    uint32 TotalNumPixels = 0;
+    uint32_t CurrSampleIdx = 0;
+    uint32_t TotalNumPixels = 0;
 
-    uint32 VtxBufferIdx = uint32(-1);
-    uint32 IdxBufferIdx = uint32(-1);
-    uint32 GeometryInfoBufferIdx = uint32(-1);
-    uint32 MaterialBufferIdx = uint32(-1);
-    uint32 SkyTextureIdx = uint32(-1);
-    uint32 NumLights = 0;
-};
+    DescriptorIndex VtxBufferIdx = InvalidDescriptorIndex;
+    DescriptorIndex IdxBufferIdx = InvalidDescriptorIndex;
+    DescriptorIndex GeometryInfoBufferIdx = InvalidDescriptorIndex;
+    DescriptorIndex MaterialBufferIdx = InvalidDescriptorIndex;
+    DescriptorIndex SkyTextureIdx = InvalidDescriptorIndex;
+    uint32_t NumLights = 0;
 
-enum ClusterRootParams : uint32
-{
-    ClusterParams_StandardDescriptors,
-    ClusterParams_UAVDescriptors,
-    ClusterParams_CBuffer,
-    ClusterParams_AppSettings,
-
-    NumClusterRootParams,
-};
-
-enum ResolveRootParams : uint32
-{
-    ResolveParams_StandardDescriptors,
-    ResolveParams_Constants,
-    ResolveParams_AppSettings,
-
-    NumResolveRootParams
-};
-
-enum RTRootParams : uint32
-{
-    RTParams_StandardDescriptors,
-    RTParams_SceneDescriptor,
-    RTParams_UAVDescriptor,
-    RTParams_CBuffer,
-    RTParams_LightCBuffer,
-    RTParams_AppSettings,
-
-    NumRTRootParams
+    DescriptorIndex SceneAS = InvalidDescriptorIndex;
+    DescriptorIndex RenderTarget = InvalidDescriptorIndex;
 };
 
 // Returns true if a sphere intersects a capped cone defined by a direction, height, and angle
@@ -169,12 +143,9 @@ float Pow5(const float x)
     return xx * xx * x;
 }
 
-DXRPathTracer::DXRPathTracer(const wchar* cmdLine) : App(L"DXR Path Tracer", cmdLine)
+DXRPathTracer::DXRPathTracer(const char* cmdLine) : App("DXR Path Tracer", cmdLine)
 {
     minFeatureLevel = D3D_FEATURE_LEVEL_11_1;
-    globalHelpText = "DXR Path Tracer\n\n"
-                     "Controls:\n\n"
-                     "Use W/S/A/D/Q/E to move the camera, and hold right-click while dragging the mouse to rotate.";
 }
 
 void DXRPathTracer::BeforeReset()
@@ -199,15 +170,6 @@ void DXRPathTracer::Initialize()
         AppSettings::CurrentScene.SetValue(Scenes::SunTemple);
     }
 
-    // Check if the device supports conservative rasterization
-    D3D12_FEATURE_DATA_D3D12_OPTIONS features = { };
-    DX12::Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &features, sizeof(features));
-    if(features.ConservativeRasterizationTier == D3D12_CONSERVATIVE_RASTERIZATION_TIER_NOT_SUPPORTED)
-    {
-        AppSettings::ClusterRasterizationMode.SetValue(ClusterRasterizationModes::MSAA8x);
-        AppSettings::ClusterRasterizationMode.ClampNumValues(uint32(ClusterRasterizationModes::NumValues) - 1);
-    }
-
     float aspect = float(swapChain.Width()) / swapChain.Height();
     camera.Initialize(aspect, Pi_4, 0.1f, 100.0f);
 
@@ -228,7 +190,7 @@ void DXRPathTracer::Initialize()
         sbInit.CPUAccessible = true;
         spotLightBoundsBuffer.Initialize(sbInit);
 
-        sbInit.Stride = sizeof(uint32);
+        sbInit.Stride = sizeof(uint32_t);
         spotLightInstanceBuffer.Initialize(sbInit);
     }
 
@@ -238,8 +200,7 @@ void DXRPathTracer::Initialize()
         cbInit.Size = sizeof(LightConstants);
         cbInit.Dynamic = true;
         cbInit.CPUAccessible = false;
-        cbInit.InitialState = D3D12_RESOURCE_STATE_COMMON;
-        cbInit.Name = L"Spot Light Buffer";
+        cbInit.Name = "Spot Light Buffer";
 
         spotLightBuffer.Initialize(cbInit);
     }
@@ -251,127 +212,48 @@ void DXRPathTracer::Initialize()
         opts.Add("Intersecting_", 0);
 
         // Clustering shaders
-        clusterVS = CompileFromFile(L"Clusters.hlsl", "ClusterVS", ShaderType::Vertex, opts);
-        clusterFrontFacePS = CompileFromFile(L"Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
+        clusterVS = CompileFromFile("Clusters.hlsl", "ClusterVS", ShaderType::Vertex, opts);
+        clusterFrontFacePS = CompileFromFile("Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
 
         opts.Reset();
         opts.Add("FrontFace_", 0);
         opts.Add("BackFace_", 1);
         opts.Add("Intersecting_", 0);
-        clusterBackFacePS = CompileFromFile(L"Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
+        clusterBackFacePS = CompileFromFile("Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
 
         opts.Reset();
         opts.Add("FrontFace_", 0);
         opts.Add("BackFace_", 0);
         opts.Add("Intersecting_", 1);
-        clusterIntersectingPS = CompileFromFile(L"Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
+        clusterIntersectingPS = CompileFromFile("Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
     }
 
     MakeConeGeometry(NumConeSides, spotLightClusterVtxBuffer, spotLightClusterIdxBuffer, coneVertices);
 
     // Compile resolve shaders
-    for(uint64 msaaMode = 1; msaaMode < NumMSAAModes; ++msaaMode)
+    for(uint64_t msaaMode = 1; msaaMode < NumMSAAModes; ++msaaMode)
     {
-        for(uint64 deferred = 0; deferred < 2; ++deferred)
+        for(uint64_t deferred = 0; deferred < 2; ++deferred)
         {
             CompileOptions opts;
             opts.Add("MSAASamples_", AppSettings::NumMSAASamples(MSAAModes(msaaMode)));
-            resolvePS[msaaMode] = CompileFromFile(L"Resolve.hlsl", "ResolvePS", ShaderType::Pixel, opts);
+            resolvePS[msaaMode] = CompileFromFile("Resolve.hlsl", "ResolvePS", ShaderType::Pixel, opts);
         }
     }
 
-    std::wstring fullScreenTriPath = SampleFrameworkDir() + L"Shaders\\FullScreenTriangle.hlsl";
+    std::string fullScreenTriPath = SampleFrameworkDir() + "Shaders\\FullScreenTriangle.hlsl";
     fullScreenTriVS = CompileFromFile(fullScreenTriPath.c_str(), "FullScreenTriangleVS", ShaderType::Vertex);
 
-    {
-        // Clustering root signature
-        D3D12_DESCRIPTOR_RANGE1 uavRanges[1] = {};
-        uavRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-        uavRanges[0].NumDescriptors = 1;
-        uavRanges[0].BaseShaderRegister = 0;
-        uavRanges[0].RegisterSpace = 0;
-        uavRanges[0].OffsetInDescriptorsFromTableStart = 0;
+    rayTraceLib = CompileFromFile("RayTrace.hlsl", nullptr, ShaderType::Library);
 
-        D3D12_ROOT_PARAMETER1 rootParameters[NumClusterRootParams] = {};
-
-        // Standard SRV descriptors
-        rootParameters[ClusterParams_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rootParameters[ClusterParams_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-        rootParameters[ClusterParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
-        rootParameters[ClusterParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
-
-        // PS UAV descriptors
-        rootParameters[ClusterParams_UAVDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rootParameters[ClusterParams_UAVDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[ClusterParams_UAVDescriptors].DescriptorTable.pDescriptorRanges = uavRanges;
-        rootParameters[ClusterParams_UAVDescriptors].DescriptorTable.NumDescriptorRanges = ArraySize_(uavRanges);
-
-        // CBuffer
-        rootParameters[ClusterParams_CBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-        rootParameters[ClusterParams_CBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[ClusterParams_CBuffer].Descriptor.RegisterSpace = 0;
-        rootParameters[ClusterParams_CBuffer].Descriptor.ShaderRegister = 0;
-        rootParameters[ClusterParams_CBuffer].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
-
-        // AppSettings
-        rootParameters[ClusterParams_AppSettings].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-        rootParameters[ClusterParams_AppSettings].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[ClusterParams_AppSettings].Descriptor.RegisterSpace = 0;
-        rootParameters[ClusterParams_AppSettings].Descriptor.ShaderRegister = AppSettings::CBufferRegister;
-        rootParameters[ClusterParams_AppSettings].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
-
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
-        rootSignatureDesc.pParameters = rootParameters;
-        rootSignatureDesc.NumStaticSamplers = 0;
-        rootSignatureDesc.pStaticSamplers = nullptr;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
-
-        DX12::CreateRootSignature(&clusterRS, rootSignatureDesc);
-    }
-
-    {
-        // Resolve root signature
-        D3D12_ROOT_PARAMETER1 rootParameters[NumResolveRootParams] = {};
-
-        // Standard SRV descriptors
-        rootParameters[ResolveParams_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rootParameters[ResolveParams_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[ResolveParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
-        rootParameters[ResolveParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
-
-        // CBuffer
-        rootParameters[ResolveParams_Constants].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        rootParameters[ResolveParams_Constants].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[ResolveParams_Constants].Constants.Num32BitValues = 3;
-        rootParameters[ResolveParams_Constants].Constants.RegisterSpace = 0;
-        rootParameters[ResolveParams_Constants].Constants.ShaderRegister = 0;
-
-        // AppSettings
-        rootParameters[ResolveParams_AppSettings].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-        rootParameters[ResolveParams_AppSettings].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-        rootParameters[ResolveParams_AppSettings].Descriptor.RegisterSpace = 0;
-        rootParameters[ResolveParams_AppSettings].Descriptor.ShaderRegister = AppSettings::CBufferRegister;
-        rootParameters[ResolveParams_AppSettings].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
-
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
-        rootSignatureDesc.pParameters = rootParameters;
-        rootSignatureDesc.NumStaticSamplers = 0;
-        rootSignatureDesc.pStaticSamplers = nullptr;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
-
-        DX12::CreateRootSignature(&resolveRootSignature, rootSignatureDesc);
-    }
-
-    InitRayTracing();
+    rtCurrCamera = camera;
 }
 
 void DXRPathTracer::Shutdown()
 {
     ShadowHelper::Shutdown();
 
-    for(uint64 i = 0; i < ArraySize_(sceneModels); ++i)
+    for(uint64_t i = 0; i < ArraySize_(sceneModels); ++i)
         sceneModels[i].Shutdown();
 
     meshRenderer.Shutdown();
@@ -384,9 +266,6 @@ void DXRPathTracer::Shutdown()
     spotLightClusterBuffer.Shutdown();
     spotLightInstanceBuffer.Shutdown();
 
-    DX12::Release(clusterRS);
-    clusterMSAATarget.Shutdown();
-
     spotLightClusterVtxBuffer.Shutdown();
     spotLightClusterIdxBuffer.Shutdown();
 
@@ -394,10 +273,7 @@ void DXRPathTracer::Shutdown()
     resolveTarget.Shutdown();
     depthBuffer.Shutdown();
 
-    DX12::Release(resolveRootSignature);
-
     rtTarget.Shutdown();
-    DX12::Release(rtRootSignature);
     rtBottomLevelAccelStructure.Shutdown();
     rtTopLevelAccelStructure.Shutdown();
     rtRayGenTable.Shutdown();
@@ -415,42 +291,29 @@ void DXRPathTracer::CreatePSOs()
     {
         // Clustering PSO
         D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = clusterRS;
+        psoDesc.pRootSignature = DX12::UniversalRootSignature;
         psoDesc.BlendState = DX12::GetBlendState(BlendState::Disabled);
         psoDesc.DepthStencilState = DX12::GetDepthState(DepthState::Disabled);
         psoDesc.SampleMask = UINT_MAX;
         psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         psoDesc.NumRenderTargets = 0;
         psoDesc.VS = clusterVS.ByteCode();
-
-        ClusterRasterizationModes rastMode = AppSettings::ClusterRasterizationMode;
-        if(rastMode == ClusterRasterizationModes::MSAA4x || rastMode == ClusterRasterizationModes::MSAA8x)
-        {
-            psoDesc.SampleDesc.Count = clusterMSAATarget.MSAASamples;
-            psoDesc.SampleDesc.Quality = DX12::StandardMSAAPattern;
-            psoDesc.NumRenderTargets = 1;
-            psoDesc.RTVFormats[0] = clusterMSAATarget.Format();
-        }
-        else
-            psoDesc.SampleDesc.Count = 1;
-
-        D3D12_CONSERVATIVE_RASTERIZATION_MODE crMode = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-        if(rastMode == ClusterRasterizationModes::Conservative)
-            crMode = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
+        psoDesc.SampleDesc.Count = 1;
+        psoDesc.SampleDesc.Quality = 0;
 
         psoDesc.PS = clusterFrontFacePS.ByteCode();
         psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::BackFaceCull);
-        psoDesc.RasterizerState.ConservativeRaster = crMode;
+        psoDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
         DXCall(DX12::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&clusterFrontFacePSO)));
 
         psoDesc.PS = clusterBackFacePS.ByteCode();
         psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::FrontFaceCull);
-        psoDesc.RasterizerState.ConservativeRaster = crMode;
+        psoDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
         DXCall(DX12::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&clusterBackFacePSO)));
 
         psoDesc.PS = clusterIntersectingPS.ByteCode();
         psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::FrontFaceCull);
-        psoDesc.RasterizerState.ConservativeRaster = crMode;
+        psoDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
         DXCall(DX12::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&clusterIntersectingPSO)));
 
         clusterFrontFacePSO->SetName(L"Cluster Front-Face PSO");
@@ -459,13 +322,13 @@ void DXRPathTracer::CreatePSOs()
     }
 
     const bool msaaEnabled = AppSettings::MSAAMode != MSAAModes::MSAANone;
-    const uint64 msaaModeIdx = uint64(AppSettings::MSAAMode);
+    const uint64_t msaaModeIdx = uint64_t(AppSettings::MSAAMode);
 
     if(msaaEnabled)
     {
         // Resolve PSO
         D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = resolveRootSignature;
+        psoDesc.pRootSignature = DX12::UniversalRootSignature;
         psoDesc.VS = fullScreenTriVS.ByteCode();
         psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::NoCull);
         psoDesc.BlendState = DX12::GetBlendState(BlendState::Disabled);
@@ -481,6 +344,8 @@ void DXRPathTracer::CreatePSOs()
     }
 
     CreateRayTracingPSOs();
+
+    ShaderDebug::CreatePSOs(swapChain.Format(), depthBuffer.DSVFormat);
 }
 
 void DXRPathTracer::DestroyPSOs()
@@ -494,117 +359,84 @@ void DXRPathTracer::DestroyPSOs()
     DX12::DeferredRelease(resolvePSO);
 
     DX12::DeferredRelease(rtPSO);
+
+    ShaderDebug::DestroyPSOs();
 }
 
 // Creates all required render targets
 void DXRPathTracer::CreateRenderTargets()
 {
-    uint32 width = swapChain.Width();
-    uint32 height = swapChain.Height();
-    const uint32 NumSamples = AppSettings::NumMSAASamples();
+    uint32_t width = swapChain.Width();
+    uint32_t height = swapChain.Height();
+    const uint32_t NumSamples = AppSettings::NumMSAASamples();
 
-     {
-        RenderTextureInit rtInit;
-        rtInit.Width = width;
-        rtInit.Height = height;
-        rtInit.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-        rtInit.MSAASamples = NumSamples;
-        rtInit.ArraySize = 1;
-        rtInit.CreateUAV = NumSamples == 1;
-        rtInit.InitialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        rtInit.Name = L"Main Target";
-        mainTarget.Initialize(rtInit);
-    }
+    mainTarget.Initialize({
+        .Width = width,
+        .Height = height,
+        .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+        .MSAASamples = NumSamples,
+        .ArraySize = 1,
+        .CreateUAV = NumSamples == 1,
+        .InitialLayout = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
+        .Name = "Main Target",
+    });
 
     if(NumSamples > 1)
     {
-        RenderTextureInit rtInit;
-        rtInit.Width = width;
-        rtInit.Height = height;
-        rtInit.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-        rtInit.MSAASamples = 1;
-        rtInit.ArraySize = 1;
-        rtInit.CreateUAV = false;
-        rtInit.InitialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        rtInit.Name = L"Resolve Target";
-        resolveTarget.Initialize(rtInit);
+        resolveTarget.Initialize({
+            .Width = width,
+            .Height = height,
+            .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
+            .MSAASamples = 1,
+            .ArraySize = 1,
+            .CreateUAV = false,
+            .InitialLayout = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
+            .Name = "Resolve Target",
+        });
     }
 
-    {
-        DepthBufferInit dbInit;
-        dbInit.Width = width;
-        dbInit.Height = height;
-        dbInit.Format = DXGI_FORMAT_D32_FLOAT;
-        dbInit.MSAASamples = NumSamples;
-        dbInit.Name = L"Main Depth Buffer";
-        depthBuffer.Initialize(dbInit);
-    }
+    depthBuffer.Initialize({
+        .Width = width,
+        .Height = height,
+        .Format = DXGI_FORMAT_D32_FLOAT,
+        .MSAASamples = NumSamples,
+        .Name = "Main Depth Buffer",
+    });
 
     AppSettings::NumXTiles = (width + (AppSettings::ClusterTileSize - 1)) / AppSettings::ClusterTileSize;
     AppSettings::NumYTiles = (height + (AppSettings::ClusterTileSize - 1)) / AppSettings::ClusterTileSize;
-    const uint64 numXYZTiles = AppSettings::NumXTiles * AppSettings::NumYTiles * AppSettings::NumZTiles;
+    const uint64_t numXYZTiles = AppSettings::NumXTiles * AppSettings::NumYTiles * AppSettings::NumZTiles;
 
-    {
-        // Render target for forcing MSAA during cluster rasterization. Ideally we would use ForcedSampleCount for this,
-        // but it's currently causing the Nvidia driver to crash. :(
-        RenderTextureInit rtInit;
-        rtInit.Width = AppSettings::NumXTiles;
-        rtInit.Height = AppSettings::NumYTiles;
-        rtInit.Format = DXGI_FORMAT_R8_UNORM;
-        rtInit.MSAASamples = 1;
-        rtInit.ArraySize = 1;
-        rtInit.CreateUAV = false;
-        rtInit.Name = L"Deferred MSAA Target";
+    // Spotlight cluster bitmask buffer
+    spotLightClusterBuffer.Initialize({
+        .NumElements = numXYZTiles * AppSettings::SpotLightElementsPerCluster,
+        .CreateUAV = true,
+        .Name = "Spot Light Cluster Buffer",
+    });
 
-        ClusterRasterizationModes rastMode = AppSettings::ClusterRasterizationMode;
-        if(rastMode == ClusterRasterizationModes::MSAA4x)
-        {
-            rtInit.MSAASamples = 4;
-            clusterMSAATarget.Initialize(rtInit);
-        }
-        else if(rastMode == ClusterRasterizationModes::MSAA8x)
-        {
-            rtInit.MSAASamples = 8;
-            clusterMSAATarget.Initialize(rtInit);
-        }
-        else
-            clusterMSAATarget.Shutdown();
-    }
-
-    {
-        // Spotlight cluster bitmask buffer
-        RawBufferInit rbInit;
-        rbInit.NumElements = numXYZTiles * AppSettings::SpotLightElementsPerCluster;
-        rbInit.CreateUAV = true;
-        rbInit.InitialState = D3D12_RESOURCE_STATE_COMMON;
-        rbInit.Name = L"Spot Light Cluster Buffer";
-        spotLightClusterBuffer.Initialize(rbInit);
-    }
-
-    {
-        RenderTextureInit rtInit;
-        rtInit.Width = width;
-        rtInit.Height = height;
-        rtInit.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-        rtInit.CreateUAV = true;
-        rtInit.Name = L"RT Target";
-        rtTarget.Initialize(rtInit);
-    }
+    rtTarget.Initialize({
+        .Width = width,
+        .Height = height,
+        .Format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+        .CreateUAV = true,
+        .InitialLayout = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
+        .Name = "RT Target",
+    });
 
     rtShouldRestartPathTrace = true;
 }
 
 void DXRPathTracer::InitializeScene()
 {
-    const uint64 currSceneIdx = uint64(AppSettings::CurrentScene);
-    AppSettings::EnableWhiteFurnaceMode.SetValue(currSceneIdx == uint64(Scenes::WhiteFurnace));
+    const uint64_t currSceneIdx = uint64_t(AppSettings::CurrentScene);
+    AppSettings::EnableWhiteFurnaceMode.SetValue(currSceneIdx == uint64_t(Scenes::WhiteFurnace));
 
     // Load the scene (if necessary)
     if(sceneModels[currSceneIdx].NumMeshes() == 0)
     {
-        if(currSceneIdx == uint64(Scenes::BoxTest) || ScenePaths[currSceneIdx] == nullptr)
+        if(currSceneIdx == uint64_t(Scenes::BoxTest) || ScenePaths[currSceneIdx] == nullptr)
         {
-            sceneModels[currSceneIdx].GenerateBoxTestScene();
+            sceneModels[currSceneIdx].GenerateBoxTestScene({});
         }
         else
         {
@@ -630,10 +462,10 @@ void DXRPathTracer::InitializeScene()
 
     {
         // Initialize the spotlight data used for rendering
-        const uint64 numSpotLights = Min(currentModel->SpotLights().Size(), AppSettings::MaxSpotLights);
+        const uint64_t numSpotLights = Min(currentModel->SpotLights().Size(), AppSettings::MaxSpotLights);
         spotLights.Init(numSpotLights);
 
-        for(uint64 i = 0; i < numSpotLights; ++i)
+        for(uint64_t i = 0; i < numSpotLights; ++i)
         {
             const ModelSpotLight& srcLight = currentModel->SpotLights()[i];
 
@@ -648,77 +480,6 @@ void DXRPathTracer::InitializeScene()
     }
 
     buildAccelStructure = true;
-}
-
-void DXRPathTracer::InitRayTracing()
-{
-    rayTraceLib = CompileFromFile(L"RayTrace.hlsl", nullptr, ShaderType::Library);
-
-    {
-        // RayTrace root signature
-        D3D12_DESCRIPTOR_RANGE1 uavRanges[1] = {};
-        uavRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-        uavRanges[0].NumDescriptors = 1;
-        uavRanges[0].BaseShaderRegister = 0;
-        uavRanges[0].RegisterSpace = 0;
-        uavRanges[0].OffsetInDescriptorsFromTableStart = 0;
-
-        D3D12_ROOT_PARAMETER1 rootParameters[NumRTRootParams] = {};
-
-        // Standard SRV descriptors
-        rootParameters[RTParams_StandardDescriptors].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rootParameters[RTParams_StandardDescriptors].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTParams_StandardDescriptors].DescriptorTable.pDescriptorRanges = DX12::GlobalSRVDescriptorRanges();
-        rootParameters[RTParams_StandardDescriptors].DescriptorTable.NumDescriptorRanges = DX12::NumGlobalSRVDescriptorRanges;
-
-        // Acceleration structure SRV descriptor
-        rootParameters[RTParams_SceneDescriptor].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-        rootParameters[RTParams_SceneDescriptor].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTParams_SceneDescriptor].Descriptor.ShaderRegister = 0;
-        rootParameters[RTParams_SceneDescriptor].Descriptor.RegisterSpace = 200;
-
-        // UAV descriptor
-        rootParameters[RTParams_UAVDescriptor].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rootParameters[RTParams_UAVDescriptor].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTParams_UAVDescriptor].DescriptorTable.pDescriptorRanges = uavRanges;
-        rootParameters[RTParams_UAVDescriptor].DescriptorTable.NumDescriptorRanges = ArraySize_(uavRanges);
-
-        // CBuffer
-        rootParameters[RTParams_CBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-        rootParameters[RTParams_CBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTParams_CBuffer].Descriptor.RegisterSpace = 0;
-        rootParameters[RTParams_CBuffer].Descriptor.ShaderRegister = 0;
-        rootParameters[RTParams_CBuffer].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
-
-        // LightCBuffer
-        rootParameters[RTParams_LightCBuffer].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-        rootParameters[RTParams_LightCBuffer].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTParams_LightCBuffer].Descriptor.RegisterSpace = 0;
-        rootParameters[RTParams_LightCBuffer].Descriptor.ShaderRegister = 1;
-        rootParameters[RTParams_LightCBuffer].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE;
-
-        // AppSettings
-        rootParameters[RTParams_AppSettings].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-        rootParameters[RTParams_AppSettings].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        rootParameters[RTParams_AppSettings].Descriptor.RegisterSpace = 0;
-        rootParameters[RTParams_AppSettings].Descriptor.ShaderRegister = AppSettings::CBufferRegister;
-        rootParameters[RTParams_AppSettings].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC;
-
-        D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
-        staticSamplers[0] = DX12::GetStaticSamplerState(SamplerState::Anisotropic, 0, 0, D3D12_SHADER_VISIBILITY_ALL);
-        staticSamplers[1] = DX12::GetStaticSamplerState(SamplerState::LinearClamp, 1, 0, D3D12_SHADER_VISIBILITY_ALL);
-
-        D3D12_ROOT_SIGNATURE_DESC1 rootSignatureDesc = {};
-        rootSignatureDesc.NumParameters = ArraySize_(rootParameters);
-        rootSignatureDesc.pParameters = rootParameters;
-        rootSignatureDesc.NumStaticSamplers = ArraySize_(staticSamplers);
-        rootSignatureDesc.pStaticSamplers = staticSamplers;
-        rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
-
-        DX12::CreateRootSignature(&rtRootSignature, rootSignatureDesc);
-    }
-
-    rtCurrCamera = camera;
 }
 
 void DXRPathTracer::CreateRayTracingPSOs()
@@ -774,14 +535,14 @@ void DXRPathTracer::CreateRayTracingPSOs()
     {
         D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = { };
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                      // float2 barycentrics;
-        shaderConfig.MaxPayloadSizeInBytes = 4 * sizeof(float) + 4 * sizeof(uint32);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse
+        shaderConfig.MaxPayloadSizeInBytes = 4 * sizeof(float) + 4 * sizeof(uint32_t);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse
         builder.AddSubObject(shaderConfig);
     }
 
     {
         // Global root signature with all of our normal bindings
         D3D12_GLOBAL_ROOT_SIGNATURE globalRSDesc = { };
-        globalRSDesc.pGlobalRootSignature = rtRootSignature;
+        globalRSDesc.pGlobalRootSignature = DX12::UniversalRootSignature;
         builder.AddSubObject(globalRSDesc);
     }
 
@@ -815,7 +576,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
         sbInit.NumElements = ArraySize_(rayGenRecords);
         sbInit.InitData = rayGenRecords;
         sbInit.ShaderTable = true;
-        sbInit.Name = L"Ray Gen Shader Table";
+        sbInit.Name = "Ray Gen Shader Table";
         rtRayGenTable.Initialize(sbInit);
     }
 
@@ -827,34 +588,34 @@ void DXRPathTracer::CreateRayTracingPSOs()
         sbInit.NumElements = ArraySize_(missRecords);
         sbInit.InitData = missRecords;
         sbInit.ShaderTable = true;
-        sbInit.Name = L"Miss Shader Table";
+        sbInit.Name = "Miss Shader Table";
         rtMissTable.Initialize(sbInit);
     }
 
     {
-        const uint32 numMeshes = uint32(currentModel->NumMeshes());
+        const uint32_t numMeshes = uint32_t(currentModel->NumMeshes());
 
         Array<HitGroupRecord> hitGroupRecords(numMeshes * 2);
-        for(uint64 i = 0; i < numMeshes; ++i)
+        for(uint64_t i = 0; i < numMeshes; ++i)
         {
             // Use the alpha test hit group (with an any hit shader) if the material has an opacity map
             const Mesh& mesh = currentModel->Meshes()[i];
             Assert_(mesh.NumMeshParts() == 1);
-            const uint32 materialIdx = mesh.MeshParts()[0].MaterialIdx;
+            const uint32_t materialIdx = mesh.MeshParts()[0].MaterialIdx;
             const MeshMaterial& material = currentModel->Materials()[materialIdx];
-            const bool alphaTest = material.Textures[uint32(MaterialTextures::Opacity)] != nullptr;
+            const bool alphaTest = material.Textures[uint32_t(MaterialTextures::Opacity)] != nullptr;
 
             hitGroupRecords[i * 2 + 0].ID = alphaTest ? ShaderIdentifier(alphaTestHitGroupID) : ShaderIdentifier(hitGroupID);
             hitGroupRecords[i * 2 + 1].ID = alphaTest ? ShaderIdentifier(shadowAlphaTestHitGroupID) : ShaderIdentifier(shadowHitGroupID);
         }
 
-        StructuredBufferInit sbInit;
-        sbInit.Stride = sizeof(HitGroupRecord);
-        sbInit.NumElements = hitGroupRecords.Size();
-        sbInit.InitData = hitGroupRecords.Data();
-        sbInit.ShaderTable = true;
-        sbInit.Name = L"Hit Shader Table";
-        rtHitTable.Initialize(sbInit);
+        rtHitTable.Initialize({
+            .Stride = sizeof(HitGroupRecord),
+            .NumElements = hitGroupRecords.Size(),
+            .InitData = hitGroupRecords.Data(),
+            .ShaderTable = true,
+            .Name = "Hit Shader Table",
+        });
     }
 
     DX12::Release(psoProps);
@@ -921,16 +682,16 @@ void DXRPathTracer::Update(const Timer& timer)
 
     skyCache.Init(AppSettings::SunDirection, AppSettings::SunSize, AppSettings::GroundAlbedo, AppSettings::Turbidity, true);
 
-    if(AppSettings::MSAAMode.Changed() || AppSettings::ClusterRasterizationMode.Changed())
+    if(AppSettings::MSAAMode.Changed())
     {
         DestroyPSOs();
         CreateRenderTargets();
         CreatePSOs();
     }
 
-    if(AppSettings::CurrentScene.Changed() && currentModel != &sceneModels[uint64(AppSettings::CurrentScene)])
+    if(AppSettings::CurrentScene.Changed() && currentModel != &sceneModels[uint64_t(AppSettings::CurrentScene)])
     {
-        currentModel = &sceneModels[uint64(AppSettings::CurrentScene)];
+        currentModel = &sceneModels[uint64_t(AppSettings::CurrentScene)];
         DestroyPSOs();
         InitializeScene();
         CreatePSOs();
@@ -993,7 +754,7 @@ void DXRPathTracer::Render(const Timer& timer)
     else if(lastBuildAccelStructureFrame + DX12::RenderLatency == DX12::CurrentCPUFrame)
         WriteLog("Acceleration structure build time: %.2f ms", Profiler::GlobalProfiler.GPUProfileTiming("Build Acceleration Structure"));
 
-    ID3D12GraphicsCommandList4* cmdList = DX12::CmdList;
+    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
 
     CPUProfileBlock cpuProfileBlock("Render");
     ProfileBlock gpuProfileBlock(cmdList, "Render Total");
@@ -1005,7 +766,7 @@ void DXRPathTracer::Render(const Timer& timer)
         // Update the light constant buffer
         MapResult staging = DX12::AcquireTempBufferMem(spotLightBuffer.InternalBuffer.Size, 0);
         memcpy(staging.CPUAddress, spotLights.Data(), spotLights.MemorySize());
-        uint8* matrixData = reinterpret_cast<uint8*>(staging.CPUAddress) + sizeof(SpotLight) * AppSettings::MaxSpotLights;
+        uint8_t* matrixData = reinterpret_cast<uint8_t*>(staging.CPUAddress) + sizeof(SpotLight) * AppSettings::MaxSpotLights;
         memcpy(matrixData, meshRenderer.SpotLightShadowMatrices(), spotLights.Size() * sizeof(Float4x4));
         spotLightBuffer.QueueUpload(staging.Resource, staging.ResourceOffset, spotLightBuffer.InternalBuffer.Size, 0);
     }
@@ -1039,16 +800,18 @@ void DXRPathTracer::Render(const Timer& timer)
     }
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[1] = { swapChain.BackBuffer().RTV };
-    cmdList->OMSetRenderTargets(1, rtvHandles, false, nullptr);
+    cmdList->OMSetRenderTargets(1, rtvHandles, false, &depthBuffer.DSV);
 
     DX12::SetViewport(cmdList, swapChain.Width(), swapChain.Height());
+
+    ShaderDebug::EndRender(DX12::CmdList, camera.ViewProjectionMatrix());
 
     RenderHUD(timer);
 }
 
 void DXRPathTracer::UpdateLights()
 {
-    const uint64 numSpotLights = Min<uint64>(spotLights.Size(), AppSettings::MaxLightClamp);
+    const uint64_t numSpotLights = Min<uint64_t>(spotLights.Size(), AppSettings::MaxLightClamp);
 
     // This is an additional scale factor that's needed to make sure that our polygonal bounding cone
     // fully encloses the actual cone representing the light's area of influence
@@ -1060,7 +823,7 @@ void DXRPathTracer::UpdateLights()
     const float farClip = camera.FarClip();
     const float zRange = farClip - nearClip;
     const Float3 cameraPos = camera.Position();
-    const uint64 numConeVerts = coneVertices.Size();
+    const uint64_t numConeVerts = coneVertices.Size();
 
     // Come up with a bounding sphere that surrounds the near clipping plane. We'll test this sphere
     // for intersection with the spot light's bounding cone, and use that to over-estimate if the bounding
@@ -1074,7 +837,7 @@ void DXRPathTracer::UpdateLights()
     bool intersectsCamera[AppSettings::MaxSpotLights] = { };
 
     // Update the light bounds buffer
-    for(uint64 spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
+    for(uint64_t spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
     {
         const SpotLight& spotLight = spotLights[spotLightIdx];
         const ModelSpotLight& srcSpotLight = currentModel->SpotLights()[spotLightIdx];
@@ -1087,7 +850,7 @@ void DXRPathTracer::UpdateLights()
         // Compute conservative Z bounds for the light based on vertices of the bounding geometry
         float minZ = FloatMax;
         float maxZ = -FloatMax;
-        for(uint64 i = 0; i < numConeVerts; ++i)
+        for(uint64_t i = 0; i < numConeVerts; ++i)
         {
             Float3 coneVert = coneVertices[i] * bounds.Scale;
             coneVert = Float3::Transform(coneVert, bounds.Orientation);
@@ -1101,8 +864,8 @@ void DXRPathTracer::UpdateLights()
         minZ = Saturate((minZ - nearClip) / zRange);
         maxZ = Saturate((maxZ - nearClip) / zRange);
 
-        bounds.ZBounds.x = uint32(minZ * AppSettings::NumZTiles);
-        bounds.ZBounds.y = Min(uint32(maxZ * AppSettings::NumZTiles), uint32(AppSettings::NumZTiles - 1));
+        bounds.ZBounds.x = uint32_t(minZ * AppSettings::NumZTiles);
+        bounds.ZBounds.y = Min(uint32_t(maxZ * AppSettings::NumZTiles), uint32_t(AppSettings::NumZTiles - 1));
 
         // Estimate if the light's bounding geometry intersects with the camera's near clip plane
         boundsData[spotLightIdx] = bounds;
@@ -1111,35 +874,27 @@ void DXRPathTracer::UpdateLights()
     }
 
     numIntersectingSpotLights = 0;
-    uint32* instanceData = spotLightInstanceBuffer.Map<uint32>();
+    uint32_t* instanceData = spotLightInstanceBuffer.Map<uint32_t>();
 
-    for(uint64 spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
+    for(uint64_t spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
         if(intersectsCamera[spotLightIdx])
-            instanceData[numIntersectingSpotLights++] = uint32(spotLightIdx);
+            instanceData[numIntersectingSpotLights++] = uint32_t(spotLightIdx);
 
-    uint64 offset = numIntersectingSpotLights;
-    for(uint64 spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
+    uint64_t offset = numIntersectingSpotLights;
+    for(uint64_t spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
         if(intersectsCamera[spotLightIdx] == false)
-            instanceData[offset++] = uint32(spotLightIdx);
+            instanceData[offset++] = uint32_t(spotLightIdx);
 }
 
 void DXRPathTracer::RenderClusters()
 {
-    ID3D12GraphicsCommandList* cmdList = DX12::CmdList;
+    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
 
     PIXMarker marker(cmdList, "Cluster Update");
     ProfileBlock profileBlock(cmdList, "Cluster Update");
 
-    spotLightClusterBuffer.MakeWritable(cmdList);
-
-    {
-        // Clear spot light clusters
-        D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptors[1] = { spotLightClusterBuffer.UAV };
-        D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = DX12::TempDescriptorTable(cpuDescriptors, ArraySize_(cpuDescriptors));
-
-        uint32 values[4] = { };
-        cmdList->ClearUnorderedAccessViewUint(gpuHandle, cpuDescriptors[0], spotLightClusterBuffer.InternalBuffer.Resource, values, 0, nullptr);
-    }
+    DX12::ClearRawBuffer(cmdList, spotLightClusterBuffer, Uint4(0, 0, 0, 0));
+    DX12::Barrier(cmdList, spotLightClusterBuffer.InternalBuffer.WriteToWriteBarrier());
 
     ClusterConstants clusterConstants;
     clusterConstants.ViewProjection = camera.ViewProjectionMatrix();
@@ -1147,91 +902,75 @@ void DXRPathTracer::RenderClusters()
     clusterConstants.NearClip = camera.NearClip();
     clusterConstants.FarClip = camera.FarClip();
     clusterConstants.InvClipRange = 1.0f / (camera.FarClip() - camera.NearClip());
-    clusterConstants.NumXTiles = uint32(AppSettings::NumXTiles);
-    clusterConstants.NumYTiles = uint32(AppSettings::NumYTiles);
-    clusterConstants.NumXYTiles = uint32(AppSettings::NumXTiles * AppSettings::NumYTiles);
+    clusterConstants.NumXTiles = uint32_t(AppSettings::NumXTiles);
+    clusterConstants.NumYTiles = uint32_t(AppSettings::NumYTiles);
+    clusterConstants.NumXYTiles = uint32_t(AppSettings::NumXTiles * AppSettings::NumYTiles);
     clusterConstants.InstanceOffset = 0;
-    clusterConstants.NumLights = Min<uint32>(uint32(spotLights.Size()), AppSettings::MaxLightClamp);
+    clusterConstants.NumLights = Min<uint32_t>(uint32_t(spotLights.Size()), AppSettings::MaxLightClamp);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[1] = { clusterMSAATarget.RTV };
-    ClusterRasterizationModes rastMode = AppSettings::ClusterRasterizationMode;
-    if(rastMode == ClusterRasterizationModes::MSAA4x || rastMode == ClusterRasterizationModes::MSAA8x)
-        cmdList->OMSetRenderTargets(1, rtvHandles, false, nullptr);
-    else
-        cmdList->OMSetRenderTargets(0, nullptr, false, nullptr);
+    cmdList->OMSetRenderTargets(0, nullptr, false, nullptr);
 
     DX12::SetViewport(cmdList, AppSettings::NumXTiles, AppSettings::NumYTiles);
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    cmdList->SetGraphicsRootSignature(clusterRS);
-
-    DX12::BindGlobalSRVDescriptorTable(cmdList, ClusterParams_StandardDescriptors, CmdListMode::Graphics);
+    cmdList->SetGraphicsRootSignature(DX12::UniversalRootSignature);
 
     if(AppSettings::RenderLights)
     {
         // Update light clusters
-        spotLightClusterBuffer.UAVBarrier(cmdList);
-
         D3D12_INDEX_BUFFER_VIEW ibView = spotLightClusterIdxBuffer.IBView();
         cmdList->IASetIndexBuffer(&ibView);
 
-        clusterConstants.ElementsPerCluster = uint32(AppSettings::SpotLightElementsPerCluster);
+        clusterConstants.ElementsPerCluster = uint32_t(AppSettings::SpotLightElementsPerCluster);
         clusterConstants.InstanceOffset = 0;
         clusterConstants.BoundsBufferIdx = spotLightBoundsBuffer.SRV;
         clusterConstants.VertexBufferIdx = spotLightClusterVtxBuffer.SRV;
         clusterConstants.InstanceBufferIdx = spotLightInstanceBuffer.SRV;
-        DX12::BindTempConstantBuffer(cmdList, clusterConstants, ClusterParams_CBuffer, CmdListMode::Graphics);
+        clusterConstants.ClusterBuffer = spotLightClusterBuffer.UAV;
+        DX12::BindTempConstantBufferToURS(cmdList, clusterConstants, 0, CmdListMode::Graphics);
 
-        AppSettings::BindCBufferGfx(cmdList, ClusterParams_AppSettings);
+        AppSettings::BindCBufferGfx(cmdList, URS_AppSettings);
 
-        D3D12_CPU_DESCRIPTOR_HANDLE uavs[] = { spotLightClusterBuffer.UAV };
-        DX12::BindTempDescriptorTable(cmdList, uavs, ArraySize_(uavs), ClusterParams_UAVDescriptors, CmdListMode::Graphics);
-
-        const uint64 numLightsToRender = Min<uint64>(spotLights.Size(), AppSettings::MaxLightClamp);
+        const uint64_t numLightsToRender = Min<uint64_t>(spotLights.Size(), AppSettings::MaxLightClamp);
         Assert_(numIntersectingSpotLights <= numLightsToRender);
-        const uint64 numNonIntersecting = numLightsToRender - numIntersectingSpotLights;
+        const uint64_t numNonIntersecting = numLightsToRender - numIntersectingSpotLights;
 
         // Render back faces for lights that intersect with the camera
         cmdList->SetPipelineState(clusterIntersectingPSO);
 
-        cmdList->DrawIndexedInstanced(uint32(spotLightClusterIdxBuffer.NumElements), uint32(numIntersectingSpotLights), 0, 0, 0);
+        cmdList->DrawIndexedInstanced(uint32_t(spotLightClusterIdxBuffer.NumElements), uint32_t(numIntersectingSpotLights), 0, 0, 0);
 
         // Now for all other lights, render the back faces followed by the front faces
         cmdList->SetPipelineState(clusterBackFacePSO);
 
-        clusterConstants.InstanceOffset = uint32(numIntersectingSpotLights);
-        DX12::BindTempConstantBuffer(cmdList, clusterConstants, ClusterParams_CBuffer, CmdListMode::Graphics);
+        clusterConstants.InstanceOffset = uint32_t(numIntersectingSpotLights);
+        DX12::BindTempConstantBufferToURS(cmdList, clusterConstants, 0, CmdListMode::Graphics);
 
-        cmdList->DrawIndexedInstanced(uint32(spotLightClusterIdxBuffer.NumElements), uint32(numNonIntersecting), 0, 0, 0);
+        cmdList->DrawIndexedInstanced(uint32_t(spotLightClusterIdxBuffer.NumElements), uint32_t(numNonIntersecting), 0, 0, 0);
 
-        spotLightClusterBuffer.UAVBarrier(cmdList);
+        DX12::Barrier(cmdList, spotLightClusterBuffer.InternalBuffer.WriteToWriteBarrier());
 
         cmdList->SetPipelineState(clusterFrontFacePSO);
 
-        cmdList->DrawIndexedInstanced(uint32(spotLightClusterIdxBuffer.NumElements), uint32(numNonIntersecting), 0, 0, 0);
+        cmdList->DrawIndexedInstanced(uint32_t(spotLightClusterIdxBuffer.NumElements), uint32_t(numNonIntersecting), 0, 0, 0);
     }
 
     // Sync
-    spotLightClusterBuffer.MakeReadable(cmdList);
+    DX12::Barrier(cmdList, spotLightClusterBuffer.InternalBuffer.WriteToReadBarrier());
 }
 
 void DXRPathTracer::RenderForward()
 {
-    ID3D12GraphicsCommandList* cmdList = DX12::CmdList;
+    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
 
     PIXMarker marker(cmdList, "Forward rendering");
 
     {
         // Transition render targets back to a writable state
-        D3D12_RESOURCE_BARRIER barriers[1] = { };
-        barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        barriers[0].Transition.pResource = mainTarget.Resource();
-        barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barriers[0].Transition.Subresource = 0;
-
-        cmdList->ResourceBarrier(ArraySize_(barriers), barriers);
+        BarrierBatchBuilder barrierBuilder;
+        barrierBuilder.Add(mainTarget.RTWritableBarrier({ .FirstAccess = true }));
+        barrierBuilder.Add(depthBuffer.DepthWritableBarrier({ .FirstAccess = true }));
+        DX12::Barrier(cmdList, barrierBuilder.Build());
     }
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[1] = { mainTarget.RTV };
@@ -1270,6 +1009,16 @@ void DXRPathTracer::RenderForward()
 
             cmdList->ResourceBarrier(ArraySize_(barriers), barriers);
         }
+
+        {
+            // Make our targets readable again
+            BarrierBatchBuilder barrierBuilder;
+            barrierBuilder.Add(mainTarget.RTToShaderReadableBarrier());
+            barrierBuilder.Add(depthBuffer.DepthReadableBarrier());
+            if(AppSettings::MSAAMode != MSAAModes::MSAANone)
+                barrierBuilder.Add(resolveTarget.RTWritableBarrier({ .FirstAccess = true }));
+            DX12::Barrier(cmdList, barrierBuilder.Build());
+        }
     }
 }
 
@@ -1279,27 +1028,26 @@ void DXRPathTracer::RenderResolve()
     if(AppSettings::MSAAMode == MSAAModes::MSAANone)
         return;
 
-    ID3D12GraphicsCommandList* cmdList = DX12::CmdList;
+    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
 
     PIXMarker pixMarker(cmdList, "MSAA Resolve");
     ProfileBlock profileBlock(cmdList, "MSAA Resolve");
-
-    resolveTarget.MakeWritable(cmdList);
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtvs[1] = { resolveTarget.RTV };
     cmdList->OMSetRenderTargets(ArraySize_(rtvs), rtvs, false, nullptr);
     DX12::SetViewport(cmdList, resolveTarget.Width(), resolveTarget.Height());
 
-    cmdList->SetGraphicsRootSignature(resolveRootSignature);
+    cmdList->SetGraphicsRootSignature(DX12::UniversalRootSignature);
     cmdList->SetPipelineState(resolvePSO);
 
-    DX12::BindGlobalSRVDescriptorTable(cmdList, ResolveParams_StandardDescriptors, CmdListMode::Graphics);
+    ResolveConstants constants =
+    {
+        .OutputSize = Uint2(mainTarget.Width(), mainTarget.Height()),
+        .InputTextureIdx = mainTarget.SRV(),
+    };
+    DX12::BindTempConstantBufferToURS(cmdList, constants, 0, CmdListMode::Graphics);
 
-    cmdList->SetGraphicsRoot32BitConstant(ResolveParams_Constants, uint32(mainTarget.Width()), 0);
-    cmdList->SetGraphicsRoot32BitConstant(ResolveParams_Constants, uint32(mainTarget.Height()), 1);
-    cmdList->SetGraphicsRoot32BitConstant(ResolveParams_Constants, mainTarget.SRV(), 2);
-
-    AppSettings::BindCBufferGfx(cmdList, ResolveParams_AppSettings);
+    AppSettings::BindCBufferGfx(cmdList, URS_AppSettings);
 
     cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     cmdList->IASetIndexBuffer(nullptr);
@@ -1307,22 +1055,17 @@ void DXRPathTracer::RenderResolve()
 
     cmdList->DrawInstanced(3, 1, 0, 0);
 
-    resolveTarget.MakeReadable(cmdList);
+    DX12::Barrier(cmdList, resolveTarget.RTToShaderReadableBarrier());
 }
 
 void DXRPathTracer::RenderRayTracing()
 {
     // Don't keep tracing rays if we've hit our maximum per-pixel sample count
-    if(rtCurrSampleIdx >= uint32(AppSettings::SqrtNumSamples * AppSettings::SqrtNumSamples))
+    if(rtCurrSampleIdx >= uint32_t(AppSettings::SqrtNumSamples * AppSettings::SqrtNumSamples))
         return;
 
-    ID3D12GraphicsCommandList4* cmdList = DX12::CmdList;
-    cmdList->SetComputeRootSignature(rtRootSignature);
-
-    DX12::BindGlobalSRVDescriptorTable(cmdList, RTParams_StandardDescriptors, CmdListMode::Compute);
-
-    cmdList->SetComputeRootShaderResourceView(RTParams_SceneDescriptor, rtTopLevelAccelStructure.GPUAddress);
-    DX12::BindTempDescriptorTable(cmdList, &rtTarget.UAV, 1, RTParams_UAVDescriptor, CmdListMode::Compute);
+    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
+    cmdList->SetComputeRootSignature(DX12::UniversalRootSignature);
 
     RayTraceConstants rtConstants;
     rtConstants.InvViewProjection = Float4x4::Invert(camera.ViewProjectionMatrix());
@@ -1334,22 +1077,25 @@ void DXRPathTracer::RenderRayTracing()
     rtConstants.SunRenderColor = skyCache.SunRenderColor;
     rtConstants.CameraPosWS = camera.Position();
     rtConstants.CurrSampleIdx = rtCurrSampleIdx;
-    rtConstants.TotalNumPixels = uint32(rtTarget.Width()) * uint32(rtTarget.Height());
+    rtConstants.TotalNumPixels = uint32_t(rtTarget.Width()) * uint32_t(rtTarget.Height());
 
     rtConstants.VtxBufferIdx = currentModel->VertexBuffer().SRV;
     rtConstants.IdxBufferIdx = currentModel->IndexBuffer().SRV;
     rtConstants.GeometryInfoBufferIdx = rtGeoInfoBuffer.SRV;
     rtConstants.MaterialBufferIdx = meshRenderer.MaterialBuffer().SRV;
     rtConstants.SkyTextureIdx = skyCache.CubeMap.SRV;
-    rtConstants.NumLights = Min<uint32>(uint32(spotLights.Size()), AppSettings::MaxLightClamp);
+    rtConstants.NumLights = Min<uint32_t>(uint32_t(spotLights.Size()), AppSettings::MaxLightClamp);
 
-    DX12::BindTempConstantBuffer(cmdList, rtConstants, RTParams_CBuffer, CmdListMode::Compute);
+    rtConstants.SceneAS = rtTopLevelAccelStructure.SRV;
+    rtConstants.RenderTarget = rtTarget.UAV;
 
-    spotLightBuffer.SetAsComputeRootParameter(cmdList, RTParams_LightCBuffer);
+    DX12::BindTempConstantBufferToURS(cmdList, rtConstants, 0, CmdListMode::Compute);
 
-    AppSettings::BindCBufferCompute(cmdList, RTParams_AppSettings);
+    spotLightBuffer.SetAsComputeRootParameter(cmdList, URS_ConstantBuffers + 1);
 
-    rtTarget.MakeWritableUAV(cmdList);
+    AppSettings::BindCBufferCompute(cmdList, URS_AppSettings);
+
+    DX12::Barrier(cmdList, rtTarget.UAVWritableBarrier());
 
     cmdList->SetPipelineState1(rtPSO);
 
@@ -1357,13 +1103,21 @@ void DXRPathTracer::RenderRayTracing()
     dispatchDesc.HitGroupTable = rtHitTable.ShaderTable();
     dispatchDesc.MissShaderTable = rtMissTable.ShaderTable();
     dispatchDesc.RayGenerationShaderRecord = rtRayGenTable.ShaderRecord(0);
-    dispatchDesc.Width = uint32(rtTarget.Width());
-    dispatchDesc.Height = uint32(rtTarget.Height());
+    dispatchDesc.Width = uint32_t(rtTarget.Width());
+    dispatchDesc.Height = uint32_t(rtTarget.Height());
     dispatchDesc.Depth = 1;
 
     DX12::CmdList->DispatchRays(&dispatchDesc);
 
-    rtTarget.MakeReadableUAV(cmdList);
+    DX12::Barrier(cmdList, rtTarget.UAVToShaderReadableBarrier());
+
+
+    //####################################################################
+    {
+        DX12::Barrier(cmdList, depthBuffer.DepthWritableBarrier({ .FirstAccess = true }));
+        cmdList->ClearDepthStencilView(depthBuffer.DSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+        DX12::Barrier(cmdList, depthBuffer.DepthReadableBarrier());
+    }
 
     rtCurrSampleIdx += 1;
 }
@@ -1373,28 +1127,17 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
     ID3D12GraphicsCommandList* cmdList = DX12::CmdList;
     PIXMarker pixMarker(cmdList, "HUD Pass");
 
-    Float2 viewportSize;
-    viewportSize.x = float(swapChain.Width());
-    viewportSize.y = float(swapChain.Height());
-    spriteRenderer.Begin(cmdList, viewportSize, SpriteFilterMode::Point, SpriteBlendMode::AlphaBlend);
-
-    Float2 textPos = Float2(25.0f, 25.0f);
-    std::wstring fpsText = MakeString(L"Frame Time: %.2fms (%u FPS)", 1000.0f / fps, fps);
-    spriteRenderer.RenderText(cmdList, font, fpsText.c_str(), textPos, Float4(1.0f, 1.0f, 0.0f, 1.0f));
-
-    spriteRenderer.End();
-
     // Draw the progress bar
-    const uint32 totalNumSamples = uint32(AppSettings::SqrtNumSamples * AppSettings::SqrtNumSamples);
+    const uint32_t totalNumSamples = uint32_t(AppSettings::SqrtNumSamples * AppSettings::SqrtNumSamples);
     if(rtCurrSampleIdx < totalNumSamples && AppSettings::ShowProgressBar)
     {
         float width = float(swapChain.Width());
         float height = float(swapChain.Height());
 
-        const uint32 barEmptyColor = ImColor(0.0f, 0.0f, 0.0f, 1.0f);
-        const uint32 barFilledColor = ImColor(1.0f, 0.0f, 0.0f, 1.0f);
-        const uint32 barOutlineColor = ImColor(1.0f, 1.0f, 1.0f, 1.0f);
-        const uint32 textColor = ImColor(1.0f, 1.0f, 1.0f, 1.0f);
+        const uint32_t barEmptyColor = ImColor(0.0f, 0.0f, 0.0f, 1.0f);
+        const uint32_t barFilledColor = ImColor(1.0f, 0.0f, 0.0f, 1.0f);
+        const uint32_t barOutlineColor = ImColor(1.0f, 1.0f, 1.0f, 1.0f);
+        const uint32_t textColor = ImColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         const float barPercentage = 0.75f;
         const float barHeight = 75.0f;
@@ -1406,8 +1149,8 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
         Float2 windowSize = barSize + 16.0f;
         Float2 windowEnd = windowStart + windowSize;
 
-        ImGui::SetNextWindowPos(ToImVec2(windowStart), ImGuiSetCond_Always);
-        ImGui::SetNextWindowSize(ToImVec2(windowSize), ImGuiSetCond_Always);
+        ImGui::SetNextWindowPos(ToImVec2(windowStart), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ToImVec2(windowSize), ImGuiCond_Always);
         ImGui::SetNextWindowBgAlpha(0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         ImGui::Begin("HUD Window", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs |
@@ -1423,7 +1166,7 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
         drawList->AddRectFilled(ToImVec2(barStart), ImVec2(barStart.x + barSize.x * progress, barEnd.y), barFilledColor);
         drawList->AddRect(ToImVec2(barStart), ToImVec2(barEnd), barOutlineColor);
 
-        const uint64 raysPerFrame = rtTarget.Width() * rtTarget.Height() * (1 + (AppSettings::MaxPathLength - 1) * 2);
+        const uint64_t raysPerFrame = rtTarget.Width() * rtTarget.Height() * (1 + (AppSettings::MaxPathLength - 1) * 2);
         const double mRaysPerSecond = raysPerFrame * (1.0 / timer.DeltaSecondsF()) / 1000000.0;
 
         std::string progressText = MakeString("Progress: %.2f%% (%.2f Mrays per second)", progress * 100.0f, mRaysPerSecond);
@@ -1442,37 +1185,37 @@ void DXRPathTracer::BuildRTAccelerationStructure()
     const FormattedBuffer& idxBuffer = currentModel->IndexBuffer();
     const StructuredBuffer& vtxBuffer = currentModel->VertexBuffer();
 
-    const uint64 numMeshes = currentModel->NumMeshes();
+    const uint64_t numMeshes = currentModel->NumMeshes();
     Array<D3D12_RAYTRACING_GEOMETRY_DESC> geometryDescs(numMeshes);
 
-    const uint32 numGeometries = uint32(geometryDescs.Size());
+    const uint32_t numGeometries = uint32_t(geometryDescs.Size());
     Array<GeometryInfo> geoInfoBufferData(numGeometries);
 
-    for(uint64 meshIdx = 0; meshIdx < numMeshes; ++meshIdx)
+    for(uint64_t meshIdx = 0; meshIdx < numMeshes; ++meshIdx)
     {
         const Mesh& mesh = currentModel->Meshes()[meshIdx];
         Assert_(mesh.NumMeshParts() == 1);
-        const uint32 materialIdx = mesh.MeshParts()[0].MaterialIdx;
+        const uint32_t materialIdx = mesh.MeshParts()[0].MaterialIdx;
         const MeshMaterial& material = currentModel->Materials()[materialIdx];
-        const bool opaque = material.Textures[uint32(MaterialTextures::Opacity)] == nullptr;
+        const bool opaque = material.Textures[uint32_t(MaterialTextures::Opacity)] == nullptr;
 
         D3D12_RAYTRACING_GEOMETRY_DESC& geometryDesc = geometryDescs[meshIdx];
         geometryDesc = { };
         geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
         geometryDesc.Triangles.IndexBuffer = idxBuffer.GPUAddress + mesh.IndexOffset() * idxBuffer.Stride;
-        geometryDesc.Triangles.IndexCount = uint32(mesh.NumIndices());
+        geometryDesc.Triangles.IndexCount = uint32_t(mesh.NumIndices());
         geometryDesc.Triangles.IndexFormat = idxBuffer.Format;
         geometryDesc.Triangles.Transform3x4 = 0;
         geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-        geometryDesc.Triangles.VertexCount = uint32(mesh.NumVertices());
+        geometryDesc.Triangles.VertexCount = uint32_t(mesh.NumVertices());
         geometryDesc.Triangles.VertexBuffer.StartAddress = vtxBuffer.GPUAddress + mesh.VertexOffset() * vtxBuffer.Stride;
         geometryDesc.Triangles.VertexBuffer.StrideInBytes = vtxBuffer.Stride;
         geometryDesc.Flags = opaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 
         GeometryInfo& geoInfo = geoInfoBufferData[meshIdx];
         geoInfo = { };
-        geoInfo.VtxOffset = uint32(mesh.VertexOffset());
-        geoInfo.IdxOffset = uint32(mesh.IndexOffset());
+        geoInfo.VtxOffset = uint32_t(mesh.VertexOffset());
+        geoInfo.IdxOffset = uint32_t(mesh.IndexOffset());
         geoInfo.MaterialIdx = mesh.MeshParts()[0].MaterialIdx;
 
         Assert_(mesh.NumMeshParts() == 1);
@@ -1512,32 +1255,21 @@ void DXRPathTracer::BuildRTAccelerationStructure()
 
     RawBuffer scratchBuffer;
 
-    {
-        RawBufferInit bufferInit;
-        bufferInit.NumElements = Max(topLevelPrebuildInfo.ScratchDataSizeInBytes, bottomLevelPrebuildInfo.ScratchDataSizeInBytes) / RawBuffer::Stride;
-        bufferInit.CreateUAV = true;
-        bufferInit.InitialState = D3D12_RESOURCE_STATE_COMMON;
-        bufferInit.Name = L"RT Scratch Buffer";
-        scratchBuffer.Initialize(bufferInit);
-    }
+    scratchBuffer.Initialize({
+        .NumElements = Max(topLevelPrebuildInfo.ScratchDataSizeInBytes, bottomLevelPrebuildInfo.ScratchDataSizeInBytes) / RawBuffer::Stride,
+        .CreateUAV = true,
+        .Name = "RT Scratch Buffer",
+    });
 
-    {
-        RawBufferInit bufferInit;
-        bufferInit.NumElements = bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes / RawBuffer::Stride;
-        bufferInit.CreateUAV = true;
-        bufferInit.InitialState = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-        bufferInit.Name = L"RT Bottom Level Accel Structure";
-        rtBottomLevelAccelStructure.Initialize(bufferInit);
-    }
+    rtBottomLevelAccelStructure.Initialize({
+        .Size = bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes,
+        .Name = "RT Bottom Level Accel Structure",
+    });
 
-    {
-        RawBufferInit bufferInit;
-        bufferInit.NumElements = topLevelPrebuildInfo.ResultDataMaxSizeInBytes / RawBuffer::Stride;
-        bufferInit.CreateUAV = true;
-        bufferInit.InitialState = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-        bufferInit.Name = L"RT Top Level Accel Structure";
-        rtTopLevelAccelStructure.Initialize(bufferInit);
-    }
+    rtTopLevelAccelStructure.Initialize({
+        .Size = topLevelPrebuildInfo.ResultDataMaxSizeInBytes,
+        .Name = "RT Top Level Accel Structure",
+    });
 
     // Create an instance desc for the bottom-level acceleration structure.
     D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
@@ -1567,36 +1299,55 @@ void DXRPathTracer::BuildRTAccelerationStructure()
         topLevelBuildDesc.Inputs.NumDescs = 1;
         topLevelBuildDesc.Inputs.pGeometryDescs = nullptr;
         topLevelBuildDesc.Inputs.InstanceDescs = instanceBuffer.GPUAddress;
-        topLevelBuildDesc.DestAccelerationStructureData = rtTopLevelAccelStructure.GPUAddress;;
+        topLevelBuildDesc.DestAccelerationStructureData = rtTopLevelAccelStructure.GPUAddress;
         topLevelBuildDesc.ScratchAccelerationStructureData = scratchBuffer.GPUAddress;
     }
 
     {
-        ProfileBlock profileBlock(DX12::CmdList, "Build Acceleration Structure");
+        // ProfileBlock profileBlock(cmdList, "Build Acceleration Structure");
 
-        DX12::CmdList->BuildRaytracingAccelerationStructure(&bottomLevelBuildDesc, 0, nullptr);
-        rtBottomLevelAccelStructure.UAVBarrier(DX12::CmdList);
+        ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
+        cmdList->BuildRaytracingAccelerationStructure(&bottomLevelBuildDesc, 0, nullptr);
 
-        DX12::CmdList->BuildRaytracingAccelerationStructure(&topLevelBuildDesc, 0, nullptr);
-        rtTopLevelAccelStructure.UAVBarrier(DX12::CmdList);
+        {
+            D3D12_RESOURCE_BARRIER barrier =
+            {
+                barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV,
+                barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+                barrier.UAV.pResource = rtBottomLevelAccelStructure.Resource(),
+            };
+            cmdList->ResourceBarrier(1, &barrier);
+        }
+        // DX12::Barrier(cmdList, rtBottomLevelAccelStructure.BottomLevelPostBuildBarrier());
+
+        cmdList->BuildRaytracingAccelerationStructure(&topLevelBuildDesc, 0, nullptr);
+
+        {
+            D3D12_RESOURCE_BARRIER barrier =
+            {
+                barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV,
+                barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+                barrier.UAV.pResource = rtTopLevelAccelStructure.Resource(),
+            };
+            cmdList->ResourceBarrier(1, &barrier);
+        }
+        // DX12::Barrier(cmdList, rtTopLevelAccelStructure.TopLevelPostBuildBarrier());
     }
 
     scratchBuffer.Shutdown();
 
-    {
-        StructuredBufferInit sbInit;
-        sbInit.Stride = sizeof(GeometryInfo);
-        sbInit.NumElements = numGeometries;
-        sbInit.Name = L"Geometry Info Buffer";
-        sbInit.InitData = geoInfoBufferData.Data();
-        rtGeoInfoBuffer.Initialize(sbInit);
-    }
+    rtGeoInfoBuffer.Initialize({
+        .Stride = sizeof(GeometryInfo),
+        .NumElements = numGeometries,
+        .InitData = geoInfoBufferData.Data(),
+        .Name = "Geometry Info Buffer",
+    });
 
     buildAccelStructure = false;
     lastBuildAccelStructureFrame = DX12::CurrentCPUFrame;
 }
 
-int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
+int32_t APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int32_t nCmdShow)
 {
     DXRPathTracer app(lpCmdLine);
     app.Run();

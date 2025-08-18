@@ -38,13 +38,12 @@ protected:
     PostProcessor postProcessor;
 
     // Model
-    Model sceneModels[uint64(Scenes::NumValues)];
+    Model sceneModels[uint64_t(Scenes::NumValues)];
     const Model* currentModel = nullptr;
     MeshRenderer meshRenderer;
 
     RenderTexture mainTarget;
     RenderTexture resolveTarget;
-    RenderTexture deferredMSAATarget;
     DepthBuffer depthBuffer;
 
     Array<SpotLight> spotLights;
@@ -52,9 +51,8 @@ protected:
     StructuredBuffer spotLightBoundsBuffer;
     StructuredBuffer spotLightInstanceBuffer;
     RawBuffer spotLightClusterBuffer;
-    uint64 numIntersectingSpotLights = 0;
+    uint64_t numIntersectingSpotLights = 0;
 
-    ID3D12RootSignature* clusterRS = nullptr;
     CompiledShaderPtr clusterVS;
     CompiledShaderPtr clusterFrontFacePS;
     CompiledShaderPtr clusterBackFacePS;
@@ -62,7 +60,6 @@ protected:
     ID3D12PipelineState* clusterFrontFacePSO = nullptr;
     ID3D12PipelineState* clusterBackFacePSO = nullptr;
     ID3D12PipelineState* clusterIntersectingPSO = nullptr;
-    RenderTexture clusterMSAATarget;
 
     StructuredBuffer spotLightClusterVtxBuffer;
     FormattedBuffer spotLightClusterIdxBuffer;
@@ -70,7 +67,6 @@ protected:
 
     CompiledShaderPtr fullScreenTriVS;
     CompiledShaderPtr resolvePS[NumMSAAModes];
-    ID3D12RootSignature* resolveRootSignature = nullptr;
     ID3D12PipelineState* resolvePSO = nullptr;
 
     bool32 stablePowerState = false;
@@ -78,19 +74,18 @@ protected:
     // Ray tracing resources
     CompiledShaderPtr rayTraceLib;
     RenderTexture rtTarget;
-    ID3D12RootSignature* rtRootSignature = nullptr;
     ID3D12StateObject* rtPSO = nullptr;
     bool buildAccelStructure = true;
-    uint64 lastBuildAccelStructureFrame = uint64(-1);
-    RawBuffer rtBottomLevelAccelStructure;
-    RawBuffer rtTopLevelAccelStructure;
+    uint64_t lastBuildAccelStructureFrame = uint64_t(-1);
+    RTAccelStructure rtBottomLevelAccelStructure;
+    RTAccelStructure rtTopLevelAccelStructure;
     StructuredBuffer rtRayGenTable;
     StructuredBuffer rtHitTable;
     StructuredBuffer rtMissTable;
     StructuredBuffer rtGeoInfoBuffer;
     FirstPersonCamera rtCurrCamera;
     bool rtShouldRestartPathTrace = false;
-    uint32 rtCurrSampleIdx = 0;
+    uint32_t rtCurrSampleIdx = 0;
 
 
     virtual void Initialize() override;
@@ -108,7 +103,6 @@ protected:
     void CreateRenderTargets();
     void InitializeScene();
 
-    void InitRayTracing();
     void CreateRayTracingPSOs();
 
     void UpdateLights();
@@ -123,5 +117,5 @@ protected:
 
 public:
 
-    DXRPathTracer(const wchar* cmdLine);
+    DXRPathTracer(const char* cmdLine);
 };

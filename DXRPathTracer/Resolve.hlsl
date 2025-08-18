@@ -11,18 +11,13 @@
 //=================================================================================================
 // Includes
 //=================================================================================================
-#include <Constants.hlsl>
-#include "AppSettings.hlsl"
+#include <Constants.hlsli>
+#include "AppSettings.hlsli"
+#include "SharedTypes.h"
 
 //=================================================================================================
 // Resources
 //=================================================================================================
-struct ResolveConstants
-{
-    uint2 OutputSize;
-    uint InputTextureIdx;
-};
-
 ConstantBuffer<ResolveConstants> CBuffer : register(b0);
 
 float Luminance(in float3 clr)

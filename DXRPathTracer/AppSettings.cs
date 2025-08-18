@@ -73,7 +73,7 @@ public class Settings
     {
         [HelpText("MSAA mode to use for rendering")]
         [DisplayName("MSAA Mode")]
-        MSAAModes MSAAMode = MSAAModes.MSAA4x;
+        MSAAModes MSAAMode = MSAAModes.MSAANone;
     }
 
     [ExpandGroup(true)]
@@ -104,10 +104,6 @@ public class Settings
         [DisplayName("Max Lights")]
         [HelpText("Limits the number of lights in the scene")]
         int MaxLightClamp = (int)MaxSpotLights;
-
-        [UseAsShaderConstant(false)]
-        [HelpText("Conservative rasterization mode to use for light binning")]
-        ClusterRasterizationModes ClusterRasterizationMode = ClusterRasterizationModes.Conservative;
     }
 
     const uint NumSampleSets = 8;
