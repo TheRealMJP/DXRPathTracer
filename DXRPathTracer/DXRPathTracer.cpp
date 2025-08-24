@@ -69,27 +69,6 @@ StaticAssert_(sizeof(HitGroupRecord) % D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGN
 struct LightConstants
 {
     SpotLight Lights[AppSettings::MaxSpotLights];
-    Float4x4 ShadowMatrices[AppSettings::MaxSpotLights];
-};
-
-struct ClusterConstants
-{
-    Float4x4 ViewProjection;
-    Float4x4 InvProjection;
-    float NearClip = 0.0f;
-    float FarClip = 0.0f;
-    float InvClipRange = 0.0f;
-    uint32_t NumXTiles = 0;
-    uint32_t NumYTiles = 0;
-    uint32_t NumXYTiles = 0;
-    uint32_t ElementsPerCluster = 0;
-    uint32_t InstanceOffset = 0;
-    uint32_t NumLights = 0;
-
-    DescriptorIndex BoundsBufferIdx = InvalidDescriptorIndex;
-    DescriptorIndex VertexBufferIdx = InvalidDescriptorIndex;
-    DescriptorIndex InstanceBufferIdx = InvalidDescriptorIndex;
-    DescriptorIndex ClusterBuffer = InvalidDescriptorIndex;
 };
 
 struct RayTraceConstants
@@ -116,32 +95,6 @@ struct RayTraceConstants
     DescriptorIndex SceneAS = InvalidDescriptorIndex;
     DescriptorIndex RenderTarget = InvalidDescriptorIndex;
 };
-
-// Returns true if a sphere intersects a capped cone defined by a direction, height, and angle
-static bool SphereConeIntersection(const Float3& coneTip, const Float3& coneDir, float coneHeight,
-                                   float coneAngle, const Float3& sphereCenter, float sphereRadius)
-{
-    if(Float3::Dot(sphereCenter - coneTip, coneDir) > coneHeight + sphereRadius)
-        return false;
-
-    float cosHalfAngle = std::cos(coneAngle * 0.5f);
-    float sinHalfAngle = std::sin(coneAngle * 0.5f);
-
-    Float3 v = sphereCenter - coneTip;
-    float a = Float3::Dot(v, coneDir);
-    float b = a * sinHalfAngle / cosHalfAngle;
-    float c = std::sqrt(Float3::Dot(v, v) - a * a);
-    float d = c - b;
-    float e = d * cosHalfAngle;
-
-    return e < sphereRadius;
-}
-
-float Pow5(const float x)
-{
-    float xx = x * x;
-    return xx * xx * x;
-}
 
 DXRPathTracer::DXRPathTracer(const char* cmdLine) : App("DXR Path Tracer", cmdLine)
 {
@@ -173,26 +126,11 @@ void DXRPathTracer::Initialize()
     float aspect = float(swapChain.Width()) / swapChain.Height();
     camera.Initialize(aspect, Pi_4, 0.1f, 100.0f);
 
-    ShadowHelper::Initialize(ShadowMapMode::DepthMap, ShadowMSAAMode::MSAA1x);
-
     InitializeScene();
 
     skybox.Initialize();
 
     postProcessor.Initialize();
-
-    {
-        // Spot light bounds and instance buffers
-        StructuredBufferInit sbInit;
-        sbInit.Stride = sizeof(ClusterBounds);
-        sbInit.NumElements = AppSettings::MaxSpotLights;
-        sbInit.Dynamic = true;
-        sbInit.CPUAccessible = true;
-        spotLightBoundsBuffer.Initialize(sbInit);
-
-        sbInit.Stride = sizeof(uint32_t);
-        spotLightInstanceBuffer.Initialize(sbInit);
-    }
 
     {
         // Spot light and shadow bounds buffer
@@ -205,45 +143,6 @@ void DXRPathTracer::Initialize()
         spotLightBuffer.Initialize(cbInit);
     }
 
-    {
-        CompileOptions opts;
-        opts.Add("FrontFace_", 1);
-        opts.Add("BackFace_", 0);
-        opts.Add("Intersecting_", 0);
-
-        // Clustering shaders
-        clusterVS = CompileFromFile("Clusters.hlsl", "ClusterVS", ShaderType::Vertex, opts);
-        clusterFrontFacePS = CompileFromFile("Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
-
-        opts.Reset();
-        opts.Add("FrontFace_", 0);
-        opts.Add("BackFace_", 1);
-        opts.Add("Intersecting_", 0);
-        clusterBackFacePS = CompileFromFile("Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
-
-        opts.Reset();
-        opts.Add("FrontFace_", 0);
-        opts.Add("BackFace_", 0);
-        opts.Add("Intersecting_", 1);
-        clusterIntersectingPS = CompileFromFile("Clusters.hlsl", "ClusterPS", ShaderType::Pixel, opts);
-    }
-
-    MakeConeGeometry(NumConeSides, spotLightClusterVtxBuffer, spotLightClusterIdxBuffer, coneVertices);
-
-    // Compile resolve shaders
-    for(uint64_t msaaMode = 1; msaaMode < NumMSAAModes; ++msaaMode)
-    {
-        for(uint64_t deferred = 0; deferred < 2; ++deferred)
-        {
-            CompileOptions opts;
-            opts.Add("MSAASamples_", AppSettings::NumMSAASamples(MSAAModes(msaaMode)));
-            resolvePS[msaaMode] = CompileFromFile("Resolve.hlsl", "ResolvePS", ShaderType::Pixel, opts);
-        }
-    }
-
-    std::string fullScreenTriPath = SampleFrameworkDir() + "Shaders\\FullScreenTriangle.hlsl";
-    fullScreenTriVS = CompileFromFile(fullScreenTriPath.c_str(), "FullScreenTriangleVS", ShaderType::Vertex);
-
     rayTraceLib = CompileFromFile("RayTrace.hlsl", nullptr, ShaderType::Library);
 
     rtCurrCamera = camera;
@@ -251,26 +150,16 @@ void DXRPathTracer::Initialize()
 
 void DXRPathTracer::Shutdown()
 {
-    ShadowHelper::Shutdown();
-
     for(uint64_t i = 0; i < ArraySize_(sceneModels); ++i)
         sceneModels[i].Shutdown();
+    materialBuffer.Shutdown();
 
-    meshRenderer.Shutdown();
     skybox.Shutdown();
     skyCache.Shutdown();
     postProcessor.Shutdown();
 
     spotLightBuffer.Shutdown();
-    spotLightBoundsBuffer.Shutdown();
-    spotLightClusterBuffer.Shutdown();
-    spotLightInstanceBuffer.Shutdown();
 
-    spotLightClusterVtxBuffer.Shutdown();
-    spotLightClusterIdxBuffer.Shutdown();
-
-    mainTarget.Shutdown();
-    resolveTarget.Shutdown();
     depthBuffer.Shutdown();
 
     rtTarget.Shutdown();
@@ -284,64 +173,8 @@ void DXRPathTracer::Shutdown()
 
 void DXRPathTracer::CreatePSOs()
 {
-    meshRenderer.CreatePSOs(mainTarget.Texture.Format, depthBuffer.DSVFormat, mainTarget.MSAASamples);
-    skybox.CreatePSOs(mainTarget.Texture.Format, depthBuffer.DSVFormat, mainTarget.MSAASamples);
+    skybox.CreatePSOs(rtTarget.Texture.Format, depthBuffer.DSVFormat, rtTarget.MSAASamples);
     postProcessor.CreatePSOs();
-
-    {
-        // Clustering PSO
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = DX12::UniversalRootSignature;
-        psoDesc.BlendState = DX12::GetBlendState(BlendState::Disabled);
-        psoDesc.DepthStencilState = DX12::GetDepthState(DepthState::Disabled);
-        psoDesc.SampleMask = UINT_MAX;
-        psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        psoDesc.NumRenderTargets = 0;
-        psoDesc.VS = clusterVS.ByteCode();
-        psoDesc.SampleDesc.Count = 1;
-        psoDesc.SampleDesc.Quality = 0;
-
-        psoDesc.PS = clusterFrontFacePS.ByteCode();
-        psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::BackFaceCull);
-        psoDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
-        DXCall(DX12::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&clusterFrontFacePSO)));
-
-        psoDesc.PS = clusterBackFacePS.ByteCode();
-        psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::FrontFaceCull);
-        psoDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
-        DXCall(DX12::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&clusterBackFacePSO)));
-
-        psoDesc.PS = clusterIntersectingPS.ByteCode();
-        psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::FrontFaceCull);
-        psoDesc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
-        DXCall(DX12::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&clusterIntersectingPSO)));
-
-        clusterFrontFacePSO->SetName(L"Cluster Front-Face PSO");
-        clusterBackFacePSO->SetName(L"Cluster Back-Face PSO");
-        clusterIntersectingPSO->SetName(L"Cluster Intersecting PSO");
-    }
-
-    const bool msaaEnabled = AppSettings::MSAAMode != MSAAModes::MSAANone;
-    const uint64_t msaaModeIdx = uint64_t(AppSettings::MSAAMode);
-
-    if(msaaEnabled)
-    {
-        // Resolve PSO
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.pRootSignature = DX12::UniversalRootSignature;
-        psoDesc.VS = fullScreenTriVS.ByteCode();
-        psoDesc.RasterizerState = DX12::GetRasterizerState(RasterizerState::NoCull);
-        psoDesc.BlendState = DX12::GetBlendState(BlendState::Disabled);
-        psoDesc.DepthStencilState = DX12::GetDepthState(DepthState::Disabled);
-        psoDesc.SampleMask = UINT_MAX;
-        psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = mainTarget.Format();
-        psoDesc.SampleDesc.Count = 1;
-
-        psoDesc.PS = resolvePS[msaaModeIdx].ByteCode();
-        DXCall(DX12::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&resolvePSO)));
-    }
 
     CreateRayTracingPSOs();
 
@@ -350,13 +183,8 @@ void DXRPathTracer::CreatePSOs()
 
 void DXRPathTracer::DestroyPSOs()
 {
-    meshRenderer.DestroyPSOs();
     skybox.DestroyPSOs();
     postProcessor.DestroyPSOs();
-    DX12::DeferredRelease(clusterFrontFacePSO);
-    DX12::DeferredRelease(clusterBackFacePSO);
-    DX12::DeferredRelease(clusterIntersectingPSO);
-    DX12::DeferredRelease(resolvePSO);
 
     DX12::DeferredRelease(rtPSO);
 
@@ -368,50 +196,12 @@ void DXRPathTracer::CreateRenderTargets()
 {
     uint32_t width = swapChain.Width();
     uint32_t height = swapChain.Height();
-    const uint32_t NumSamples = AppSettings::NumMSAASamples();
-
-    mainTarget.Initialize({
-        .Width = width,
-        .Height = height,
-        .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-        .MSAASamples = NumSamples,
-        .ArraySize = 1,
-        .CreateUAV = NumSamples == 1,
-        .InitialLayout = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
-        .Name = "Main Target",
-    });
-
-    if(NumSamples > 1)
-    {
-        resolveTarget.Initialize({
-            .Width = width,
-            .Height = height,
-            .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .MSAASamples = 1,
-            .ArraySize = 1,
-            .CreateUAV = false,
-            .InitialLayout = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
-            .Name = "Resolve Target",
-        });
-    }
 
     depthBuffer.Initialize({
         .Width = width,
         .Height = height,
         .Format = DXGI_FORMAT_D32_FLOAT,
-        .MSAASamples = NumSamples,
         .Name = "Main Depth Buffer",
-    });
-
-    AppSettings::NumXTiles = (width + (AppSettings::ClusterTileSize - 1)) / AppSettings::ClusterTileSize;
-    AppSettings::NumYTiles = (height + (AppSettings::ClusterTileSize - 1)) / AppSettings::ClusterTileSize;
-    const uint64_t numXYZTiles = AppSettings::NumXTiles * AppSettings::NumYTiles * AppSettings::NumZTiles;
-
-    // Spotlight cluster bitmask buffer
-    spotLightClusterBuffer.Initialize({
-        .NumElements = numXYZTiles * AppSettings::SpotLightElementsPerCluster,
-        .CreateUAV = true,
-        .Name = "Spot Light Cluster Buffer",
     });
 
     rtTarget.Initialize({
@@ -451,9 +241,9 @@ void DXRPathTracer::InitializeScene()
     }
 
     currentModel = &sceneModels[currSceneIdx];
-    meshRenderer.Shutdown();
     DX12::FlushGPU();
-    meshRenderer.Initialize(currentModel);
+
+    materialBuffer.Shutdown();
 
     camera.SetPosition(SceneCameraPositions[currSceneIdx]);
     camera.SetXRotation(SceneCameraRotations[currSceneIdx].x);
@@ -477,6 +267,38 @@ void DXRPathTracer::InitializeScene()
             spotLight.AngularAttenuationY = std::cos(srcLight.AngularAttenuation.y * 0.5f);
             spotLight.Range = AppSettings::SpotLightRange;
         }
+    }
+
+    {
+        // Create a structured buffer containing texture indices per-material
+        const Array<MeshMaterial>& materials = currentModel->Materials();
+        const uint64_t numMaterials = materials.Size();
+        Array<Material> matBufferData(numMaterials);
+        for(uint64_t i = 0; i < numMaterials; ++i)
+        {
+            Material& matIndices = matBufferData[i];
+            const MeshMaterial& material = materials[i];
+
+            matIndices.Albedo = material.Textures[uint64_t(MaterialTextures::Albedo)]->SRV;
+            matIndices.Normal = material.Textures[uint64_t(MaterialTextures::Normal)]->SRV;
+            matIndices.Roughness = material.Textures[uint64_t(MaterialTextures::Roughness)]->SRV;
+            matIndices.Metallic = material.Textures[uint64_t(MaterialTextures::Metallic)]->SRV;
+            matIndices.Emissive = material.Textures[uint64_t(MaterialTextures::Emissive)]->SRV;
+
+            // Opacity is optional
+            const Texture* opacity = material.Textures[uint64_t(MaterialTextures::Opacity)];
+            matIndices.Opacity = opacity ? opacity->SRV : InvalidDescriptorIndex;
+        }
+
+        StructuredBufferInit sbInit;
+
+        materialBuffer.Initialize({
+            .Stride = sizeof(Material),
+            .NumElements = numMaterials,
+            .Dynamic = false,
+            .InitData = matBufferData.Data(),
+            .Name = "Material Texture Indices",
+        });
     }
 
     buildAccelStructure = true;
@@ -625,8 +447,6 @@ void DXRPathTracer::Update(const Timer& timer)
 {
     CPUProfileBlock profileBlock("Update");
 
-    AppSettings::UpdateUI();
-
     MouseState mouseState = MouseState::GetMouseState(window);
     KeyboardState kbState = KeyboardState::GetKeyboardState(window);
 
@@ -666,8 +486,6 @@ void DXRPathTracer::Update(const Timer& timer)
         camera.SetYRotation(yRot);
     }
 
-    UpdateLights();
-
     appViewMatrix = camera.ViewMatrix();
 
     // Toggle VSYNC
@@ -681,13 +499,6 @@ void DXRPathTracer::Update(const Timer& timer)
     }
 
     skyCache.Init(AppSettings::SunDirection, AppSettings::SunSize, AppSettings::GroundAlbedo, AppSettings::Turbidity, true);
-
-    if(AppSettings::MSAAMode.Changed())
-    {
-        DestroyPSOs();
-        CreateRenderTargets();
-        CreatePSOs();
-    }
 
     if(AppSettings::CurrentScene.Changed() && currentModel != &sceneModels[uint64_t(AppSettings::CurrentScene)])
     {
@@ -740,7 +551,7 @@ void DXRPathTracer::Update(const Timer& timer)
 
     rtCurrCamera = camera;
 
-    if(AppSettings::EnableRayTracing && rtShouldRestartPathTrace)
+    if(rtShouldRestartPathTrace)
     {
         rtCurrSampleIdx = 0;
         rtShouldRestartPathTrace = false;
@@ -759,44 +570,19 @@ void DXRPathTracer::Render(const Timer& timer)
     CPUProfileBlock cpuProfileBlock("Render");
     ProfileBlock gpuProfileBlock(cmdList, "Render Total");
 
-    RenderTexture* finalRT = nullptr;
-
     if (spotLights.Size() > 0)
     {
         // Update the light constant buffer
         MapResult staging = DX12::AcquireTempBufferMem(spotLightBuffer.InternalBuffer.Size, 0);
         memcpy(staging.CPUAddress, spotLights.Data(), spotLights.MemorySize());
-        uint8_t* matrixData = reinterpret_cast<uint8_t*>(staging.CPUAddress) + sizeof(SpotLight) * AppSettings::MaxSpotLights;
-        memcpy(matrixData, meshRenderer.SpotLightShadowMatrices(), spotLights.Size() * sizeof(Float4x4));
         spotLightBuffer.QueueUpload(staging.Resource, staging.ResourceOffset, spotLightBuffer.InternalBuffer.Size, 0);
     }
 
-    if(AppSettings::EnableRayTracing)
-    {
-        RenderRayTracing();
-
-        finalRT = &rtTarget;
-    }
-    else
-    {
-        RenderClusters();
-
-        if(AppSettings::EnableSun)
-            meshRenderer.RenderSunShadowMap(cmdList, camera);
-
-        if(AppSettings::RenderLights)
-            meshRenderer.RenderSpotLightShadowMap(cmdList, camera);
-
-        RenderForward();
-
-        RenderResolve();
-
-        finalRT = mainTarget.MSAASamples > 1 ? &resolveTarget : &mainTarget;
-    }
+    RenderRayTracing();
 
     {
         ProfileBlock ppProfileBlock(cmdList, "Post Processing");
-        postProcessor.Render(cmdList, *finalRT, swapChain.BackBuffer());
+        postProcessor.Render(cmdList, rtTarget, swapChain.BackBuffer());
     }
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[1] = { swapChain.BackBuffer().RTV };
@@ -807,255 +593,6 @@ void DXRPathTracer::Render(const Timer& timer)
     ShaderDebug::EndRender(DX12::CmdList, camera.ViewProjectionMatrix());
 
     RenderHUD(timer);
-}
-
-void DXRPathTracer::UpdateLights()
-{
-    const uint64_t numSpotLights = Min<uint64_t>(spotLights.Size(), AppSettings::MaxLightClamp);
-
-    // This is an additional scale factor that's needed to make sure that our polygonal bounding cone
-    // fully encloses the actual cone representing the light's area of influence
-    const float inRadius = std::cos(Pi / NumConeSides);
-    const float scaleCorrection = 1.0f / inRadius;
-
-    const Float4x4 viewMatrix = camera.ViewMatrix();
-    const float nearClip = camera.NearClip();
-    const float farClip = camera.FarClip();
-    const float zRange = farClip - nearClip;
-    const Float3 cameraPos = camera.Position();
-    const uint64_t numConeVerts = coneVertices.Size();
-
-    // Come up with a bounding sphere that surrounds the near clipping plane. We'll test this sphere
-    // for intersection with the spot light's bounding cone, and use that to over-estimate if the bounding
-    // geometry will end up getting clipped by the camera's near clipping plane
-    Float3 nearClipCenter = cameraPos + nearClip * camera.Forward();
-    Float4x4 invViewProjection = Float4x4::Invert(camera.ViewProjectionMatrix());
-    Float3 nearTopRight = Float3::Transform(Float3(1.0f, 1.0f, 0.0f), invViewProjection);
-    float nearClipRadius = Float3::Length(nearTopRight - nearClipCenter);
-
-    ClusterBounds* boundsData = spotLightBoundsBuffer.Map<ClusterBounds>();
-    bool intersectsCamera[AppSettings::MaxSpotLights] = { };
-
-    // Update the light bounds buffer
-    for(uint64_t spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
-    {
-        const SpotLight& spotLight = spotLights[spotLightIdx];
-        const ModelSpotLight& srcSpotLight = currentModel->SpotLights()[spotLightIdx];
-        ClusterBounds bounds;
-        bounds.Position = spotLight.Position;
-        bounds.Orientation = srcSpotLight.Orientation;
-        bounds.Scale.x = bounds.Scale.y = std::tan(srcSpotLight.AngularAttenuation.y / 2.0f) * spotLight.Range * scaleCorrection;
-        bounds.Scale.z = spotLight.Range;
-
-        // Compute conservative Z bounds for the light based on vertices of the bounding geometry
-        float minZ = FloatMax;
-        float maxZ = -FloatMax;
-        for(uint64_t i = 0; i < numConeVerts; ++i)
-        {
-            Float3 coneVert = coneVertices[i] * bounds.Scale;
-            coneVert = Float3::Transform(coneVert, bounds.Orientation);
-            coneVert += bounds.Position;
-
-            float vertZ = Float3::Transform(coneVert, viewMatrix).z;
-            minZ = Min(minZ, vertZ);
-            maxZ = Max(maxZ, vertZ);
-        }
-
-        minZ = Saturate((minZ - nearClip) / zRange);
-        maxZ = Saturate((maxZ - nearClip) / zRange);
-
-        bounds.ZBounds.x = uint32_t(minZ * AppSettings::NumZTiles);
-        bounds.ZBounds.y = Min(uint32_t(maxZ * AppSettings::NumZTiles), uint32_t(AppSettings::NumZTiles - 1));
-
-        // Estimate if the light's bounding geometry intersects with the camera's near clip plane
-        boundsData[spotLightIdx] = bounds;
-        intersectsCamera[spotLightIdx] = SphereConeIntersection(spotLight.Position, srcSpotLight.Direction, spotLight.Range,
-                                                                srcSpotLight.AngularAttenuation.y, nearClipCenter, nearClipRadius);
-    }
-
-    numIntersectingSpotLights = 0;
-    uint32_t* instanceData = spotLightInstanceBuffer.Map<uint32_t>();
-
-    for(uint64_t spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
-        if(intersectsCamera[spotLightIdx])
-            instanceData[numIntersectingSpotLights++] = uint32_t(spotLightIdx);
-
-    uint64_t offset = numIntersectingSpotLights;
-    for(uint64_t spotLightIdx = 0; spotLightIdx < numSpotLights; ++spotLightIdx)
-        if(intersectsCamera[spotLightIdx] == false)
-            instanceData[offset++] = uint32_t(spotLightIdx);
-}
-
-void DXRPathTracer::RenderClusters()
-{
-    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
-
-    PIXMarker marker(cmdList, "Cluster Update");
-    ProfileBlock profileBlock(cmdList, "Cluster Update");
-
-    DX12::ClearRawBuffer(cmdList, spotLightClusterBuffer, Uint4(0, 0, 0, 0));
-    DX12::Barrier(cmdList, spotLightClusterBuffer.InternalBuffer.WriteToWriteBarrier());
-
-    ClusterConstants clusterConstants;
-    clusterConstants.ViewProjection = camera.ViewProjectionMatrix();
-    clusterConstants.InvProjection = Float4x4::Invert(camera.ProjectionMatrix());
-    clusterConstants.NearClip = camera.NearClip();
-    clusterConstants.FarClip = camera.FarClip();
-    clusterConstants.InvClipRange = 1.0f / (camera.FarClip() - camera.NearClip());
-    clusterConstants.NumXTiles = uint32_t(AppSettings::NumXTiles);
-    clusterConstants.NumYTiles = uint32_t(AppSettings::NumYTiles);
-    clusterConstants.NumXYTiles = uint32_t(AppSettings::NumXTiles * AppSettings::NumYTiles);
-    clusterConstants.InstanceOffset = 0;
-    clusterConstants.NumLights = Min<uint32_t>(uint32_t(spotLights.Size()), AppSettings::MaxLightClamp);
-
-    cmdList->OMSetRenderTargets(0, nullptr, false, nullptr);
-
-    DX12::SetViewport(cmdList, AppSettings::NumXTiles, AppSettings::NumYTiles);
-    cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    cmdList->SetGraphicsRootSignature(DX12::UniversalRootSignature);
-
-    if(AppSettings::RenderLights)
-    {
-        // Update light clusters
-        D3D12_INDEX_BUFFER_VIEW ibView = spotLightClusterIdxBuffer.IBView();
-        cmdList->IASetIndexBuffer(&ibView);
-
-        clusterConstants.ElementsPerCluster = uint32_t(AppSettings::SpotLightElementsPerCluster);
-        clusterConstants.InstanceOffset = 0;
-        clusterConstants.BoundsBufferIdx = spotLightBoundsBuffer.SRV;
-        clusterConstants.VertexBufferIdx = spotLightClusterVtxBuffer.SRV;
-        clusterConstants.InstanceBufferIdx = spotLightInstanceBuffer.SRV;
-        clusterConstants.ClusterBuffer = spotLightClusterBuffer.UAV;
-        DX12::BindTempConstantBufferToURS(cmdList, clusterConstants, 0, CmdListMode::Graphics);
-
-        AppSettings::BindCBufferGfx(cmdList, URS_AppSettings);
-
-        const uint64_t numLightsToRender = Min<uint64_t>(spotLights.Size(), AppSettings::MaxLightClamp);
-        Assert_(numIntersectingSpotLights <= numLightsToRender);
-        const uint64_t numNonIntersecting = numLightsToRender - numIntersectingSpotLights;
-
-        // Render back faces for lights that intersect with the camera
-        cmdList->SetPipelineState(clusterIntersectingPSO);
-
-        cmdList->DrawIndexedInstanced(uint32_t(spotLightClusterIdxBuffer.NumElements), uint32_t(numIntersectingSpotLights), 0, 0, 0);
-
-        // Now for all other lights, render the back faces followed by the front faces
-        cmdList->SetPipelineState(clusterBackFacePSO);
-
-        clusterConstants.InstanceOffset = uint32_t(numIntersectingSpotLights);
-        DX12::BindTempConstantBufferToURS(cmdList, clusterConstants, 0, CmdListMode::Graphics);
-
-        cmdList->DrawIndexedInstanced(uint32_t(spotLightClusterIdxBuffer.NumElements), uint32_t(numNonIntersecting), 0, 0, 0);
-
-        DX12::Barrier(cmdList, spotLightClusterBuffer.InternalBuffer.WriteToWriteBarrier());
-
-        cmdList->SetPipelineState(clusterFrontFacePSO);
-
-        cmdList->DrawIndexedInstanced(uint32_t(spotLightClusterIdxBuffer.NumElements), uint32_t(numNonIntersecting), 0, 0, 0);
-    }
-
-    // Sync
-    DX12::Barrier(cmdList, spotLightClusterBuffer.InternalBuffer.WriteToReadBarrier());
-}
-
-void DXRPathTracer::RenderForward()
-{
-    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
-
-    PIXMarker marker(cmdList, "Forward rendering");
-
-    {
-        // Transition render targets back to a writable state
-        BarrierBatchBuilder barrierBuilder;
-        barrierBuilder.Add(mainTarget.RTWritableBarrier({ .FirstAccess = true }));
-        barrierBuilder.Add(depthBuffer.DepthWritableBarrier({ .FirstAccess = true }));
-        DX12::Barrier(cmdList, barrierBuilder.Build());
-    }
-
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[1] = { mainTarget.RTV };
-    cmdList->OMSetRenderTargets(1, rtvHandles, false, &depthBuffer.DSV);
-
-    const float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    cmdList->ClearRenderTargetView(rtvHandles[0], clearColor, 0, nullptr);
-    cmdList->ClearDepthStencilView(depthBuffer.DSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
-    DX12::SetViewport(cmdList, mainTarget.Width(), mainTarget.Height());
-
-    {
-        ProfileBlock profileBlock(cmdList, "Forward Rendering Pass");
-
-        // Render the main forward pass
-        MainPassData mainPassData;
-        mainPassData.SkyCache = &skyCache;
-        mainPassData.SpotLightBuffer = &spotLightBuffer;
-        mainPassData.SpotLightClusterBuffer = &spotLightClusterBuffer;
-        meshRenderer.RenderMainPass(cmdList, camera, mainPassData);
-
-        cmdList->OMSetRenderTargets(1, rtvHandles, false, &depthBuffer.DSV);
-
-        // Render the sky
-        skybox.RenderSky(cmdList, camera.ViewMatrix(), camera.ProjectionMatrix(), skyCache, true);
-
-        {
-            // Make our targets readable again, which will force a sync point.
-            D3D12_RESOURCE_BARRIER barriers[1] = {};
-            barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-            barriers[0].Transition.pResource = mainTarget.Resource();
-            barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-            barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-            barriers[0].Transition.Subresource = 0;
-
-            cmdList->ResourceBarrier(ArraySize_(barriers), barriers);
-        }
-
-        {
-            // Make our targets readable again
-            BarrierBatchBuilder barrierBuilder;
-            barrierBuilder.Add(mainTarget.RTToShaderReadableBarrier());
-            barrierBuilder.Add(depthBuffer.DepthReadableBarrier());
-            if(AppSettings::MSAAMode != MSAAModes::MSAANone)
-                barrierBuilder.Add(resolveTarget.RTWritableBarrier({ .FirstAccess = true }));
-            DX12::Barrier(cmdList, barrierBuilder.Build());
-        }
-    }
-}
-
-// Performs MSAA resolve with a full-screen pixel shader
-void DXRPathTracer::RenderResolve()
-{
-    if(AppSettings::MSAAMode == MSAAModes::MSAANone)
-        return;
-
-    ID3D12GraphicsCommandList10* cmdList = DX12::CmdList;
-
-    PIXMarker pixMarker(cmdList, "MSAA Resolve");
-    ProfileBlock profileBlock(cmdList, "MSAA Resolve");
-
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvs[1] = { resolveTarget.RTV };
-    cmdList->OMSetRenderTargets(ArraySize_(rtvs), rtvs, false, nullptr);
-    DX12::SetViewport(cmdList, resolveTarget.Width(), resolveTarget.Height());
-
-    cmdList->SetGraphicsRootSignature(DX12::UniversalRootSignature);
-    cmdList->SetPipelineState(resolvePSO);
-
-    ResolveConstants constants =
-    {
-        .OutputSize = Uint2(mainTarget.Width(), mainTarget.Height()),
-        .InputTextureIdx = mainTarget.SRV(),
-    };
-    DX12::BindTempConstantBufferToURS(cmdList, constants, 0, CmdListMode::Graphics);
-
-    AppSettings::BindCBufferGfx(cmdList, URS_AppSettings);
-
-    cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmdList->IASetIndexBuffer(nullptr);
-    cmdList->IASetVertexBuffers(0, 0, nullptr);
-
-    cmdList->DrawInstanced(3, 1, 0, 0);
-
-    DX12::Barrier(cmdList, resolveTarget.RTToShaderReadableBarrier());
 }
 
 void DXRPathTracer::RenderRayTracing()
@@ -1082,7 +619,7 @@ void DXRPathTracer::RenderRayTracing()
     rtConstants.VtxBufferIdx = currentModel->VertexBuffer().SRV;
     rtConstants.IdxBufferIdx = currentModel->IndexBuffer().SRV;
     rtConstants.GeometryInfoBufferIdx = rtGeoInfoBuffer.SRV;
-    rtConstants.MaterialBufferIdx = meshRenderer.MaterialBuffer().SRV;
+    rtConstants.MaterialBufferIdx = materialBuffer.SRV;
     rtConstants.SkyTextureIdx = skyCache.CubeMap.SRV;
     rtConstants.NumLights = Min<uint32_t>(uint32_t(spotLights.Size()), AppSettings::MaxLightClamp);
 
@@ -1110,7 +647,6 @@ void DXRPathTracer::RenderRayTracing()
     DX12::CmdList->DispatchRays(&dispatchDesc);
 
     DX12::Barrier(cmdList, rtTarget.UAVToShaderReadableBarrier());
-
 
     //####################################################################
     {

@@ -134,7 +134,6 @@
     <ClCompile Include="..\SampleFramework12\v1.05\Window.cpp" />
     <ClCompile Include="..\SampleFramework12\v1.05\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="AppSettings.cpp" />
-    <ClCompile Include="MeshRenderer.cpp" />
     <ClCompile Include="PostProcessor.cpp" />
     <ClCompile Include="DXRPathTracer.cpp" />
   </ItemGroup>
@@ -190,7 +189,6 @@
     <ClInclude Include="..\SampleFramework12\v1.05\ImGui\imstb_truetype.h" />
     <ClInclude Include="AppConfig.h" />
     <ClInclude Include="AppSettings.h" />
-    <ClInclude Include="MeshRenderer.h" />
     <ClInclude Include="PostProcessor.h" />
     <ClInclude Include="DXRPathTracer.h" />
     <ClInclude Include="SharedTypes.h" />

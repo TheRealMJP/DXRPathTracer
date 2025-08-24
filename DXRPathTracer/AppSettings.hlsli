@@ -7,9 +7,7 @@ struct AppSettings_CBLayout
     bool SunAreaLightApproximation;
     float SunSize;
     float3 SunDirection;
-    int MSAAMode;
     bool RenderLights;
-    bool EnableRayTracing;
     bool ClampRoughness;
     bool AvoidCausticPaths;
     int SqrtNumSamples;
@@ -41,9 +39,7 @@ struct AppSettings_Values
     bool SunAreaLightApproximation;
     float SunSize;
     float3 SunDirection;
-    int MSAAMode;
     bool RenderLights;
-    bool EnableRayTracing;
     bool ClampRoughness;
     bool AvoidCausticPaths;
     int SqrtNumSamples;
@@ -73,9 +69,7 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.SunAreaLightApproximation,
     AppSettingsCB.SunSize,
     AppSettingsCB.SunDirection,
-    AppSettingsCB.MSAAMode,
     AppSettingsCB.RenderLights,
-    AppSettingsCB.EnableRayTracing,
     AppSettingsCB.ClampRoughness,
     AppSettingsCB.AvoidCausticPaths,
     AppSettingsCB.SqrtNumSamples,
@@ -96,13 +90,6 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.RoughnessScale,
     AppSettingsCB.MetallicScale,
     AppSettingsCB.EnableWhiteFurnaceMode,
-};
-
-enum MSAAModes
-{
-    MSAANone = 0,
-    MSAA2x = 1,
-    MSAA4x = 2,
 };
 
 enum Scenes

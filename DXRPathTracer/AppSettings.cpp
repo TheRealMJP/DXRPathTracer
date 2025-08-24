@@ -4,20 +4,6 @@
 
 using namespace SampleFramework12;
 
-const char* MSAAModesLabels[uint32_t(MSAAModes::NumValues)] =
-{
-    "None",
-    "2x",
-    "4x",
-};
-
-const MSAAModes MSAAModesValues[uint32_t(MSAAModes::NumValues)] =
-{
-    MSAAModes::MSAANone,
-    MSAAModes::MSAA2x,
-    MSAAModes::MSAA4x,
-};
-
 const char* ScenesLabels[uint32_t(Scenes::NumValues)] =
 {
     "Sponza",
@@ -45,11 +31,9 @@ namespace AppSettings
     DirectionSetting SunDirection;
     FloatSetting Turbidity;
     ColorSetting GroundAlbedo;
-    MSAAModesSetting MSAAMode;
     ScenesSetting CurrentScene;
     BoolSetting RenderLights;
     IntSetting MaxLightClamp;
-    BoolSetting EnableRayTracing;
     BoolSetting ClampRoughness;
     BoolSetting AvoidCausticPaths;
     IntSetting SqrtNumSamples;
@@ -81,11 +65,9 @@ namespace AppSettings
     void Initialize()
     {
 
-        Settings.Initialize(7);
+        Settings.Initialize(6);
 
         Settings.AddGroup("Sun And Sky", true);
-
-        Settings.AddGroup("Anti Aliasing", false);
 
         Settings.AddGroup("Scene", true);
 
@@ -118,9 +100,6 @@ namespace AppSettings
         GroundAlbedo.Initialize("GroundAlbedo", "Sun And Sky", "Ground Albedo", "Ground albedo color used for procedural sun and sky model", Float3(0.2500f, 0.2500f, 0.2500f), false, -340282300000000000000000000000000000000.0000f, 340282300000000000000000000000000000000.0000f, 0.0100f, ColorUnit::None);
         Settings.AddSetting(&GroundAlbedo);
 
-        MSAAMode.Initialize("MSAAMode", "Anti Aliasing", "MSAA Mode", "MSAA mode to use for rendering", MSAAModes::MSAANone, 3, MSAAModesLabels);
-        Settings.AddSetting(&MSAAMode);
-
         CurrentScene.Initialize("CurrentScene", "Scene", "Current Scene", "", Scenes::BoxTest, 4, ScenesLabels);
         Settings.AddSetting(&CurrentScene);
 
@@ -129,9 +108,6 @@ namespace AppSettings
 
         MaxLightClamp.Initialize("MaxLightClamp", "Rendering", "Max Lights", "Limits the number of lights in the scene", 32, 0, 32);
         Settings.AddSetting(&MaxLightClamp);
-
-        EnableRayTracing.Initialize("EnableRayTracing", "Path Tracing", "Enable Ray Tracing", "", true);
-        Settings.AddSetting(&EnableRayTracing);
 
         ClampRoughness.Initialize("ClampRoughness", "Path Tracing", "Clamp Roughness", "Clamp roughness for caustic paths from glossy bounces. Based on 'Physically Based Shader Design in Arnold' [Langlands14]", false);
         Settings.AddSetting(&ClampRoughness);
@@ -227,9 +203,7 @@ namespace AppSettings
         cbData.SunAreaLightApproximation = SunAreaLightApproximation;
         cbData.SunSize = SunSize;
         cbData.SunDirection = SunDirection;
-        cbData.MSAAMode = MSAAMode;
         cbData.RenderLights = RenderLights;
-        cbData.EnableRayTracing = EnableRayTracing;
         cbData.ClampRoughness = ClampRoughness;
         cbData.AvoidCausticPaths = AvoidCausticPaths;
         cbData.SqrtNumSamples = SqrtNumSamples;
@@ -281,13 +255,3 @@ namespace AppSettings
 }
 
 // ================================================================================================
-
-namespace AppSettings
-{
-    uint64_t NumXTiles = 0;
-    uint64_t NumYTiles = 0;
-
-    void UpdateUI()
-    {
-    }
-}

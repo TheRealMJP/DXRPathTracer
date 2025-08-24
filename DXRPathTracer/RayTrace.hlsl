@@ -49,7 +49,6 @@ struct RayTraceConstants
 struct LightConstants
 {
     SpotLight Lights[MaxSpotLights];
-    float4x4 ShadowMatrices[MaxSpotLights];
 };
 
 ConstantBuffer<RayTraceConstants> RayTraceCB : register(b0);

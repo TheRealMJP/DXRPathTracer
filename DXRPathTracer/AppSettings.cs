@@ -68,14 +68,6 @@ public class Settings
         Color GroundAlbedo = new Color(0.25f, 0.25f, 0.25f);
     }
 
-    [ExpandGroup(false)]
-    public class AntiAliasing
-    {
-        [HelpText("MSAA mode to use for rendering")]
-        [DisplayName("MSAA Mode")]
-        MSAAModes MSAAMode = MSAAModes.MSAANone;
-    }
-
     [ExpandGroup(true)]
     public class Scene
     {
@@ -115,8 +107,6 @@ public class Settings
     [ExpandGroup(true)]
     public class PathTracing
     {
-        bool EnableRayTracing = true;
-
         [HelpText("Clamp roughness for caustic paths from glossy bounces. Based on 'Physically Based Shader Design in Arnold' [Langlands14]")]
         bool ClampRoughness = false;
 

@@ -6,21 +6,6 @@
 
 using namespace SampleFramework12;
 
-enum class MSAAModes
-{
-    MSAANone = 0,
-    MSAA2x = 1,
-    MSAA4x = 2,
-
-    NumValues
-};
-
-extern const char* MSAAModesLabels[uint32_t(MSAAModes::NumValues)];
-
-extern const MSAAModes MSAAModesValues[uint32_t(MSAAModes::NumValues)];
-
-typedef EnumSettingT<MSAAModes> MSAAModesSetting;
-
 enum class Scenes
 {
     Sponza = 0,
@@ -57,11 +42,9 @@ namespace AppSettings
     extern DirectionSetting SunDirection;
     extern FloatSetting Turbidity;
     extern ColorSetting GroundAlbedo;
-    extern MSAAModesSetting MSAAMode;
     extern ScenesSetting CurrentScene;
     extern BoolSetting RenderLights;
     extern IntSetting MaxLightClamp;
-    extern BoolSetting EnableRayTracing;
     extern BoolSetting ClampRoughness;
     extern BoolSetting AvoidCausticPaths;
     extern IntSetting SqrtNumSamples;
@@ -94,9 +77,7 @@ namespace AppSettings
         bool32 SunAreaLightApproximation;
         float SunSize;
         Float3 SunDirection;
-        int32_t MSAAMode;
         bool32 RenderLights;
-        bool32 EnableRayTracing;
         bool32 ClampRoughness;
         bool32 AvoidCausticPaths;
         int32_t SqrtNumSamples;
@@ -133,25 +114,3 @@ namespace AppSettings
 };
 
 // ================================================================================================
-
-const uint64_t NumMSAAModes = uint64_t(MSAAModes::NumValues);
-
-namespace AppSettings
-{
-    extern uint64_t NumXTiles;
-    extern uint64_t NumYTiles;
-
-    inline uint32_t NumMSAASamples(MSAAModes mode)
-    {
-        static const uint32_t NumSamples[] = { 1, 2, 4 };
-        StaticAssert_(ArraySize_(NumSamples) >= uint64_t(MSAAModes::NumValues));
-        return NumSamples[uint32_t(mode)];
-    }
-
-    inline uint32_t NumMSAASamples()
-    {
-        return NumMSAASamples(MSAAMode);
-    }
-
-    void UpdateUI();
-}

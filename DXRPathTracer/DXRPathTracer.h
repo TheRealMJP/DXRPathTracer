@@ -21,7 +21,7 @@
 #include <Graphics/GraphicsTypes.h>
 
 #include "PostProcessor.h"
-#include "MeshRenderer.h"
+#include "SharedTypes.h"
 
 using namespace SampleFramework12;
 
@@ -40,34 +40,12 @@ protected:
     // Model
     Model sceneModels[uint64_t(Scenes::NumValues)];
     const Model* currentModel = nullptr;
-    MeshRenderer meshRenderer;
+    StructuredBuffer materialBuffer;
 
-    RenderTexture mainTarget;
-    RenderTexture resolveTarget;
     DepthBuffer depthBuffer;
 
     Array<SpotLight> spotLights;
     ConstantBuffer spotLightBuffer;
-    StructuredBuffer spotLightBoundsBuffer;
-    StructuredBuffer spotLightInstanceBuffer;
-    RawBuffer spotLightClusterBuffer;
-    uint64_t numIntersectingSpotLights = 0;
-
-    CompiledShaderPtr clusterVS;
-    CompiledShaderPtr clusterFrontFacePS;
-    CompiledShaderPtr clusterBackFacePS;
-    CompiledShaderPtr clusterIntersectingPS;
-    ID3D12PipelineState* clusterFrontFacePSO = nullptr;
-    ID3D12PipelineState* clusterBackFacePSO = nullptr;
-    ID3D12PipelineState* clusterIntersectingPSO = nullptr;
-
-    StructuredBuffer spotLightClusterVtxBuffer;
-    FormattedBuffer spotLightClusterIdxBuffer;
-    Array<Float3> coneVertices;
-
-    CompiledShaderPtr fullScreenTriVS;
-    CompiledShaderPtr resolvePS[NumMSAAModes];
-    ID3D12PipelineState* resolvePSO = nullptr;
 
     bool32 stablePowerState = false;
 
@@ -105,11 +83,6 @@ protected:
 
     void CreateRayTracingPSOs();
 
-    void UpdateLights();
-
-    void RenderClusters();
-    void RenderForward();
-    void RenderResolve();
     void RenderRayTracing();
     void RenderHUD(const Timer& timer);
 
