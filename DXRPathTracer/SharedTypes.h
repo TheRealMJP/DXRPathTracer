@@ -36,16 +36,29 @@ struct SpotLight
     ShaderFloat Range;
 };
 
-struct ClusterBounds
+struct RayTraceConstants
 {
-    ShaderFloat3 Position;
-    ShaderQuaternion Orientation;
-    ShaderFloat3 Scale;
-    ShaderUint2 ZBounds;
-};
+    ShaderFloat4x4 InvViewProjection;
+    ShaderFloat4x4 ViewProjection;
 
-struct ResolveConstants
-{
-    ShaderUint2 OutputSize;
-    DescriptorIndex InputTextureIdx;
+    ShaderFloat3 SunDirectionWS;
+    ShaderFloat CosSunAngularRadius;
+    ShaderFloat3 SunIrradiance;
+    ShaderFloat SinSunAngularRadius;
+    ShaderFloat3 SunRenderColor;
+    ShaderUint Padding;
+    ShaderFloat3 CameraPosWS;
+    ShaderUint CurrSampleIdx;
+    ShaderUint TotalNumPixels;
+
+    DescriptorIndex VtxBufferIdx;
+    DescriptorIndex IdxBufferIdx;
+    DescriptorIndex GeometryInfoBufferIdx;
+    DescriptorIndex MaterialBufferIdx;
+    DescriptorIndex SkyTextureIdx;
+    ShaderUint NumLights;
+
+    DescriptorIndex SceneAS;
+    DescriptorIndex RenderTarget;
+    DescriptorIndex DepthTarget;
 };

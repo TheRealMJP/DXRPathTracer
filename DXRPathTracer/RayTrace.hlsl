@@ -17,34 +17,10 @@
 #include <BRDF.hlsli>
 #include <RayTracing.hlsli>
 #include <Sampling.hlsli>
+#include <ShaderDebug.hlsli>
 
 #include "SharedTypes.h"
 #include "AppSettings.hlsli"
-
-struct RayTraceConstants
-{
-    row_major float4x4 InvViewProjection;
-
-    float3 SunDirectionWS;
-    float CosSunAngularRadius;
-    float3 SunIrradiance;
-    float SinSunAngularRadius;
-    float3 SunRenderColor;
-    uint Padding;
-    float3 CameraPosWS;
-    uint CurrSampleIdx;
-    uint TotalNumPixels;
-
-    DescriptorIndex VtxBufferIdx;
-    DescriptorIndex IdxBufferIdx;
-    DescriptorIndex GeometryInfoBufferIdx;
-    DescriptorIndex MaterialBufferIdx;
-    DescriptorIndex SkyTextureIdx;
-    DescriptorIndex NumLights;
-
-    DescriptorIndex SceneAS;
-    DescriptorIndex RenderTarget;
-};
 
 struct LightConstants
 {
@@ -69,6 +45,7 @@ struct [raypayload] PrimaryPayload
     uint PixelIdx : read(closesthit) : write(caller);
     uint SampleSetIdx : read(closesthit) : write(caller);
     bool IsDiffuse : read(closesthit) : write(caller);
+    float HitT : read(caller) : write(caller, closesthit);
 };
 
 struct [raypayload] ShadowPayload
@@ -126,6 +103,7 @@ void RaygenShader()
     payload.PixelIdx = pixelIdx;
     payload.SampleSetIdx = sampleSetIdx;
     payload.IsDiffuse = false;
+    payload.HitT = ray.TMax;
 
     uint traceRayFlags = 0;
 
@@ -149,6 +127,12 @@ void RaygenShader()
     float3 newValue = lerp(newSample, currValue, lerpFactor);
 
     renderTarget[pixelCoord] = float4(newValue, 1.0f);
+
+    RWTexture2D<float> depthTarget = ResourceDescriptorHeap[RayTraceCB.DepthTarget];
+
+    float3 hitPos = ray.Origin + ray.Direction * payload.HitT;
+    float4 projectedHitPos = mul(float4(hitPos, 1.0f), RayTraceCB.ViewProjection);
+    depthTarget[pixelCoord] = projectedHitPos.z / projectedHitPos.w;
 }
 
 static float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPayload inPayload)
@@ -397,6 +381,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         payload.SampleSetIdx = inPayload.SampleSetIdx;
         payload.IsDiffuse = (selector < 0.5f);
         payload.Roughness = roughness;
+        payload.HitT = ray.TMax;
 
         uint traceRayFlags = 0;
 
@@ -410,6 +395,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += payload.Radiance * throughput;
+        payload.HitT = payload.HitT;
     }
     else
     {
@@ -483,6 +469,7 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
     const Material material = GetGeometryMaterial(GeometryIndex());
 
     payload.Radiance = PathTrace(hitSurface, material, payload);
+    payload.HitT = RayTCurrent();
 }
 
 [shader("anyhit")]

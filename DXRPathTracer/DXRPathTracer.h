@@ -42,6 +42,8 @@ protected:
     const Model* currentModel = nullptr;
     StructuredBuffer materialBuffer;
 
+    RenderTexture rtTarget;
+    RenderTexture rtDepthTarget;
     DepthBuffer depthBuffer;
 
     Array<SpotLight> spotLights;
@@ -51,7 +53,6 @@ protected:
 
     // Ray tracing resources
     CompiledShaderPtr rayTraceLib;
-    RenderTexture rtTarget;
     ID3D12StateObject* rtPSO = nullptr;
     bool buildAccelStructure = true;
     uint64_t lastBuildAccelStructureFrame = uint64_t(-1);

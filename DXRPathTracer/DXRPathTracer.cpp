@@ -71,31 +71,6 @@ struct LightConstants
     SpotLight Lights[AppSettings::MaxSpotLights];
 };
 
-struct RayTraceConstants
-{
-    Float4x4 InvViewProjection;
-
-    Float3 SunDirectionWS;
-    float CosSunAngularRadius = 0.0f;
-    Float3 SunIrradiance;
-    float SinSunAngularRadius = 0.0f;
-    Float3 SunRenderColor;
-    uint32_t Padding = 0;
-    Float3 CameraPosWS;
-    uint32_t CurrSampleIdx = 0;
-    uint32_t TotalNumPixels = 0;
-
-    DescriptorIndex VtxBufferIdx = InvalidDescriptorIndex;
-    DescriptorIndex IdxBufferIdx = InvalidDescriptorIndex;
-    DescriptorIndex GeometryInfoBufferIdx = InvalidDescriptorIndex;
-    DescriptorIndex MaterialBufferIdx = InvalidDescriptorIndex;
-    DescriptorIndex SkyTextureIdx = InvalidDescriptorIndex;
-    uint32_t NumLights = 0;
-
-    DescriptorIndex SceneAS = InvalidDescriptorIndex;
-    DescriptorIndex RenderTarget = InvalidDescriptorIndex;
-};
-
 DXRPathTracer::DXRPathTracer(const char* cmdLine) : App("DXR Path Tracer", cmdLine)
 {
     minFeatureLevel = D3D_FEATURE_LEVEL_11_1;
@@ -160,9 +135,10 @@ void DXRPathTracer::Shutdown()
 
     spotLightBuffer.Shutdown();
 
+    rtTarget.Shutdown();
+    rtDepthTarget.Shutdown();
     depthBuffer.Shutdown();
 
-    rtTarget.Shutdown();
     rtBottomLevelAccelStructure.Shutdown();
     rtTopLevelAccelStructure.Shutdown();
     rtRayGenTable.Shutdown();
@@ -197,13 +173,6 @@ void DXRPathTracer::CreateRenderTargets()
     uint32_t width = swapChain.Width();
     uint32_t height = swapChain.Height();
 
-    depthBuffer.Initialize({
-        .Width = width,
-        .Height = height,
-        .Format = DXGI_FORMAT_D32_FLOAT,
-        .Name = "Main Depth Buffer",
-    });
-
     rtTarget.Initialize({
         .Width = width,
         .Height = height,
@@ -211,6 +180,22 @@ void DXRPathTracer::CreateRenderTargets()
         .CreateUAV = true,
         .InitialLayout = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
         .Name = "RT Target",
+    });
+
+    rtDepthTarget.Initialize({
+        .Width = width,
+        .Height = height,
+        .Format = DXGI_FORMAT_R32_FLOAT,
+        .CreateUAV = true,
+        .InitialLayout = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE,
+        .Name = "RT Depth Target",
+    });
+
+    depthBuffer.Initialize({
+        .Width = width,
+        .Height = height,
+        .Format = DXGI_FORMAT_D32_FLOAT,
+        .Name = "Main Depth Buffer",
     });
 
     rtShouldRestartPathTrace = true;
@@ -357,7 +342,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     {
         D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = { };
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                      // float2 barycentrics;
-        shaderConfig.MaxPayloadSizeInBytes = 4 * sizeof(float) + 4 * sizeof(uint32_t);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse
+        shaderConfig.MaxPayloadSizeInBytes = 5 * sizeof(float) + 4 * sizeof(uint32_t);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse + float HitT
         builder.AddSubObject(shaderConfig);
     }
 
@@ -606,6 +591,7 @@ void DXRPathTracer::RenderRayTracing()
 
     RayTraceConstants rtConstants;
     rtConstants.InvViewProjection = Float4x4::Invert(camera.ViewProjectionMatrix());
+    rtConstants.ViewProjection = camera.ViewProjectionMatrix();
 
     rtConstants.SunDirectionWS = AppSettings::SunDirection;
     rtConstants.SunIrradiance = skyCache.SunIrradiance;
@@ -625,6 +611,7 @@ void DXRPathTracer::RenderRayTracing()
 
     rtConstants.SceneAS = rtTopLevelAccelStructure.SRV;
     rtConstants.RenderTarget = rtTarget.UAV;
+    rtConstants.DepthTarget = rtDepthTarget.UAV;
 
     DX12::BindTempConstantBufferToURS(cmdList, rtConstants, 0, CmdListMode::Compute);
 
@@ -632,7 +619,12 @@ void DXRPathTracer::RenderRayTracing()
 
     AppSettings::BindCBufferCompute(cmdList, URS_AppSettings);
 
-    DX12::Barrier(cmdList, rtTarget.UAVWritableBarrier());
+    {
+        BarrierBatchBuilder builder;
+        builder.Add(rtTarget.UAVWritableBarrier());
+        builder.Add(rtDepthTarget.UAVWritableBarrier({ .FirstAccess = true }));
+        DX12::Barrier(cmdList, builder.Build());
+    }
 
     cmdList->SetPipelineState1(rtPSO);
 
@@ -646,13 +638,54 @@ void DXRPathTracer::RenderRayTracing()
 
     DX12::CmdList->DispatchRays(&dispatchDesc);
 
-    DX12::Barrier(cmdList, rtTarget.UAVToShaderReadableBarrier());
-
-    //####################################################################
     {
-        DX12::Barrier(cmdList, depthBuffer.DepthWritableBarrier({ .FirstAccess = true }));
-        cmdList->ClearDepthStencilView(depthBuffer.DSV, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-        DX12::Barrier(cmdList, depthBuffer.DepthReadableBarrier());
+        BarrierBatchBuilder builder;
+        builder.Add(rtTarget.UAVToShaderReadableBarrier());
+
+        if(rtCurrSampleIdx == 0)
+        {
+            builder.Add({
+                .SyncBefore = D3D12_BARRIER_SYNC_ALL_SHADING,
+                .SyncAfter = D3D12_BARRIER_SYNC_COPY,
+                .AccessBefore = D3D12_BARRIER_ACCESS_UNORDERED_ACCESS,
+                .AccessAfter = D3D12_BARRIER_ACCESS_COPY_SOURCE,
+                .LayoutBefore = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_UNORDERED_ACCESS,
+                .LayoutAfter = D3D12_BARRIER_LAYOUT_COPY_SOURCE,
+                .pResource = rtDepthTarget.Resource(),
+                .Subresources = rtDepthTarget.Texture.BarrierRange(0, 1, 0, 1),
+                .Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE,
+            });
+            builder.Add({
+                .SyncBefore = D3D12_BARRIER_SYNC_NONE,
+                .SyncAfter = D3D12_BARRIER_SYNC_COPY,
+                .AccessBefore = D3D12_BARRIER_ACCESS_NO_ACCESS,
+                .AccessAfter = D3D12_BARRIER_ACCESS_COPY_DEST,
+                .LayoutBefore = D3D12_BARRIER_LAYOUT_UNDEFINED,
+                .LayoutAfter = D3D12_BARRIER_LAYOUT_COPY_DEST,
+                .pResource = depthBuffer.Resource(),
+                .Subresources = depthBuffer.Texture.BarrierRange(0, 1, 0, 1),
+                .Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE,
+            });
+        }
+        DX12::Barrier(cmdList, builder.Build());
+    }
+
+    if(rtCurrSampleIdx == 0)
+    {
+        cmdList->CopyResource(depthBuffer.Resource(), rtDepthTarget.Resource());
+
+        DX12::Barrier(cmdList,
+        {
+            .SyncBefore = D3D12_BARRIER_SYNC_COPY,
+            .SyncAfter = D3D12_BARRIER_SYNC_ALL_SHADING | D3D12_BARRIER_SYNC_DEPTH_STENCIL,
+            .AccessBefore = D3D12_BARRIER_ACCESS_COPY_DEST,
+            .AccessAfter = D3D12_BARRIER_ACCESS_SHADER_RESOURCE | D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ,
+            .LayoutBefore = D3D12_BARRIER_LAYOUT_COPY_DEST,
+            .LayoutAfter = D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_GENERIC_READ,
+            .pResource = depthBuffer.Resource(),
+            .Subresources = depthBuffer.Texture.BarrierRange(0, 1, 0, 1),
+            .Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE,
+        });
     }
 
     rtCurrSampleIdx += 1;

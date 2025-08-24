@@ -451,6 +451,9 @@ RWByteAddressBuffer GetSphereBuffer()
 
 void DrawLine(float3 pos0, float3 pos1, float4 color)
 {
+    if (ThreadFilter == false)
+        return;
+
     RWByteAddressBuffer lineBuffer = GetLineBuffer();
 
     uint prevNumVerts = 0;
@@ -469,6 +472,9 @@ void DrawLine(float3 pos0, float3 pos1, float4 color)
 
 void DrawSphere(float3 center, float radius, float4 color)
 {
+    if (ThreadFilter == false)
+        return;
+
     RWByteAddressBuffer sphereBuffer = GetSphereBuffer();
 
     uint prevNumSpheres = 0;
@@ -487,6 +493,9 @@ void DrawSphere(float3 center, float radius, float4 color)
 
 void DrawArrow(float3 pos0, float3 pos1, float4 color)
 {
+    if (ThreadFilter == false)
+        return;
+
     const float arrowLen = length(pos1 - pos0);
     if (arrowLen <= 0.00001f)
         return;
