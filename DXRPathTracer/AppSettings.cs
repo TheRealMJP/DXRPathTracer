@@ -220,5 +220,8 @@ public class Settings
 
         [UseAsShaderConstant(false)]
         bool ShowProgressBar = true;
+
+        [ShaderCompileTimeConstant(true)]
+        bool DrawDebugPaths = false;
     }
 }

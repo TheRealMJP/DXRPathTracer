@@ -44,7 +44,8 @@ struct [raypayload] PrimaryPayload
     uint PathLength : read(closesthit, miss) : write(caller);
     uint PixelIdx : read(closesthit) : write(caller);
     uint SampleSetIdx : read(closesthit) : write(caller);
-    bool IsDiffuse : read(closesthit) : write(caller);
+    uint16_t IsDiffuse : read(closesthit) : write(caller);
+    uint16_t DebugDraw : read(closesthit) : write(caller);
     float HitT : read(caller) : write(caller, closesthit);
 };
 
@@ -60,11 +61,16 @@ enum RayTypes {
     NumRayTypes
 };
 
-static float2 SamplePoint(in uint pixelIdx, inout uint setIdx)
+float2 SamplePoint(in uint pixelIdx, inout uint setIdx)
 {
     const uint permutation = setIdx * RayTraceCB.TotalNumPixels + pixelIdx;
     setIdx += 1;
     return SampleCMJ2D(RayTraceCB.CurrSampleIdx, AppSettings.SqrtNumSamples, AppSettings.SqrtNumSamples, permutation);
+}
+
+float4 DebugRayColor(float3 radiance)
+{
+    return float4(radiance / max(max(max(radiance.x, radiance.y), radiance.z), 0.0001f), 1.0f);
 }
 
 [shader("raygeneration")]
@@ -103,6 +109,7 @@ void RaygenShader()
     payload.PixelIdx = pixelIdx;
     payload.SampleSetIdx = sampleSetIdx;
     payload.IsDiffuse = false;
+    payload.DebugDraw = AppSettings.DrawDebugPaths && all(ShaderDebug::GetCursorXY() == pixelCoord);
     payload.HitT = ray.TMax;
 
     uint traceRayFlags = 0;
@@ -135,7 +142,7 @@ void RaygenShader()
     depthTarget[pixelCoord] = projectedHitPos.z / projectedHitPos.w;
 }
 
-static float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPayload inPayload)
+float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPayload inPayload)
 {
     if((!AppSettings.EnableDiffuse && !AppSettings.EnableSpecular) ||
         (!AppSettings.EnableDirect && !AppSettings.EnableIndirect))
@@ -245,7 +252,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
         radiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularAlbedo,
-                                 roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
+                                       roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
     }
 
     // Apply spot lights
@@ -380,6 +387,7 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
         payload.PixelIdx = inPayload.PixelIdx;
         payload.SampleSetIdx = inPayload.SampleSetIdx;
         payload.IsDiffuse = (selector < 0.5f);
+        payload.DebugDraw = inPayload.DebugDraw;
         payload.Roughness = roughness;
         payload.HitT = ray.TMax;
 
@@ -396,6 +404,9 @@ static float3 PathTrace(in MeshVertex hitSurface, in Material material, in Prima
 
         radiance += payload.Radiance * throughput;
         payload.HitT = payload.HitT;
+
+        if (AppSettings.DrawDebugPaths && inPayload.DebugDraw)
+            ShaderDebug::DrawArrow(ray.Origin, ray.Origin + ray.Direction * payload.HitT, DebugRayColor(payload.Radiance), 0.025f);
     }
     else
     {

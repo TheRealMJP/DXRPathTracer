@@ -58,6 +58,7 @@ namespace AppSettings
     BoolSetting EnableWhiteFurnaceMode;
     BoolSetting AlwaysResetPathTrace;
     BoolSetting ShowProgressBar;
+    BoolSetting DrawDebugPaths;
 
     ConstantBuffer CBuffer;
     const uint32_t CBufferRegister = 12;
@@ -182,6 +183,9 @@ namespace AppSettings
         ShowProgressBar.Initialize("ShowProgressBar", "Debug", "Show Progress Bar", "", true);
         Settings.AddSetting(&ShowProgressBar);
 
+        DrawDebugPaths.Initialize("DrawDebugPaths", "Debug", "Draw Debug Paths", "", false);
+        Settings.AddSetting(&DrawDebugPaths);
+
         ConstantBufferInit cbInit;
         cbInit.Size = sizeof(AppSettingsCBuffer);
         cbInit.Dynamic = true;
@@ -240,11 +244,13 @@ namespace AppSettings
 
     void GetShaderCompileOptions(CompileOptions& opts)
     {
+        opts.Add("DrawDebugPaths_", DrawDebugPaths.Value());
     }
 
     bool ShaderCompileOptionsChanged()
     {
         bool changed = false;
+        changed = changed || DrawDebugPaths.Changed();
         return changed;
     }
 

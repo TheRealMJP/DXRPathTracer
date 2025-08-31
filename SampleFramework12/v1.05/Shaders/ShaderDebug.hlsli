@@ -491,7 +491,7 @@ void DrawSphere(float3 center, float radius, float4 color)
     }
 }
 
-void DrawArrow(float3 pos0, float3 pos1, float4 color)
+void DrawArrow(float3 pos0, float3 pos1, float4 color, float2 arrowHeadSize = -1.0f)
 {
     if (ThreadFilter == false)
         return;
@@ -516,8 +516,8 @@ void DrawArrow(float3 pos0, float3 pos1, float4 color)
         float3 yBasis = normalize(cross(arrowDir, xBasis));
         float3x3 basis = float3x3(xBasis, yBasis, arrowDir);
 
-        const float arrowHeadWidth = 0.125f * arrowLen;
-        const float arrowHeadHeight = 0.25f * arrowLen;
+        const float arrowHeadWidth = arrowHeadSize.x >= 0.0f ? arrowHeadSize.x : 0.125f * arrowLen;
+        const float arrowHeadHeight = arrowHeadSize.y >= 0.0f ? arrowHeadSize.y : 0.25f * arrowLen;
         float3 arrowHeadPos0 = mul(float3(arrowHeadWidth, arrowHeadWidth, -arrowHeadHeight), basis) + pos1;
         float3 arrowHeadPos1 = mul(float3(arrowHeadWidth, -arrowHeadWidth, -arrowHeadHeight), basis) + pos1;
         float3 arrowHeadPos2 = mul(float3(-arrowHeadWidth, -arrowHeadWidth, -arrowHeadHeight), basis) + pos1;

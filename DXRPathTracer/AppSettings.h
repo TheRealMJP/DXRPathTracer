@@ -69,6 +69,7 @@ namespace AppSettings
     extern BoolSetting EnableWhiteFurnaceMode;
     extern BoolSetting AlwaysResetPathTrace;
     extern BoolSetting ShowProgressBar;
+    extern BoolSetting DrawDebugPaths;
 
     struct AppSettingsCBuffer
     {

@@ -60,6 +60,7 @@ struct AppSettings_Values
     float RoughnessScale;
     float MetallicScale;
     bool EnableWhiteFurnaceMode;
+    bool DrawDebugPaths;
 };
 
 static const AppSettings_Values AppSettings =
@@ -90,6 +91,7 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.RoughnessScale,
     AppSettingsCB.MetallicScale,
     AppSettingsCB.EnableWhiteFurnaceMode,
+    DrawDebugPaths_,
 };
 
 enum Scenes
