@@ -96,10 +96,11 @@ static const AppSettings_Values AppSettings =
 
 enum Scenes
 {
-    Sponza = 0,
-    SunTemple = 1,
-    BoxTest = 2,
-    WhiteFurnace = 3,
+    BoxTest = 0,
+    Knob = 1,
+    Sponza = 2,
+    SunTemple = 3,
+    WhiteFurnace = 4,
 };
 
 static const uint ClusterTileSize = 16;

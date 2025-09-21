@@ -33,27 +33,69 @@
 
 using namespace SampleFramework12;
 
-// Model filenames
-static const char* ScenePaths[] =
+struct SceneParameters
 {
-    "..\\Content\\Models\\Sponza\\Sponza.fbx",
-    "..\\Content\\Models\\SunTemple\\SunTemple.fbx",
-    nullptr,
-    "..\\Content\\Models\\WhiteFurnace\\WhiteFurnace.fbx",
+    const char* Path = nullptr;
+    const char* TextureDir = nullptr;
+    float Scale = 1.0f;
+    Float3 CameraPosition;
+    Float2 CameraRotation;
+    Float3 SunDirection;
 };
 
-static const char* SceneTextureDirs[] = { nullptr, "Textures", nullptr, nullptr };
-static const float SceneScales[] = { 0.01f, 0.005f, 1.0f, 1.0f };
-static const Float3 SceneCameraPositions[] = { Float3(-11.5f, 1.85f, -0.45f), Float3(-1.0f, 5.5f, 12.0f), Float3(0.0f, 2.5f, -10.0f), Float3(0.0f, 0.0f, -3.0f) };
-static const Float2 SceneCameraRotations[] = { Float2(0.0f, 1.544f), Float2(0.2f, 3.0f), Float2(0.0f, 0.0f), Float2(0.0f, 0.0f) };
-static const Float3 SceneSunDirections[] = { Float3(0.26f, 0.987f, -0.16f), Float3(-0.133022308f, 0.642787635f, 0.75440651f), Float3(0.26f, 0.987f, -0.16f), Float3(0.0f, 1.0f, 0.0f) };
+static const SceneParameters SceneParams[] =
+{
+    // BoxTest
+    {
+        .Path = nullptr,
+        .TextureDir = nullptr,
+        .Scale = 1.0f,
+        .CameraPosition = Float3(0.0f, 2.5f, -10.0f),
+        .CameraRotation = Float2(0.0f, 0.0f),
+        .SunDirection = Float3(0.26f, 0.987f, -0.16f),
+    },
 
-StaticAssert_(ArraySize_(ScenePaths) == uint64_t(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneTextureDirs) == uint64_t(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneScales) == uint64_t(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneCameraPositions) == uint64_t(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneCameraRotations) == uint64_t(Scenes::NumValues));
-StaticAssert_(ArraySize_(SceneSunDirections) == uint64_t(Scenes::NumValues));
+    // Knob
+    {
+        .Path = "..\\Content\\Models\\MoriKnob\\MoriKnob.fbx",
+        .TextureDir = nullptr,
+        .Scale = 1.0f,
+        .CameraPosition = Float3(0.125f, 0.125f, -2.75f),
+        .CameraRotation = Float2(0.0f, 0.0f),
+        .SunDirection = Float3(0.579f, 0.574f, -0.579f),
+    },
+
+    // Sponza
+    {
+        .Path = "..\\Content\\Models\\Sponza\\Sponza.fbx",
+        .TextureDir = nullptr,
+        .Scale = 0.01f,
+        .CameraPosition = Float3(-11.5f, 1.85f, -0.45f),
+        .CameraRotation = Float2(0.0f, 1.544f),
+        .SunDirection = Float3(0.26f, 0.987f, -0.16f),
+    },
+
+    // SunTemple
+    {
+        .Path = "..\\Content\\Models\\SunTemple\\SunTemple.fbx",
+        .TextureDir = "Textures",
+        .Scale = 0.005f,
+        .CameraPosition = Float3(-1.0f, 5.5f, 12.0f),
+        .CameraRotation = Float2(0.2f, 3.0f),
+        .SunDirection = Float3(-0.133022308f, 0.642787635f, 0.75440651f),
+    },
+
+    // WhiteFurnace
+    {
+        .Path = "..\\Content\\Models\\WhiteFurnace\\WhiteFurnace.fbx",
+        .TextureDir = nullptr,
+        .Scale = 1.0f,
+        .CameraPosition = Float3(0.0f, 0.0f, -3.0f),
+        .CameraRotation = Float2(0.0f, 0.0f),
+        .SunDirection = Float3(0.0f, 1.0f, 0.0f),
+    },
+};
+StaticAssert_(ArraySize_(SceneParams) == uint64_t(Scenes::NumValues));
 
 static const uint64_t NumConeSides = 16;
 
@@ -205,21 +247,22 @@ void DXRPathTracer::InitializeScene()
 {
     const uint64_t currSceneIdx = uint64_t(AppSettings::CurrentScene);
     AppSettings::EnableWhiteFurnaceMode.SetValue(currSceneIdx == uint64_t(Scenes::WhiteFurnace));
+    const SceneParameters& currSceneParams = SceneParams[currSceneIdx];
 
     // Load the scene (if necessary)
     if(sceneModels[currSceneIdx].NumMeshes() == 0)
     {
-        if(currSceneIdx == uint64_t(Scenes::BoxTest) || ScenePaths[currSceneIdx] == nullptr)
+        if(currSceneIdx == uint64_t(Scenes::BoxTest) || currSceneParams.Path == nullptr)
         {
             sceneModels[currSceneIdx].GenerateBoxTestScene({});
         }
         else
         {
             ModelLoadSettings settings;
-            settings.FilePath = ScenePaths[currSceneIdx];
-            settings.TextureDir = SceneTextureDirs[currSceneIdx];
+            settings.FilePath = currSceneParams.Path;
+            settings.TextureDir = currSceneParams.TextureDir;
             settings.ForceSRGB = true;
-            settings.SceneScale = SceneScales[currSceneIdx];
+            settings.SceneScale = currSceneParams.Scale;
             settings.MergeMeshes = false;
             sceneModels[currSceneIdx].CreateWithAssimp(settings);
         }
@@ -230,10 +273,10 @@ void DXRPathTracer::InitializeScene()
 
     materialBuffer.Shutdown();
 
-    camera.SetPosition(SceneCameraPositions[currSceneIdx]);
-    camera.SetXRotation(SceneCameraRotations[currSceneIdx].x);
-    camera.SetYRotation(SceneCameraRotations[currSceneIdx].y);
-    AppSettings::SunDirection.SetValue(SceneSunDirections[currSceneIdx]);
+    camera.SetPosition(currSceneParams.CameraPosition);
+    camera.SetXRotation(currSceneParams.CameraRotation.x);
+    camera.SetYRotation(currSceneParams.CameraRotation.y);
+    AppSettings::SunDirection.SetValue(currSceneParams.SunDirection);
 
     {
         // Initialize the spotlight data used for rendering
@@ -483,8 +526,6 @@ void DXRPathTracer::Update(const Timer& timer)
         stablePowerState = AppSettings::StablePowerState;
     }
 
-    skyCache.Init(AppSettings::SunDirection, AppSettings::SunSize, AppSettings::GroundAlbedo, AppSettings::Turbidity, true);
-
     if(AppSettings::CurrentScene.Changed() && currentModel != &sceneModels[uint64_t(AppSettings::CurrentScene)])
     {
         currentModel = &sceneModels[uint64_t(AppSettings::CurrentScene)];
@@ -494,6 +535,8 @@ void DXRPathTracer::Update(const Timer& timer)
 
         rtShouldRestartPathTrace = true;
     }
+
+    skyCache.Init(AppSettings::SunDirection, AppSettings::SunSize, AppSettings::GroundAlbedo, AppSettings::Turbidity, true);
 
     const Setting* settingsToCheck[] =
     {
@@ -515,7 +558,6 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::GroundAlbedo,
         &AppSettings::RoughnessScale,
         &AppSettings::MetallicScale,
-        &AppSettings::EnableWhiteFurnaceMode,
         &AppSettings::MaxAnyHitPathLength,
         &AppSettings::AvoidCausticPaths,
         &AppSettings::ClampRoughness,
@@ -714,20 +756,7 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
         Float2 barSize = Float2(width * barPercentage, barHeight);
         Float2 barEnd = barStart + barSize;
 
-        Float2 windowStart = barStart - 8.0f;
-        Float2 windowSize = barSize + 16.0f;
-        Float2 windowEnd = windowStart + windowSize;
-
-        ImGui::SetNextWindowPos(ToImVec2(windowStart), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ToImVec2(windowSize), ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        ImGui::Begin("HUD Window", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs |
-                                            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse |
-                                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse);
-
-        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImDrawList* drawList = ImGui::GetBackgroundDrawList();
 
         const float progress = float(rtCurrSampleIdx) / totalNumSamples;
 
@@ -742,10 +771,6 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
         Float2 progressTextSize = ToFloat2(ImGui::CalcTextSize(progressText.c_str()));
         Float2 progressTextPos = barStart + (barSize * 0.5f) - (progressTextSize * 0.5f);
         drawList->AddText(ToImVec2(progressTextPos), textColor, progressText.c_str());
-
-        ImGui::PopStyleVar();
-
-        ImGui::End();
     }
 }
 

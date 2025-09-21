@@ -1,9 +1,10 @@
 enum Scenes
 {
-    Sponza = 0,
+    BoxTest = 0,
+    Knob,
+    Sponza,
     SunTemple,
-    BoxTest,
-    WhiteFurnace
+    WhiteFurnace,
 }
 
 enum MSAAModes
