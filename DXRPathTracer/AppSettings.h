@@ -57,7 +57,7 @@ namespace AppSettings
     extern FloatSetting BloomBlurSigma;
     extern BoolSetting EnableVSync;
     extern BoolSetting StablePowerState;
-    extern BoolSetting EnableAlbedoMaps;
+    extern BoolSetting EnableBaseColorMaps;
     extern BoolSetting EnableNormalMaps;
     extern BoolSetting EnableDiffuse;
     extern BoolSetting EnableSpecular;
@@ -66,8 +66,7 @@ namespace AppSettings
     extern BoolSetting EnableIndirectSpecular;
     extern BoolSetting ApplyMultiscatteringEnergyCompensation;
     extern FloatSetting RoughnessScale;
-    extern FloatSetting MetallicScale;
-    extern BoolSetting EnableWhiteFurnaceMode;
+    extern FloatSetting MetallicOffset;
     extern BoolSetting AlwaysResetPathTrace;
     extern BoolSetting ShowProgressBar;
     extern BoolSetting DrawDebugPaths;
@@ -89,7 +88,7 @@ namespace AppSettings
         float BloomExposure;
         float BloomMagnitude;
         float BloomBlurSigma;
-        bool32 EnableAlbedoMaps;
+        bool32 EnableBaseColorMaps;
         bool32 EnableNormalMaps;
         bool32 EnableDiffuse;
         bool32 EnableSpecular;
@@ -98,8 +97,7 @@ namespace AppSettings
         bool32 EnableIndirectSpecular;
         bool32 ApplyMultiscatteringEnergyCompensation;
         float RoughnessScale;
-        float MetallicScale;
-        bool32 EnableWhiteFurnaceMode;
+        float MetallicOffset;
     };
 
     extern ConstantBuffer CBuffer;

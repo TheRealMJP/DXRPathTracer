@@ -176,9 +176,9 @@ public class Settings
         [HelpText("Enables the stable power state, which stabilizes GPU clocks for more consistent performance")]
         bool StablePowerState = false;
 
-        [DisplayName("Enable Albedo Maps")]
-        [HelpText("Enables albedo maps")]
-        bool EnableAlbedoMaps = true;
+        [DisplayName("Enable Base Color Maps")]
+        [HelpText("Enables base color maps")]
+        bool EnableBaseColorMaps = true;
 
         [DisplayName("Enable Normal Maps")]
         [HelpText("Enables normal maps")]
@@ -207,14 +207,10 @@ public class Settings
         [MaxValue(2.0f)]
         float RoughnessScale = 1.0f;
 
-        [HelpText("Scales the scene metallic by this value")]
-        [MinValue(0.0f)]
-        [MaxValue(2.0f)]
-        float MetallicScale = 1.0f;
-
-        [HelpText("Changes lighting to be the white furnace for energy conservation and preservation assessment.")]
-        [Visible(false)]
-        bool EnableWhiteFurnaceMode = false;
+        [HelpText("Offsets the scene metallic by this value")]
+        [MinValue(-1.0f)]
+        [MaxValue(1.0f)]
+        float MetallicOffset = 0.0f;
 
         [UseAsShaderConstant(false)]
         bool AlwaysResetPathTrace = false;

@@ -18,12 +18,16 @@
 
 struct Material
 {
-    DescriptorIndex Albedo;
+    DescriptorIndex BaseColor;
+    ShaderFloat3 BaseColorTint;
     DescriptorIndex Normal;
     DescriptorIndex Roughness;
+    ShaderFloat RoughnessScale;
     DescriptorIndex Metallic;
+    ShaderFloat MetallicOffset;
     DescriptorIndex Opacity;
     DescriptorIndex Emissive;
+    ShaderFloat3 EmissiveTint;
 };
 
 struct SpotLight
@@ -46,7 +50,7 @@ struct RayTraceConstants
     ShaderFloat3 SunIrradiance;
     ShaderFloat SinSunAngularRadius;
     ShaderFloat3 SunRenderColor;
-    ShaderUint Padding;
+    ShaderBool EnableWhiteFurnaceMode;
     ShaderFloat3 CameraPosWS;
     ShaderUint CurrSampleIdx;
     ShaderUint TotalNumPixels;

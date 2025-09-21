@@ -173,26 +173,27 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
     }
 
     float3 baseColor = 1.0f;
-    if(AppSettings.EnableAlbedoMaps && !AppSettings.EnableWhiteFurnaceMode)
+    if(AppSettings.EnableBaseColorMaps)
     {
-        Texture2D albedoMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Albedo)];
-        baseColor = albedoMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz;
+        Texture2D baseColorMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.BaseColor)];
+        baseColor = baseColorMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz;
+        baseColor = saturate(baseColor * material.BaseColorTint);
     }
 
     Texture2D metallicMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Metallic)];
-    const float metallic = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x) * AppSettings.MetallicScale);
+    const float metallic = saturate(metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x + material.MetallicOffset + AppSettings.MetallicOffset);
 
-    const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f) || AppSettings.EnableWhiteFurnaceMode;
+    const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f);
     const bool enableSpecular = (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && inPayload.IsDiffuse) : (inPayload.PathLength == 1)));
 
     if(enableDiffuse == false && enableSpecular == false)
         return 0.0f;
 
     Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
-    const float sqrtRoughness = saturate((AppSettings.EnableWhiteFurnaceMode ? 1.0f : roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x) * AppSettings.RoughnessScale);
+    const float sqrtRoughness = clamp(roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x * material.RoughnessScale * AppSettings.RoughnessScale, 0.01f, 1.0f);
 
     const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
-    const float3 specularAlbedo = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
+    const float3 specularF0 = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
     float roughness = sqrtRoughness * sqrtRoughness;
     if(AppSettings.ClampRoughness)
         roughness = max(roughness, inPayload.Roughness);
@@ -208,14 +209,14 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
         //
         // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
         float Ess = DFG.x;
-        msEnergyCompensation = 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
+        msEnergyCompensation = 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
     }
 
     Texture2D emissiveMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Emissive)];
-    float3 radiance = AppSettings.EnableWhiteFurnaceMode ? 0.0.xxx : emissiveMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz;
+    float3 radiance = emissiveMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz * material.EmissiveTint;
 
     //Apply sun light
-    if(AppSettings.EnableSun && !AppSettings.EnableWhiteFurnaceMode)
+    if(AppSettings.EnableSun && !RayTraceCB.EnableWhiteFurnaceMode)
     {
         float3 sunDirection = RayTraceCB.SunDirectionWS;
 
@@ -251,7 +252,7 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
         const uint missShaderIdx = RayTypeShadow;
         TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
-        radiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularAlbedo,
+        radiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularF0,
                                        roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
     }
 
@@ -300,7 +301,7 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
 
                 float3 intensity = spotLight.Intensity * angularAttenuation;
 
-                radiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularAlbedo,
+                radiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularF0,
                                          roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * payload.Visibility;
             }
         }
@@ -343,7 +344,7 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
 
         float3 normalTS = float3(0.0f, 0.0f, 1.0f);
 
-        float3 F = AppSettings.EnableWhiteFurnaceMode ? 1.0.xxx : Fresnel(specularAlbedo, microfacetNormalTS, sampleDirTS);
+        float3 F = RayTraceCB.EnableWhiteFurnaceMode ? 1.0.xxx : Fresnel(specularF0, microfacetNormalTS, sampleDirTS);
         float G1 = SmithGGXMasking(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
         float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
 
@@ -360,7 +361,7 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
             //
             // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
             float Ess = DFG.x;
-            throughput *= 1.0.xxx + specularAlbedo * (1.0f / Ess - 1.0f);
+            throughput *= 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
         }
     }
 
@@ -379,7 +380,7 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
     if(inPayload.PathLength == 1 && !AppSettings.EnableDirect)
         radiance = 0.0.xxx;
 
-    if(AppSettings.EnableIndirect && (inPayload.PathLength + 1 < AppSettings.MaxPathLength) && !AppSettings.EnableWhiteFurnaceMode)
+    if(AppSettings.EnableIndirect && (inPayload.PathLength + 1 < AppSettings.MaxPathLength) && !RayTraceCB.EnableWhiteFurnaceMode)
     {
         PrimaryPayload payload;
         payload.Radiance = 0.0f;
@@ -424,7 +425,7 @@ float3 PathTrace(in MeshVertex hitSurface, in Material material, in PrimaryPaylo
         const uint missShaderIdx = RayTypeShadow;
         TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
 
-        if(AppSettings.EnableWhiteFurnaceMode)
+        if(RayTraceCB.EnableWhiteFurnaceMode)
         {
             radiance = throughput;
         }
@@ -512,7 +513,7 @@ void MissShader(inout PrimaryPayload payload)
 {
     payload.Radiance = 0.0f;
 
-    if(AppSettings.EnableWhiteFurnaceMode)
+    if(RayTraceCB.EnableWhiteFurnaceMode)
     {
         payload.Radiance = 1.0.xxx;
     }

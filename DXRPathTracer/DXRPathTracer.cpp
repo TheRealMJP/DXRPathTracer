@@ -163,6 +163,25 @@ void DXRPathTracer::Initialize()
     rayTraceLib = CompileFromFile("RayTrace.hlsl", nullptr, ShaderType::Library);
 
     rtCurrCamera = camera;
+
+    LoadTexture(whiteTexture, "..\\Content\\Textures\\Default.dds");
+    LoadTexture(blackTexture, "..\\Content\\Textures\\DefaultBlack.dds");
+    LoadTexture(checkerTexture, "..\\Content\\Textures\\DefaultBaseColor.dds");
+    LoadTexture(flatNormalMap, "..\\Content\\Textures\\DefaultNormalMap.dds");
+
+    knobMaterial =
+    {
+        .BaseColor = checkerTexture.SRV,
+        .BaseColorTint = Float3(1.0f, 1.0f, 1.0f),
+        .Normal = flatNormalMap.SRV,
+        .Roughness = whiteTexture.SRV,
+        .RoughnessScale = 0.1f,
+        .Metallic = blackTexture.SRV,
+        .MetallicOffset = 0.0f,
+        .Opacity = whiteTexture.SRV,
+        .Emissive = whiteTexture.SRV,
+        .EmissiveTint = Float3(0.0f, 0.0f, 0.0f),
+    };
 }
 
 void DXRPathTracer::Shutdown()
@@ -187,6 +206,11 @@ void DXRPathTracer::Shutdown()
     rtHitTable.Shutdown();
     rtMissTable.Shutdown();
     rtGeoInfoBuffer.Shutdown();
+
+    whiteTexture.Shutdown();
+    blackTexture.Shutdown();
+    checkerTexture.Shutdown();
+    flatNormalMap.Shutdown();
 }
 
 void DXRPathTracer::CreatePSOs()
@@ -246,7 +270,6 @@ void DXRPathTracer::CreateRenderTargets()
 void DXRPathTracer::InitializeScene()
 {
     const uint64_t currSceneIdx = uint64_t(AppSettings::CurrentScene);
-    AppSettings::EnableWhiteFurnaceMode.SetValue(currSceneIdx == uint64_t(Scenes::WhiteFurnace));
     const SceneParameters& currSceneParams = SceneParams[currSceneIdx];
 
     // Load the scene (if necessary)
@@ -301,31 +324,12 @@ void DXRPathTracer::InitializeScene()
         // Create a structured buffer containing texture indices per-material
         const Array<MeshMaterial>& materials = currentModel->Materials();
         const uint64_t numMaterials = materials.Size();
-        Array<Material> matBufferData(numMaterials);
-        for(uint64_t i = 0; i < numMaterials; ++i)
-        {
-            Material& matIndices = matBufferData[i];
-            const MeshMaterial& material = materials[i];
-
-            matIndices.Albedo = material.Textures[uint64_t(MaterialTextures::Albedo)]->SRV;
-            matIndices.Normal = material.Textures[uint64_t(MaterialTextures::Normal)]->SRV;
-            matIndices.Roughness = material.Textures[uint64_t(MaterialTextures::Roughness)]->SRV;
-            matIndices.Metallic = material.Textures[uint64_t(MaterialTextures::Metallic)]->SRV;
-            matIndices.Emissive = material.Textures[uint64_t(MaterialTextures::Emissive)]->SRV;
-
-            // Opacity is optional
-            const Texture* opacity = material.Textures[uint64_t(MaterialTextures::Opacity)];
-            matIndices.Opacity = opacity ? opacity->SRV : InvalidDescriptorIndex;
-        }
-
-        StructuredBufferInit sbInit;
-
         materialBuffer.Initialize({
             .Stride = sizeof(Material),
             .NumElements = numMaterials,
-            .Dynamic = false,
-            .InitData = matBufferData.Data(),
-            .Name = "Material Texture Indices",
+            .Dynamic = true,
+            // .InitData = matBufferData.Data(),
+            .Name = "Material Buffer",
         });
     }
 
@@ -542,7 +546,7 @@ void DXRPathTracer::Update(const Timer& timer)
     {
         &AppSettings::SqrtNumSamples,
         &AppSettings::MaxPathLength,
-        &AppSettings::EnableAlbedoMaps,
+        &AppSettings::EnableBaseColorMaps,
         &AppSettings::EnableNormalMaps,
         &AppSettings::EnableDiffuse,
         &AppSettings::EnableSpecular,
@@ -557,7 +561,7 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::Turbidity,
         &AppSettings::GroundAlbedo,
         &AppSettings::RoughnessScale,
-        &AppSettings::MetallicScale,
+        &AppSettings::MetallicOffset,
         &AppSettings::MaxAnyHitPathLength,
         &AppSettings::AvoidCausticPaths,
         &AppSettings::ClampRoughness,
@@ -582,6 +586,51 @@ void DXRPathTracer::Update(const Timer& timer)
     {
         rtCurrSampleIdx = 0;
         rtShouldRestartPathTrace = false;
+    }
+
+    {
+        // Update the material buffer
+        const Array<MeshMaterial>& meshMaterials = currentModel->Materials();
+        const uint64_t numMaterials = meshMaterials.Size();
+
+        MapResult stagingMem = DX12::AcquireTempBufferMem(numMaterials * sizeof(Material), alignof(Material));
+        Material* materials = reinterpret_cast<Material*>(stagingMem.CPUAddress);
+
+        Array<Material> matBufferData(numMaterials);
+        for(uint64_t i = 0; i < numMaterials; ++i)
+        {
+            const MeshMaterial& meshMaterial = meshMaterials[i];
+
+            Material material;
+            material.BaseColor = meshMaterial.Textures[uint64_t(MaterialTextures::Albedo)]->SRV;
+            material.BaseColorTint = Float3(1.0f, 1.0f, 1.0f);
+            material.Normal = meshMaterial.Textures[uint64_t(MaterialTextures::Normal)]->SRV;
+            material.Roughness = meshMaterial.Textures[uint64_t(MaterialTextures::Roughness)]->SRV;
+            material.RoughnessScale = 1.0f;
+            material.Metallic = meshMaterial.Textures[uint64_t(MaterialTextures::Metallic)]->SRV;
+            material.MetallicOffset = 0.0f;
+            material.Emissive = meshMaterial.Textures[uint64_t(MaterialTextures::Emissive)]->SRV;
+            material.EmissiveTint = Float3(1.0f, 1.0f, 1.0f);
+
+            // Opacity is optional
+            const Texture* opacity = meshMaterial.Textures[uint64_t(MaterialTextures::Opacity)];
+            material.Opacity = opacity ? opacity->SRV : InvalidDescriptorIndex;
+
+            if(AppSettings::CurrentScene == Scenes::WhiteFurnace)
+            {
+                material.BaseColor = whiteTexture.SRV;
+                material.Metallic = whiteTexture.SRV;
+                material.Roughness = whiteTexture.SRV;
+            }
+            else if(AppSettings::CurrentScene == Scenes::Knob && i == 1)
+            {
+                material = knobMaterial;
+            }
+
+            memcpy(materials + i, &material, sizeof(material));
+        }
+
+        materialBuffer.QueueUpload(stagingMem.Resource, stagingMem.ResourceOffset, numMaterials, 0);
     }
 }
 
@@ -640,6 +689,7 @@ void DXRPathTracer::RenderRayTracing()
     rtConstants.CosSunAngularRadius = std::cos(DegToRad(AppSettings::SunSize));
     rtConstants.SinSunAngularRadius = std::sin(DegToRad(AppSettings::SunSize));
     rtConstants.SunRenderColor = skyCache.SunRenderColor;
+    rtConstants.EnableWhiteFurnaceMode = AppSettings::CurrentScene == Scenes::WhiteFurnace ? 1 : 0;
     rtConstants.CameraPosWS = camera.Position();
     rtConstants.CurrSampleIdx = rtCurrSampleIdx;
     rtConstants.TotalNumPixels = uint32_t(rtTarget.Width()) * uint32_t(rtTarget.Height());
@@ -772,6 +822,20 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
         Float2 progressTextPos = barStart + (barSize * 0.5f) - (progressTextSize * 0.5f);
         drawList->AddText(ToImVec2(progressTextPos), textColor, progressText.c_str());
     }
+
+    if(AppSettings::CurrentScene == Scenes::Knob)
+    {
+        ImGui::SetNextWindowBgAlpha(0.5f);
+        if(ImGui::Begin("Material Editor", nullptr))
+        {
+            bool changed = ImGui::ColorEdit3("Base Color Tint", &knobMaterial.BaseColorTint.x);
+
+            if (changed)
+                rtShouldRestartPathTrace = true;
+        }
+
+        ImGui::End();
+    }
 }
 
 void DXRPathTracer::BuildRTAccelerationStructure()
@@ -791,7 +855,6 @@ void DXRPathTracer::BuildRTAccelerationStructure()
         Assert_(mesh.NumMeshParts() == 1);
         const uint32_t materialIdx = mesh.MeshParts()[0].MaterialIdx;
         const MeshMaterial& material = currentModel->Materials()[materialIdx];
-        const bool opaque = material.Textures[uint32_t(MaterialTextures::Opacity)] == nullptr;
 
         D3D12_RAYTRACING_GEOMETRY_DESC& geometryDesc = geometryDescs[meshIdx];
         geometryDesc = { };
@@ -804,7 +867,7 @@ void DXRPathTracer::BuildRTAccelerationStructure()
         geometryDesc.Triangles.VertexCount = uint32_t(mesh.NumVertices());
         geometryDesc.Triangles.VertexBuffer.StartAddress = vtxBuffer.GPUAddress + mesh.VertexOffset() * vtxBuffer.Stride;
         geometryDesc.Triangles.VertexBuffer.StrideInBytes = vtxBuffer.Stride;
-        geometryDesc.Flags = opaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+        geometryDesc.Flags = material.Opaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
 
         GeometryInfo& geoInfo = geoInfoBufferData[meshIdx];
         geoInfo = { };

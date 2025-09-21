@@ -47,7 +47,7 @@ namespace AppSettings
     FloatSetting BloomBlurSigma;
     BoolSetting EnableVSync;
     BoolSetting StablePowerState;
-    BoolSetting EnableAlbedoMaps;
+    BoolSetting EnableBaseColorMaps;
     BoolSetting EnableNormalMaps;
     BoolSetting EnableDiffuse;
     BoolSetting EnableSpecular;
@@ -56,8 +56,7 @@ namespace AppSettings
     BoolSetting EnableIndirectSpecular;
     BoolSetting ApplyMultiscatteringEnergyCompensation;
     FloatSetting RoughnessScale;
-    FloatSetting MetallicScale;
-    BoolSetting EnableWhiteFurnaceMode;
+    FloatSetting MetallicOffset;
     BoolSetting AlwaysResetPathTrace;
     BoolSetting ShowProgressBar;
     BoolSetting DrawDebugPaths;
@@ -145,8 +144,8 @@ namespace AppSettings
         StablePowerState.Initialize("StablePowerState", "Debug", "Stable Power State", "Enables the stable power state, which stabilizes GPU clocks for more consistent performance", false);
         Settings.AddSetting(&StablePowerState);
 
-        EnableAlbedoMaps.Initialize("EnableAlbedoMaps", "Debug", "Enable Albedo Maps", "Enables albedo maps", true);
-        Settings.AddSetting(&EnableAlbedoMaps);
+        EnableBaseColorMaps.Initialize("EnableBaseColorMaps", "Debug", "Enable Base Color Maps", "Enables base color maps", true);
+        Settings.AddSetting(&EnableBaseColorMaps);
 
         EnableNormalMaps.Initialize("EnableNormalMaps", "Debug", "Enable Normal Maps", "Enables normal maps", true);
         Settings.AddSetting(&EnableNormalMaps);
@@ -172,12 +171,8 @@ namespace AppSettings
         RoughnessScale.Initialize("RoughnessScale", "Debug", "Roughness Scale", "Scales the scene roughness by this value", 1.0000f, 0.0010f, 2.0000f, 0.0100f, ConversionMode::None, 1.0000f);
         Settings.AddSetting(&RoughnessScale);
 
-        MetallicScale.Initialize("MetallicScale", "Debug", "Metallic Scale", "Scales the scene metallic by this value", 1.0000f, 0.0000f, 2.0000f, 0.0100f, ConversionMode::None, 1.0000f);
-        Settings.AddSetting(&MetallicScale);
-
-        EnableWhiteFurnaceMode.Initialize("EnableWhiteFurnaceMode", "Debug", "Enable White Furnace Mode", "Changes lighting to be the white furnace for energy conservation and preservation assessment.", false);
-        Settings.AddSetting(&EnableWhiteFurnaceMode);
-        EnableWhiteFurnaceMode.SetVisible(false);
+        MetallicOffset.Initialize("MetallicOffset", "Debug", "Metallic Offset", "Offsets the scene metallic by this value", 0.0000f, -1.0000f, 1.0000f, 0.0100f, ConversionMode::None, 1.0000f);
+        Settings.AddSetting(&MetallicOffset);
 
         AlwaysResetPathTrace.Initialize("AlwaysResetPathTrace", "Debug", "Always Reset Path Trace", "", false);
         Settings.AddSetting(&AlwaysResetPathTrace);
@@ -219,7 +214,7 @@ namespace AppSettings
         cbData.BloomExposure = BloomExposure;
         cbData.BloomMagnitude = BloomMagnitude;
         cbData.BloomBlurSigma = BloomBlurSigma;
-        cbData.EnableAlbedoMaps = EnableAlbedoMaps;
+        cbData.EnableBaseColorMaps = EnableBaseColorMaps;
         cbData.EnableNormalMaps = EnableNormalMaps;
         cbData.EnableDiffuse = EnableDiffuse;
         cbData.EnableSpecular = EnableSpecular;
@@ -228,8 +223,7 @@ namespace AppSettings
         cbData.EnableIndirectSpecular = EnableIndirectSpecular;
         cbData.ApplyMultiscatteringEnergyCompensation = ApplyMultiscatteringEnergyCompensation;
         cbData.RoughnessScale = RoughnessScale;
-        cbData.MetallicScale = MetallicScale;
-        cbData.EnableWhiteFurnaceMode = EnableWhiteFurnaceMode;
+        cbData.MetallicOffset = MetallicOffset;
 
         CBuffer.MapAndSetData(cbData);
     }

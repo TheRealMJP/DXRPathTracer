@@ -17,7 +17,7 @@ struct AppSettings_CBLayout
     float BloomExposure;
     float BloomMagnitude;
     float BloomBlurSigma;
-    bool EnableAlbedoMaps;
+    bool EnableBaseColorMaps;
     bool EnableNormalMaps;
     bool EnableDiffuse;
     bool EnableSpecular;
@@ -26,8 +26,7 @@ struct AppSettings_CBLayout
     bool EnableIndirectSpecular;
     bool ApplyMultiscatteringEnergyCompensation;
     float RoughnessScale;
-    float MetallicScale;
-    bool EnableWhiteFurnaceMode;
+    float MetallicOffset;
 };
 
 ConstantBuffer<AppSettings_CBLayout> AppSettingsCB : register(b12);
@@ -49,7 +48,7 @@ struct AppSettings_Values
     float BloomExposure;
     float BloomMagnitude;
     float BloomBlurSigma;
-    bool EnableAlbedoMaps;
+    bool EnableBaseColorMaps;
     bool EnableNormalMaps;
     bool EnableDiffuse;
     bool EnableSpecular;
@@ -58,8 +57,7 @@ struct AppSettings_Values
     bool EnableIndirectSpecular;
     bool ApplyMultiscatteringEnergyCompensation;
     float RoughnessScale;
-    float MetallicScale;
-    bool EnableWhiteFurnaceMode;
+    float MetallicOffset;
     bool DrawDebugPaths;
 };
 
@@ -80,7 +78,7 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.BloomExposure,
     AppSettingsCB.BloomMagnitude,
     AppSettingsCB.BloomBlurSigma,
-    AppSettingsCB.EnableAlbedoMaps,
+    AppSettingsCB.EnableBaseColorMaps,
     AppSettingsCB.EnableNormalMaps,
     AppSettingsCB.EnableDiffuse,
     AppSettingsCB.EnableSpecular,
@@ -89,8 +87,7 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.EnableIndirectSpecular,
     AppSettingsCB.ApplyMultiscatteringEnergyCompensation,
     AppSettingsCB.RoughnessScale,
-    AppSettingsCB.MetallicScale,
-    AppSettingsCB.EnableWhiteFurnaceMode,
+    AppSettingsCB.MetallicOffset,
     DrawDebugPaths_,
 };
 

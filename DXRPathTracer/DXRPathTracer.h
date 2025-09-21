@@ -66,6 +66,11 @@ protected:
     bool rtShouldRestartPathTrace = false;
     uint32_t rtCurrSampleIdx = 0;
 
+    Material knobMaterial;
+    Texture whiteTexture;
+    Texture blackTexture;
+    Texture checkerTexture;
+    Texture flatNormalMap;
 
     virtual void Initialize() override;
     virtual void Shutdown() override;
