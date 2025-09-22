@@ -97,6 +97,13 @@ static const SceneParameters SceneParams[] =
 };
 StaticAssert_(ArraySize_(SceneParams) == uint64_t(Scenes::NumValues));
 
+static const char* PresetNames[] =
+{
+    "Default",
+    "Gold",
+};
+StaticAssert_(ArraySize_(PresetNames) == int32_t(MaterialPreset::NumPresets));
+
 static const uint64_t NumConeSides = 16;
 
 static const bool Benchmark = false;
@@ -169,7 +176,11 @@ void DXRPathTracer::Initialize()
     LoadTexture(checkerTexture, "..\\Content\\Textures\\DefaultBaseColor.dds");
     LoadTexture(flatNormalMap, "..\\Content\\Textures\\DefaultNormalMap.dds");
 
-    knobMaterial =
+    LoadTexture(goldBaseColor, "..\\Content\\Textures\\Gold\\Gold_Color.png", true);
+    LoadTexture(goldNormalMap, "..\\Content\\Textures\\Gold\\Gold_Normal.png", false);
+    LoadTexture(goldRoughness, "..\\Content\\Textures\\Gold\\Gold_Roughness.png", false);
+
+    presets[int32_t(MaterialPreset::Default)] =
     {
         .BaseColor = checkerTexture.SRV,
         .BaseColorTint = Float3(1.0f, 1.0f, 1.0f),
@@ -182,6 +193,22 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .EmissiveTint = Float3(0.0f, 0.0f, 0.0f),
     };
+
+    presets[int32_t(MaterialPreset::Gold)] =
+    {
+        .BaseColor = goldBaseColor.SRV,
+        .BaseColorTint = Float3(1.0f, 1.0f, 1.0f),
+        .Normal = goldNormalMap.SRV,
+        .Roughness = goldRoughness.SRV,
+        .RoughnessScale = 1.0f,
+        .Metallic = whiteTexture.SRV,
+        .MetallicOffset = 0.0f,
+        .Opacity = whiteTexture.SRV,
+        .Emissive = whiteTexture.SRV,
+        .EmissiveTint = Float3(0.0f, 0.0f, 0.0f),
+    };
+
+    knobMaterial = presets[int32_t(materialPreset)];
 }
 
 void DXRPathTracer::Shutdown()
@@ -211,6 +238,10 @@ void DXRPathTracer::Shutdown()
     blackTexture.Shutdown();
     checkerTexture.Shutdown();
     flatNormalMap.Shutdown();
+
+    goldBaseColor.Shutdown();
+    goldNormalMap.Shutdown();
+    goldRoughness.Shutdown();
 }
 
 void DXRPathTracer::CreatePSOs()
@@ -826,9 +857,21 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
     if(AppSettings::CurrentScene == Scenes::Knob)
     {
         ImGui::SetNextWindowBgAlpha(0.5f);
-        if(ImGui::Begin("Material Editor", nullptr))
+        if(ImGui::Begin("Material Editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            bool changed = ImGui::ColorEdit3("Base Color Tint", &knobMaterial.BaseColorTint.x);
+            bool changed = ImGui::Combo("Preset", reinterpret_cast<int32_t*>(&materialPreset), PresetNames, int32_t(MaterialPreset::NumPresets));
+            if(changed)
+            {
+                Assert_(int32_t(materialPreset) >= 0 && int32_t(materialPreset) < ArraySize_(presets));
+                knobMaterial = presets[int32_t(materialPreset)];
+            }
+
+            ImGui::Separator();
+
+            changed |= ImGui::ColorEdit3("Base Color Tint", &knobMaterial.BaseColorTint.x);
+            changed |= ImGui::SliderFloat("Roughness Scale", &knobMaterial.RoughnessScale.Value, 0.0f, 2.0f);
+            changed |= ImGui::SliderFloat("Metallic Offset", &knobMaterial.MetallicOffset.Value, -1.0f, 1.0f);
+            changed |= ImGui::ColorEdit3("Emissive Tint", &knobMaterial.EmissiveTint.x);
 
             if (changed)
                 rtShouldRestartPathTrace = true;

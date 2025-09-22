@@ -25,6 +25,15 @@
 
 using namespace SampleFramework12;
 
+enum class MaterialPreset : int32_t
+{
+    Default = 0,
+    Gold,
+
+    NumPresets
+};
+
+
 class DXRPathTracer : public App
 {
 
@@ -67,10 +76,18 @@ protected:
     uint32_t rtCurrSampleIdx = 0;
 
     Material knobMaterial;
+
     Texture whiteTexture;
     Texture blackTexture;
     Texture checkerTexture;
     Texture flatNormalMap;
+
+    Texture goldBaseColor;
+    Texture goldNormalMap;
+    Texture goldRoughness;
+
+    MaterialPreset materialPreset = MaterialPreset::Default;
+    Material presets[int32_t(MaterialPreset::NumPresets)];
 
     virtual void Initialize() override;
     virtual void Shutdown() override;
