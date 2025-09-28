@@ -95,9 +95,10 @@ enum Scenes
 {
     BoxTest = 0,
     Knob = 1,
-    Sponza = 2,
-    SunTemple = 3,
-    WhiteFurnace = 4,
+    Dragon = 2,
+    Sponza = 3,
+    SunTemple = 4,
+    WhiteFurnace = 5,
 };
 
 static const uint ClusterTileSize = 16;

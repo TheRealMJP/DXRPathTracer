@@ -75,7 +75,7 @@ protected:
     bool rtShouldRestartPathTrace = false;
     uint32_t rtCurrSampleIdx = 0;
 
-    Material knobMaterial;
+    Material editedMaterial;
 
     Texture whiteTexture;
     Texture blackTexture;

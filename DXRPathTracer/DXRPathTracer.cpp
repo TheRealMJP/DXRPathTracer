@@ -65,6 +65,17 @@ static const SceneParameters SceneParams[] =
         .SunDirection = Float3(0.579f, 0.574f, -0.579f),
     },
 
+    // Dragon
+    {
+        .Path = "..\\Content\\Models\\Dragon\\Dragon.fbx",
+        .TextureDir = nullptr,
+        .Scale = 1.0f,
+        .CameraPosition = Float3(0.125f, 0.125f, -2.75f),
+        .CameraRotation = Float2(0.0f, 0.0f),
+        .SunDirection = Float3(0.579f, 0.574f, -0.579f),
+    },
+
+
     // Sponza
     {
         .Path = "..\\Content\\Models\\Sponza\\Sponza.fbx",
@@ -103,6 +114,11 @@ static const char* PresetNames[] =
     "Gold",
 };
 StaticAssert_(ArraySize_(PresetNames) == int32_t(MaterialPreset::NumPresets));
+
+static bool SceneIsEditable(Scenes scene)
+{
+    return scene == Scenes::Knob || scene == Scenes::Dragon;
+}
 
 static const uint64_t NumConeSides = 16;
 
@@ -208,7 +224,7 @@ void DXRPathTracer::Initialize()
         .EmissiveTint = Float3(0.0f, 0.0f, 0.0f),
     };
 
-    knobMaterial = presets[int32_t(materialPreset)];
+    editedMaterial = presets[int32_t(materialPreset)];
 }
 
 void DXRPathTracer::Shutdown()
@@ -653,9 +669,9 @@ void DXRPathTracer::Update(const Timer& timer)
                 material.Metallic = whiteTexture.SRV;
                 material.Roughness = whiteTexture.SRV;
             }
-            else if(AppSettings::CurrentScene == Scenes::Knob && i == 1)
+            else if(SceneIsEditable(AppSettings::CurrentScene) && i == 1)
             {
-                material = knobMaterial;
+                material = editedMaterial;
             }
 
             memcpy(materials + i, &material, sizeof(material));
@@ -854,7 +870,7 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
         drawList->AddText(ToImVec2(progressTextPos), textColor, progressText.c_str());
     }
 
-    if(AppSettings::CurrentScene == Scenes::Knob)
+    if(SceneIsEditable(AppSettings::CurrentScene))
     {
         ImGui::SetNextWindowBgAlpha(0.5f);
         if(ImGui::Begin("Material Editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
@@ -863,15 +879,15 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
             if(changed)
             {
                 Assert_(int32_t(materialPreset) >= 0 && int32_t(materialPreset) < ArraySize_(presets));
-                knobMaterial = presets[int32_t(materialPreset)];
+                editedMaterial = presets[int32_t(materialPreset)];
             }
 
             ImGui::Separator();
 
-            changed |= ImGui::ColorEdit3("Base Color Tint", &knobMaterial.BaseColorTint.x);
-            changed |= ImGui::SliderFloat("Roughness Scale", &knobMaterial.RoughnessScale.Value, 0.0f, 2.0f);
-            changed |= ImGui::SliderFloat("Metallic Offset", &knobMaterial.MetallicOffset.Value, -1.0f, 1.0f);
-            changed |= ImGui::ColorEdit3("Emissive Tint", &knobMaterial.EmissiveTint.x);
+            changed |= ImGui::ColorEdit3("Base Color Tint", &editedMaterial.BaseColorTint.x);
+            changed |= ImGui::SliderFloat("Roughness Scale", &editedMaterial.RoughnessScale.Value, 0.0f, 2.0f);
+            changed |= ImGui::SliderFloat("Metallic Offset", &editedMaterial.MetallicOffset.Value, -1.0f, 1.0f);
+            changed |= ImGui::ColorEdit3("Emissive Tint", &editedMaterial.EmissiveTint.x);
 
             if (changed)
                 rtShouldRestartPathTrace = true;
