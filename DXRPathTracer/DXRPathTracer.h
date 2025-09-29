@@ -80,7 +80,11 @@ protected:
     Texture whiteTexture;
     Texture blackTexture;
     Texture checkerTexture;
+
     Texture flatNormalMap;
+    Texture brickNormalMap;
+    Texture ripplesNormalMap;
+    Texture wavesNormalMap;
 
     Texture goldBaseColor;
     Texture goldNormalMap;

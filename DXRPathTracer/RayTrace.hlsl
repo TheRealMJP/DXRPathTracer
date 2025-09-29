@@ -189,7 +189,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 float3 normalTS;
                 normalTS.xy = normalMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xy * 2.0f - 1.0f;
                 normalTS.z = sqrt(1.0f - saturate(normalTS.x * normalTS.x + normalTS.y * normalTS.y));
-                normalWS = normalize(mul(normalTS, tangentToWorld));
+                normalWS = lerp(normalWS, normalize(mul(normalTS, tangentToWorld)), material.NormalMapIntensity);
 
                 tangentToWorld._31_32_33 = normalWS;
             }
@@ -199,7 +199,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             {
                 Texture2D baseColorMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.BaseColor)];
                 baseColor = baseColorMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz;
-                baseColor = saturate(baseColor * material.BaseColorTint);
+                baseColor = saturate(baseColor * material.BaseColorTint * material.BaseColorIntensity);
             }
 
             Texture2D metallicMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Metallic)];

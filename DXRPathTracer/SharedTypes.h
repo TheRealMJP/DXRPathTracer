@@ -20,7 +20,9 @@ struct Material
 {
     DescriptorIndex BaseColor;
     ShaderFloat3 BaseColorTint;
+    ShaderFloat BaseColorIntensity;
     DescriptorIndex Normal;
+    ShaderFloat NormalMapIntensity;
     DescriptorIndex Roughness;
     ShaderFloat RoughnessScale;
     DescriptorIndex Metallic;
