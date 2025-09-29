@@ -435,8 +435,8 @@ void DXRPathTracer::CreateRayTracingPSOs()
 
     {
         D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = { };
-        shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                      // float2 barycentrics;
-        shaderConfig.MaxPayloadSizeInBytes = 5 * sizeof(float) + 4 * sizeof(uint32_t);   // float3 radiance + float roughness + uint pathLength + uint pixelIdx + uint setIdx + bool IsDiffuse + float HitT
+        shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                           // float2 barycentrics;
+        shaderConfig.MaxPayloadSizeInBytes = 3 * sizeof(float) + 2 * sizeof(uint32_t);      // float HitT + uint HitGeometryIndex + uint HitTriangleIndex + float2 HitBarycentrics
         builder.AddSubObject(shaderConfig);
     }
 
@@ -448,9 +448,9 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
-        // The path tracer is recursive, so set the max recursion depth to the max path length
+        // The path tracer is not recursive, we don't cast rays from inside of hit shaders
         D3D12_RAYTRACING_PIPELINE_CONFIG configDesc = { };
-        configDesc.MaxTraceRecursionDepth = AppSettings::MaxPathLengthSetting;
+        configDesc.MaxTraceRecursionDepth = 0;
         builder.AddSubObject(configDesc);
     }
 

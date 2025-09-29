@@ -164,7 +164,7 @@ namespace AppSettings
         EnableIndirect.Initialize("EnableIndirect", "Debug", "Enable Indirect", "Enables indirect lighting", true);
         Settings.AddSetting(&EnableIndirect);
 
-        EnableIndirectSpecular.Initialize("EnableIndirectSpecular", "Debug", "Enable Indirect Specular", "Enables indirect specular reflections, it produces noisier output", false);
+        EnableIndirectSpecular.Initialize("EnableIndirectSpecular", "Debug", "Enable Indirect Specular", "Enables indirect specular reflections, it produces noisier output", true);
         Settings.AddSetting(&EnableIndirectSpecular);
 
         ApplyMultiscatteringEnergyCompensation.Initialize("ApplyMultiscatteringEnergyCompensation", "Debug", "Apply Multiscattering Energy Compensation", "Apply energy compensation to recover energy missing due to multiscattering. Based on 'Practical multiple scattering compensation for microfacet models' [Turquin19]", true);
