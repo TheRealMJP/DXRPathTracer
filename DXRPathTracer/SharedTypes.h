@@ -19,17 +19,17 @@
 struct Material
 {
     DescriptorIndex BaseColor;
-    ShaderFloat3 BaseColorTint;
-    ShaderFloat BaseColorIntensity;
+    ShaderHalf3 BaseColorTint;
+    ShaderHalf BaseColorIntensity;
     DescriptorIndex Normal;
-    ShaderFloat NormalMapIntensity;
     DescriptorIndex Roughness;
-    ShaderFloat RoughnessScale;
+    ShaderHalf NormalMapIntensity;
+    ShaderHalf RoughnessScale;
     DescriptorIndex Metallic;
-    ShaderFloat MetallicOffset;
     DescriptorIndex Opacity;
     DescriptorIndex Emissive;
-    ShaderFloat3 EmissiveTint;
+    ShaderHalf MetallicOffset;
+    ShaderHalf3 EmissiveTint;
 };
 
 struct SpotLight

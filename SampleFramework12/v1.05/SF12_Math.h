@@ -362,6 +362,29 @@ struct Int4
 
 
 // Conversion classes for reduced-precision representations
+struct Half
+{
+    uint16_t x;
+
+    Half() : x(0)
+    {
+    }
+
+    explicit Half(uint16_t u) : x(u)
+    {
+    }
+
+    explicit Half(float f)
+    {
+        x = DirectX::PackedVector::XMConvertFloatToHalf(f);
+    }
+
+    float ToFloat() const
+    {
+        return DirectX::PackedVector::XMConvertHalfToFloat(x);
+    }
+};
+
 struct Half2
 {
     uint16_t x;
@@ -371,28 +394,59 @@ struct Half2
     {
     }
 
-    Half2(uint16_t x, uint16_t y) : x(x), y(y)
+    Half2(uint16_t ux, uint16_t uy) : x(ux), y(uy)
     {
     }
 
-    Half2(float x, float y)
+    Half2(float fx, float fy)
     {
-        DirectX::PackedVector::XMStoreHalf2(reinterpret_cast<DirectX::PackedVector::XMHALF2*>(this), DirectX::XMVectorSet(x, y, 0.0f, 0.0f));
+        x = DirectX::PackedVector::XMConvertFloatToHalf(x);
+        y = DirectX::PackedVector::XMConvertFloatToHalf(y);
     }
 
     explicit Half2(const Float2& v)
     {
-        DirectX::PackedVector::XMStoreHalf2(reinterpret_cast<DirectX::PackedVector::XMHALF2*>(this), v.ToSIMD());
-    }
-
-    DirectX::XMVECTOR ToSIMD() const
-    {
-        return DirectX::PackedVector::XMLoadHalf2(reinterpret_cast<const DirectX::PackedVector::XMHALF2*>(this));
+        x = DirectX::PackedVector::XMConvertFloatToHalf(v.x);
+        y = DirectX::PackedVector::XMConvertFloatToHalf(v.y);
     }
 
     Float2 ToFloat2() const
     {
-        return Float2(ToSIMD());
+        return Float2(DirectX::PackedVector::XMConvertHalfToFloat(x), DirectX::PackedVector::XMConvertHalfToFloat(y));
+    }
+};
+
+struct Half3
+{
+    uint16_t x;
+    uint16_t y;
+    uint16_t z;
+
+    Half3() : x(0), y(0), z(0)
+    {
+    }
+
+    Half3(uint16_t ux, uint16_t uy, uint16_t uz) : x(ux), y(uy), z(uz)
+    {
+    }
+
+    Half3(float fx, float fy, float fz)
+    {
+        x = DirectX::PackedVector::XMConvertFloatToHalf(fx);
+        y = DirectX::PackedVector::XMConvertFloatToHalf(fy);
+        z = DirectX::PackedVector::XMConvertFloatToHalf(fz);
+    }
+
+    explicit Half3(const Float3& v)
+    {
+        x = DirectX::PackedVector::XMConvertFloatToHalf(v.x);
+        y = DirectX::PackedVector::XMConvertFloatToHalf(v.y);
+        z = DirectX::PackedVector::XMConvertFloatToHalf(v.z);
+    }
+
+    Float3 ToFloat3() const
+    {
+        return Float3(DirectX::PackedVector::XMConvertHalfToFloat(x), DirectX::PackedVector::XMConvertHalfToFloat(y), DirectX::PackedVector::XMConvertHalfToFloat(z));
     }
 };
 
@@ -407,33 +461,34 @@ struct Half4
     {
     }
 
-    Half4(uint16_t x, uint16_t y, uint16_t z, uint16_t w) : x(x), y(y), z(z), w(w)
+    Half4(uint16_t ux, uint16_t uy, uint16_t uz, uint16_t uw) : x(ux), y(uy), z(uz), w(uw)
     {
     }
 
-    Half4(float x, float y, float z, float w)
+    Half4(float fx, float fy, float fz, float fw)
     {
-        DirectX::PackedVector::XMStoreHalf4(reinterpret_cast<DirectX::PackedVector::XMHALF4*>(this), DirectX::XMVectorSet(x, y, z, w));
+        x = DirectX::PackedVector::XMConvertFloatToHalf(fx);
+        y = DirectX::PackedVector::XMConvertFloatToHalf(fy);
+        z = DirectX::PackedVector::XMConvertFloatToHalf(fz);
+        w = DirectX::PackedVector::XMConvertFloatToHalf(fw);
     }
 
     explicit Half4(const Float4& v)
     {
-        DirectX::PackedVector::XMStoreHalf4(reinterpret_cast<DirectX::PackedVector::XMHALF4*>(this), v.ToSIMD());
-    }
-
-    DirectX::XMVECTOR ToSIMD() const
-    {
-        return DirectX::PackedVector::XMLoadHalf4(reinterpret_cast<const DirectX::PackedVector::XMHALF4*>(this));
+        x = DirectX::PackedVector::XMConvertFloatToHalf(v.x);
+        y = DirectX::PackedVector::XMConvertFloatToHalf(v.y);
+        z = DirectX::PackedVector::XMConvertFloatToHalf(v.z);
+        w = DirectX::PackedVector::XMConvertFloatToHalf(v.w);
     }
 
     Float3 ToFloat3() const
     {
-        return Float3(ToSIMD());
+        return Float3(DirectX::PackedVector::XMConvertHalfToFloat(x), DirectX::PackedVector::XMConvertHalfToFloat(y), DirectX::PackedVector::XMConvertHalfToFloat(z));
     }
 
     Float4 ToFloat4() const
     {
-        return Float4(ToSIMD());
+        return Float4(DirectX::PackedVector::XMConvertHalfToFloat(x), DirectX::PackedVector::XMConvertHalfToFloat(y), DirectX::PackedVector::XMConvertHalfToFloat(z), DirectX::PackedVector::XMConvertHalfToFloat(w));
     }
 };
 

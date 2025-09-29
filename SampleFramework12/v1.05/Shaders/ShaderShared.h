@@ -45,6 +45,11 @@
     ShaderScalar_(uint32_t, ShaderBool, 0);
     ShaderScalar_(uint32_t, DescriptorIndex, uint32_t(-1));
 
+    typedef SampleFramework12::Half ShaderHalf;
+    typedef SampleFramework12::Half2 ShaderHalf2;
+    typedef SampleFramework12::Half3 ShaderHalf3;
+    typedef SampleFramework12::Half4 ShaderHalf4;
+
     typedef SampleFramework12::Float2 ShaderFloat2;
     typedef SampleFramework12::Float3 ShaderFloat3;
     typedef SampleFramework12::Float4 ShaderFloat4;
@@ -83,6 +88,11 @@
     typedef float2 ShaderFloat2;
     typedef float3 ShaderFloat3;
     typedef float4 ShaderFloat4;
+
+    typedef half ShaderHalf;
+    typedef half2 ShaderHalf2;
+    typedef half3 ShaderHalf3;
+    typedef half4 ShaderHalf4;
 
     typedef uint2 ShaderUint2;
     typedef uint3 ShaderUint3;

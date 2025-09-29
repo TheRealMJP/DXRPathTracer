@@ -203,33 +203,33 @@ void DXRPathTracer::Initialize()
     presets[int32_t(MaterialPreset::Default)] =
     {
         .BaseColor = checkerTexture.SRV,
-        .BaseColorTint = Float3(1.0f, 1.0f, 1.0f),
-        .BaseColorIntensity = 0.75f,
+        .BaseColorTint = Half3(1.0f, 1.0f, 1.0f),
+        .BaseColorIntensity = Half(0.75f),
         .Normal = flatNormalMap.SRV,
-        .NormalMapIntensity = 1.0f,
         .Roughness = whiteTexture.SRV,
-        .RoughnessScale = 0.1f,
+        .NormalMapIntensity = Half(1.0f),
+        .RoughnessScale = Half(0.1f),
         .Metallic = blackTexture.SRV,
-        .MetallicOffset = 0.0f,
         .Opacity = whiteTexture.SRV,
         .Emissive = whiteTexture.SRV,
-        .EmissiveTint = Float3(0.0f, 0.0f, 0.0f),
+        .MetallicOffset = Half(0.0f),
+        .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
     };
 
     presets[int32_t(MaterialPreset::Gold)] =
     {
         .BaseColor = goldBaseColor.SRV,
-        .BaseColorTint = Float3(1.0f, 1.0f, 1.0f),
-        .BaseColorIntensity = 1.0f,
+        .BaseColorTint = Half3(1.0f, 1.0f, 1.0f),
+        .BaseColorIntensity = Half(1.0f),
         .Normal = goldNormalMap.SRV,
-        .NormalMapIntensity = 1.0f,
         .Roughness = goldRoughness.SRV,
-        .RoughnessScale = 1.0f,
+        .NormalMapIntensity = Half(1.0f),
+        .RoughnessScale = Half(1.0f),
         .Metallic = whiteTexture.SRV,
-        .MetallicOffset = 0.0f,
         .Opacity = whiteTexture.SRV,
         .Emissive = whiteTexture.SRV,
-        .EmissiveTint = Float3(0.0f, 0.0f, 0.0f),
+        .MetallicOffset = Half(0.0f),
+        .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
     };
 
     editedMaterial = presets[int32_t(materialPreset)];
@@ -662,16 +662,16 @@ void DXRPathTracer::Update(const Timer& timer)
 
             Material material;
             material.BaseColor = meshMaterial.Textures[uint64_t(MaterialTextures::Albedo)]->SRV;
-            material.BaseColorTint = Float3(1.0f, 1.0f, 1.0f);
-            material.BaseColorIntensity = 1.0f;
+            material.BaseColorTint = Half3(1.0f, 1.0f, 1.0f);
+            material.BaseColorIntensity = Half(1.0f);
             material.Normal = meshMaterial.Textures[uint64_t(MaterialTextures::Normal)]->SRV;
-            material.NormalMapIntensity = 1.0f;
+            material.NormalMapIntensity = Half(1.0f);
             material.Roughness = meshMaterial.Textures[uint64_t(MaterialTextures::Roughness)]->SRV;
-            material.RoughnessScale = 1.0f;
+            material.RoughnessScale = Half(1.0f);
             material.Metallic = meshMaterial.Textures[uint64_t(MaterialTextures::Metallic)]->SRV;
-            material.MetallicOffset = 0.0f;
+            material.MetallicOffset = Half(0.0f);
             material.Emissive = meshMaterial.Textures[uint64_t(MaterialTextures::Emissive)]->SRV;
-            material.EmissiveTint = Float3(1.0f, 1.0f, 1.0f);
+            material.EmissiveTint = Half3(1.0f, 1.0f, 1.0f);
 
             // Opacity is optional
             const Texture* opacity = meshMaterial.Textures[uint64_t(MaterialTextures::Opacity)];
@@ -850,7 +850,7 @@ struct DescriptorNamePair
     const char* Name;
 };
 
-template<int32_t N> bool EditTexture(const char* name, DescriptorIndex* descriptorIndex, DescriptorNamePair const (&options)[N])
+template<int32_t N> bool TextureCombo(const char* name, DescriptorIndex* descriptorIndex, DescriptorNamePair const (&options)[N])
 {
     int32_t currentSelection = 0;
     for (int32_t i = 0; i < N; ++i)
@@ -880,6 +880,24 @@ template<int32_t N> bool EditTexture(const char* name, DescriptorIndex* descript
     }
 
     return false;
+}
+
+static bool SliderHalf(const char* name, Half* hv, float minVal, float maxVal)
+{
+    float fv = hv->ToFloat();
+    bool changed = ImGui::SliderFloat(name, &fv, minVal, maxVal);
+    if (changed)
+        *hv = Half(fv);
+    return changed;
+}
+
+static bool ColorEditHalf3(const char* name, Half3* hc)
+{
+    Float3 fc = hc->ToFloat3();
+    bool changed = ImGui::ColorEdit3(name, &fc.x);
+    if (changed)
+        *hc = Half3(fc);
+    return changed;
 }
 
 void DXRPathTracer::RenderHUD(const Timer& timer)
@@ -936,17 +954,17 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
 
             ImGui::Separator();
 
-            changed |= EditTexture("Base Color Map", &editedMaterial.BaseColor,
+            changed |= TextureCombo("Base Color Map", &editedMaterial.BaseColor,
             {
                 { whiteTexture.SRV, "White" },
                 { blackTexture.SRV, "Black" },
                 { checkerTexture.SRV, "Checker" },
                 { goldBaseColor.SRV, "Gold" },
             });
-            changed |= ImGui::ColorEdit3("Base Color Tint", &editedMaterial.BaseColorTint.x);
-            changed |= ImGui::SliderFloat("Base Color Intensity", &editedMaterial.BaseColorIntensity.Value, 0.0f, 1.0f);
+            changed |= ColorEditHalf3("Base Color Tint", &editedMaterial.BaseColorTint);
+            changed |= SliderHalf("Base Color Intensity", &editedMaterial.BaseColorIntensity, 0.0f, 1.0f);
 
-            changed |= EditTexture("Normal Map", &editedMaterial.Normal,
+            changed |= TextureCombo("Normal Map", &editedMaterial.Normal,
             {
                 { flatNormalMap.SRV, "Flat" },
                 { brickNormalMap.SRV, "Bricks" },
@@ -954,10 +972,10 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
                 { wavesNormalMap.SRV, "Waves" },
                 { goldNormalMap.SRV, "Gold" },
             });
-            changed |= ImGui::SliderFloat("Normal Map Intensity", &editedMaterial.NormalMapIntensity.Value, 0.0f, 1.0f);
+            changed |= SliderHalf("Normal Map Intensity", &editedMaterial.NormalMapIntensity, 0.0f, 1.0f);
 
-            changed |= ImGui::SliderFloat("Roughness Scale", &editedMaterial.RoughnessScale.Value, 0.0f, 2.0f);
-            changed |= EditTexture("Roughness Map", &editedMaterial.Roughness,
+            changed |= SliderHalf("Roughness Scale", &editedMaterial.RoughnessScale, 0.0f, 2.0f);
+            changed |= TextureCombo("Roughness Map", &editedMaterial.Roughness,
             {
                 { whiteTexture.SRV, "White" },
                 { blackTexture.SRV, "Black" },
@@ -965,14 +983,14 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
                 { goldRoughness.SRV, "Gold" },
             });
 
-            changed |= ImGui::SliderFloat("Metallic Offset", &editedMaterial.MetallicOffset.Value, -1.0f, 1.0f);
-            changed |= EditTexture("Metallic Map", &editedMaterial.Metallic,
+            changed |= SliderHalf("Metallic Offset", &editedMaterial.MetallicOffset, -1.0f, 1.0f);
+            changed |= TextureCombo("Metallic Map", &editedMaterial.Metallic,
             {
                 { whiteTexture.SRV, "White" },
                 { blackTexture.SRV, "Black" },
             });
 
-            changed |= ImGui::ColorEdit3("Emissive Tint", &editedMaterial.EmissiveTint.x);
+            changed |= ColorEditHalf3("Emissive Tint", &editedMaterial.EmissiveTint);
 
             if (changed)
                 rtShouldRestartPathTrace = true;
