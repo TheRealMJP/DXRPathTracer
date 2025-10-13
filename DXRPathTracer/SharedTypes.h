@@ -30,6 +30,7 @@ struct Material
     DescriptorIndex Emissive;
     ShaderHalf MetallicOffset;
     ShaderHalf3 EmissiveTint;
+    ShaderFloat SigmaA;
 };
 
 struct SpotLight

@@ -43,6 +43,7 @@ namespace AppSettings
     IntSetting SqrtNumSamples;
     IntSetting MaxPathLength;
     IntSetting MaxAnyHitPathLength;
+    IntSetting MaxVolumetricPathLength;
     FloatSetting Exposure;
     FloatSetting BloomExposure;
     FloatSetting BloomMagnitude;
@@ -122,11 +123,14 @@ namespace AppSettings
         SqrtNumSamples.Initialize("SqrtNumSamples", "Path Tracing", "Sqrt Num Samples", "The square root of the number of per-pixel sample rays to use for path tracing", 4, 1, 100);
         Settings.AddSetting(&SqrtNumSamples);
 
-        MaxPathLength.Initialize("MaxPathLength", "Path Tracing", "Max Path Length", "Maximum path length (bounces) to use for path tracing", 3, 2, 8);
+        MaxPathLength.Initialize("MaxPathLength", "Path Tracing", "Max Path Length", "Maximum path length (bounces) to use for path tracing", 16, 2, 256);
         Settings.AddSetting(&MaxPathLength);
 
-        MaxAnyHitPathLength.Initialize("MaxAnyHitPathLength", "Path Tracing", "Max Any-Hit Path Length", "The maximum path length where any-hit shaders will be used for alpha testing. Increasing this with improve the render quality, but will also increase frame times", 1, 0, 8);
+        MaxAnyHitPathLength.Initialize("MaxAnyHitPathLength", "Path Tracing", "Max Any-Hit Path Length", "The maximum path length where any-hit shaders will be used for alpha testing. Increasing this with improve the render quality, but will also increase frame times", 1, 0, 256);
         Settings.AddSetting(&MaxAnyHitPathLength);
+
+        MaxVolumetricPathLength.Initialize("MaxVolumetricPathLength", "Path Tracing", "Max Volumetric Path Length", "", 16, -2147483648, 2147483647);
+        Settings.AddSetting(&MaxVolumetricPathLength);
 
         Exposure.Initialize("Exposure", "Post Processing", "Exposure", "Simple exposure value applied to the scene before tone mapping (uses log2 scale)", -14.0000f, -24.0000f, 24.0000f, 0.1000f, ConversionMode::None, 1.0000f);
         Settings.AddSetting(&Exposure);
@@ -212,6 +216,7 @@ namespace AppSettings
         cbData.SqrtNumSamples = SqrtNumSamples;
         cbData.MaxPathLength = MaxPathLength;
         cbData.MaxAnyHitPathLength = MaxAnyHitPathLength;
+        cbData.MaxVolumetricPathLength = MaxVolumetricPathLength;
         cbData.Exposure = Exposure;
         cbData.BloomExposure = BloomExposure;
         cbData.BloomMagnitude = BloomMagnitude;

@@ -29,6 +29,7 @@ enum class MaterialPreset : int32_t
 {
     Default = 0,
     Gold,
+    Fog,
 
     NumPresets
 };
@@ -90,7 +91,7 @@ protected:
     Texture goldNormalMap;
     Texture goldRoughness;
 
-    MaterialPreset materialPreset = MaterialPreset::Default;
+    MaterialPreset materialPreset = MaterialPreset::Fog;
     Material presets[int32_t(MaterialPreset::NumPresets)];
 
     virtual void Initialize() override;

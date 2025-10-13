@@ -13,6 +13,7 @@ struct AppSettings_CBLayout
     int SqrtNumSamples;
     int MaxPathLength;
     int MaxAnyHitPathLength;
+    int MaxVolumetricPathLength;
     float Exposure;
     float BloomExposure;
     float BloomMagnitude;
@@ -44,6 +45,7 @@ struct AppSettings_Values
     int SqrtNumSamples;
     int MaxPathLength;
     int MaxAnyHitPathLength;
+    int MaxVolumetricPathLength;
     float Exposure;
     float BloomExposure;
     float BloomMagnitude;
@@ -74,6 +76,7 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.SqrtNumSamples,
     AppSettingsCB.MaxPathLength,
     AppSettingsCB.MaxAnyHitPathLength,
+    AppSettingsCB.MaxVolumetricPathLength,
     AppSettingsCB.Exposure,
     AppSettingsCB.BloomExposure,
     AppSettingsCB.BloomMagnitude,
@@ -110,4 +113,3 @@ static const float SpotShadowNearClip = 0.1000f;
 static const uint NumSampleSets = 8;
 static const uint SampleTileSize = 32;
 static const uint NumPixelsPerTile = 1024;
-static const uint MaxPathLengthSetting = 8;

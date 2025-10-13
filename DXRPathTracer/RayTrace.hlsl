@@ -50,7 +50,8 @@ struct [raypayload] ShadowPayload
     float Visibility : read(caller) : write(closesthit, miss);
 };
 
-enum RayTypes {
+enum RayTypes
+{
     RayTypeRadiance = 0,
     RayTypeShadow = 1,
 
@@ -73,6 +74,42 @@ struct RNG
         const uint permutation = setIdx * RayTraceCB.TotalNumPixels + pixelIdx;
         setIdx += 1;
         return SampleCMJ2D(RayTraceCB.CurrSampleIdx, AppSettings.SqrtNumSamples, AppSettings.SqrtNumSamples, permutation);
+    }
+};
+
+struct Medium
+{
+    float SigmaA;
+
+    static Medium Default()
+    {
+        Medium medium;
+        medium.SigmaA = 0.0f;
+
+        return medium;
+    }
+
+    static Medium Init(float sigmaA)
+    {
+        Medium medium;
+        medium.SigmaA = sigmaA;
+
+        return medium;
+    }
+
+    static Medium Init(Material material)
+    {
+        return Init(material.SigmaA);
+    }
+
+    bool IsVolumetric()
+    {
+        return SigmaA > 0.0f;
+    }
+
+    float SigmaT()
+    {
+        return SigmaA;
     }
 };
 
@@ -138,8 +175,11 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
     bool isDiffusePath = false;
     float pathMaxRoughness = 0.0f;
     float primaryRayT = -1.0f;
+    Medium currentMedium = Medium::Default();
 
     RayDesc segmentRay = initialRay;
+
+    bool hitVolumetric = false;
 
     const uint maxPathLength = AppSettings.EnableIndirect ? AppSettings.MaxPathLength : 2;
     for(uint pathLength = 1; pathLength <= maxPathLength; ++pathLength)
@@ -161,10 +201,55 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         if (pathLength == 1)
             primaryRayT = payload.HitT;
 
+        if (currentMedium.IsVolumetric())
+        {
+            const float exitT = payload.HitT >= 0.0f ? payload.HitT : FP32Max;
+            const float sigmaT = currentMedium.SigmaT();
+
+            float currentT = segmentRay.TMin;
+            // for (uint volPathLength = 1; volPathLength <= AppSettings.MaxVolumetricPathLength; ++volPathLength)
+            {
+                const float uStep = rng.SamplePoint().x;
+                const float nextT = currentT + SampleExponential(uStep, sigmaT);
+
+                if (nextT < exitT)
+                    return float4(pathRadiance, primaryRayT);
+
+                // const float transmittance *= exp(-(nextT - currentT) * sigmaT);
+
+                // Callback stuff
+                // float uScatterMode = rng.SamplePoint().x;
+                // SampleDiscrete
+
+                currentT = nextT;
+            }
+        }
+
         if (payload.HitT >= 0.0f)
         {
             const MeshVertex hitSurface = GetHitSurface(payload.HitBarycentrics, payload.HitGeometryIndex, payload.HitTriangleIndex);
             const Material material = GetGeometryMaterial(payload.HitGeometryIndex);
+
+            const Medium enteringMedium = Medium::Init(material);
+            if (enteringMedium.IsVolumetric())
+            {
+                // For now not handling any surface interactions for volumetrics, just continue on and
+                // we'll handle scattering in the next iteration
+                if (currentMedium.IsVolumetric())
+                    currentMedium = Medium::Default();
+                else
+                    currentMedium = enteringMedium;
+
+                RayDesc newRay;
+                newRay.Origin = hitSurface.Position;
+                newRay.Direction = segmentRay.Direction;
+                newRay.TMin = 0.00001f;
+                newRay.TMax = FP32Max;
+
+                segmentRay = newRay;
+
+                continue;
+            }
 
             Texture2D emissiveMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Emissive)];
             pathRadiance += emissiveMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz * material.EmissiveTint * pathThroughput;
@@ -207,9 +292,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
             const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f);
             const bool enableSpecular =  (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && isDiffusePath) : (pathLength == 1)));
-
-            if(enableDiffuse == false && enableSpecular == false)
-                return 0.0f;
 
             Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
             const float sqrtRoughness = clamp(roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x * material.RoughnessScale * AppSettings.RoughnessScale, 0.01f, 1.0f);
@@ -385,6 +467,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             newRay.TMax = FP32Max;
 
             segmentRay = newRay;
+            currentMedium = enteringMedium;
         }
         else
         {
@@ -416,7 +499,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         }
     }
 
-    return float4(pathRadiance, 1.0f);
+    return float4(pathRadiance, primaryRayT);
 }
 
 [shader("raygeneration")]
@@ -425,6 +508,8 @@ void RaygenShader()
     const uint2 pixelCoord = DispatchRaysIndex().xy;
     const uint pixelIdx = pixelCoord.y * DispatchRaysDimensions().x + pixelCoord.x;
     RNG rng = RNG::Init(pixelIdx);
+
+    ShaderDebug::FilterIfCursorOnPos(pixelCoord);
 
     // Form a primary ray by un-projecting the pixel coordinate using the inverse view * projection matrix
     float2 primaryRaySample = rng.SamplePoint();

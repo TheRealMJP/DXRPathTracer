@@ -35,7 +35,6 @@ namespace AppSettings
     static const uint64_t NumSampleSets = 8;
     static const uint64_t SampleTileSize = 32;
     static const uint64_t NumPixelsPerTile = 1024;
-    static const uint64_t MaxPathLengthSetting = 8;
 
     extern BoolSetting EnableSun;
     extern BoolSetting EnableSky;
@@ -52,6 +51,7 @@ namespace AppSettings
     extern IntSetting SqrtNumSamples;
     extern IntSetting MaxPathLength;
     extern IntSetting MaxAnyHitPathLength;
+    extern IntSetting MaxVolumetricPathLength;
     extern FloatSetting Exposure;
     extern FloatSetting BloomExposure;
     extern FloatSetting BloomMagnitude;
@@ -85,6 +85,7 @@ namespace AppSettings
         int32_t SqrtNumSamples;
         int32_t MaxPathLength;
         int32_t MaxAnyHitPathLength;
+        int32_t MaxVolumetricPathLength;
         float Exposure;
         float BloomExposure;
         float BloomMagnitude;

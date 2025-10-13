@@ -109,8 +109,6 @@ public class Settings
     const uint SampleTileSize = 32;
     const uint NumPixelsPerTile = SampleTileSize * SampleTileSize;
 
-    const uint MaxPathLengthSetting = 8;
-
     [ExpandGroup(true)]
     public class PathTracing
     {
@@ -128,15 +126,17 @@ public class Settings
 
         [HelpText("Maximum path length (bounces) to use for path tracing")]
         [MinValue(2)]
-        [MaxValue(MaxPathLengthSetting)]
+        [MaxValue(256)]
         [DisplayName("Max Path Length")]
-        int MaxPathLength = 3;
+        int MaxPathLength = 16;
 
         [HelpText("The maximum path length where any-hit shaders will be used for alpha testing. Increasing this with improve the render quality, but will also increase frame times")]
         [MinValue(0)]
-        [MaxValue(MaxPathLengthSetting)]
+        [MaxValue(256)]
         [DisplayName("Max Any-Hit Path Length")]
         int MaxAnyHitPathLength = 1;
+
+        int MaxVolumetricPathLength = 16;
     }
 
     [ExpandGroup(false)]

@@ -286,6 +286,16 @@ float SampleDirectionRectangularLight_PDF(float2 lightSize, float3 sampleDir, Qu
     return (distanceToLight * distanceToLight) / (areaNDotL * lightSize.x * lightSize.y);
 }
 
+float SampleExponential_PDF(float x, float a)
+{
+    return a * exp(-a * x);
+}
+
+float SampleExponential(float u, float a)
+{
+    return -log(1 - u) / a;
+}
+
 uint CMJPermute(uint i, uint l, uint p)
 {
     uint w = l - 1;

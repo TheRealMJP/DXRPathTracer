@@ -112,6 +112,7 @@ static const char* PresetNames[] =
 {
     "Default",
     "Gold",
+    "Fog",
 };
 StaticAssert_(ArraySize_(PresetNames) == int32_t(MaterialPreset::NumPresets));
 
@@ -230,6 +231,23 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
+    };
+
+    presets[int32_t(MaterialPreset::Fog)] =
+    {
+        .BaseColor = checkerTexture.SRV,
+        .BaseColorTint = Half3(1.0f, 1.0f, 1.0f),
+        .BaseColorIntensity = Half(0.75f),
+        .Normal = flatNormalMap.SRV,
+        .Roughness = whiteTexture.SRV,
+        .NormalMapIntensity = Half(1.0f),
+        .RoughnessScale = Half(0.1f),
+        .Metallic = blackTexture.SRV,
+        .Opacity = whiteTexture.SRV,
+        .Emissive = whiteTexture.SRV,
+        .MetallicOffset = Half(0.0f),
+        .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
+        .SigmaA = 10.0f,
     };
 
     editedMaterial = presets[int32_t(materialPreset)];
@@ -991,6 +1009,8 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
             });
 
             changed |= ColorEditHalf3("Emissive Tint", &editedMaterial.EmissiveTint);
+
+            changed |= ImGui::SliderFloat("Absorption Coefficient", &editedMaterial.SigmaA.Value, 0.0f, 100.0f);
 
             if (changed)
                 rtShouldRestartPathTrace = true;
