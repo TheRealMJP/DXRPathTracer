@@ -114,11 +114,6 @@ struct Medium
     }
 };
 
-float4 DebugRayColor(float3 radiance)
-{
-    return float4(radiance / max(max(max(radiance.x, radiance.y), radiance.z), 0.0001f), 1.0f);
-}
-
 // Loops up the vertex data for the hit triangle and interpolates its attributes
 MeshVertex GetHitSurface(in float2 hitBarycentrics, in uint geometryIdx, in uint primitiveIdx)
 {
@@ -198,6 +193,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
         PrimaryPayload payload;
         TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, segmentRay, payload);
+
+        if (AppSettings.DrawDebugPaths)
+            ShaderDebug::DrawArrow(segmentRay.Origin, segmentRay.Origin + segmentRay.Direction * payload.HitT, float4(0, 1, 0, 1.0f), 0.025f);
 
         if (pathLength == 1)
             primaryRayT = payload.HitT;
