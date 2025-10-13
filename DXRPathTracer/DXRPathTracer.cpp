@@ -215,6 +215,8 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
+        .SigmaA = 0.0f,
+        .SigmaS = 0.0f,
     };
 
     presets[int32_t(MaterialPreset::Gold)] =
@@ -231,6 +233,8 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
+        .SigmaA = 0.0f,
+        .SigmaS = 0.0f,
     };
 
     presets[int32_t(MaterialPreset::Fog)] =
@@ -247,7 +251,8 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
-        .SigmaA = 10.0f,
+        .SigmaA = 5.0f,
+        .SigmaS = 10.0f,
     };
 
     editedMaterial = presets[int32_t(materialPreset)];
@@ -1011,6 +1016,8 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
             changed |= ColorEditHalf3("Emissive Tint", &editedMaterial.EmissiveTint);
 
             changed |= ImGui::SliderFloat("Absorption Coefficient", &editedMaterial.SigmaA.Value, 0.0f, 100.0f);
+            changed |= ImGui::SliderFloat("Scattering Coefficient", &editedMaterial.SigmaS.Value, 0.0f, 100.0f);
+            changed |= ImGui::SliderFloat("Phase Anisotropy", &editedMaterial.PhaseAnisotropy.Value, -1.0f, 1.0f);
 
             if (changed)
                 rtShouldRestartPathTrace = true;

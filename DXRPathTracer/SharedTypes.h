@@ -31,6 +31,8 @@ struct Material
     ShaderHalf MetallicOffset;
     ShaderHalf3 EmissiveTint;
     ShaderFloat SigmaA;
+    ShaderFloat SigmaS;
+    ShaderFloat PhaseAnisotropy;
 };
 
 struct SpotLight

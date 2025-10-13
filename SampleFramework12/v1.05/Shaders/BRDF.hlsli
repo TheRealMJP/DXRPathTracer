@@ -343,4 +343,10 @@ float3 DirLightAreaLightApproximation(in float3 lightDirection, in float3 viewDi
     return select(DDotR < d, normalize(d * D + normalize(S) * r), R);
 }
 
+float HenyeyGreenstein(float cosTheta, float g)
+{
+    float denom = 1 + Square(g) + 2 * g * cosTheta;
+    return rcp(4.0f * Pi) * (1 - Square(g)) / (denom * sqrt(denom));
+}
+
 #endif // BRDF_HLSL_

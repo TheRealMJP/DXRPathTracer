@@ -129,7 +129,7 @@ namespace AppSettings
         MaxAnyHitPathLength.Initialize("MaxAnyHitPathLength", "Path Tracing", "Max Any-Hit Path Length", "The maximum path length where any-hit shaders will be used for alpha testing. Increasing this with improve the render quality, but will also increase frame times", 1, 0, 256);
         Settings.AddSetting(&MaxAnyHitPathLength);
 
-        MaxVolumetricPathLength.Initialize("MaxVolumetricPathLength", "Path Tracing", "Max Volumetric Path Length", "", 16, -2147483648, 2147483647);
+        MaxVolumetricPathLength.Initialize("MaxVolumetricPathLength", "Path Tracing", "Max Volumetric Path Length", "", 16, 1, 256);
         Settings.AddSetting(&MaxVolumetricPathLength);
 
         Exposure.Initialize("Exposure", "Post Processing", "Exposure", "Simple exposure value applied to the scene before tone mapping (uses log2 scale)", -14.0000f, -24.0000f, 24.0000f, 0.1000f, ConversionMode::None, 1.0000f);

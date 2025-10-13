@@ -80,36 +80,37 @@ struct RNG
 struct Medium
 {
     float SigmaA;
+    float SigmaS;
+    float Anisotropy;
 
     static Medium Default()
     {
         Medium medium;
         medium.SigmaA = 0.0f;
-
-        return medium;
-    }
-
-    static Medium Init(float sigmaA)
-    {
-        Medium medium;
-        medium.SigmaA = sigmaA;
+        medium.SigmaS = 0.0f;
+        medium.Anisotropy = 0.0f;
 
         return medium;
     }
 
     static Medium Init(Material material)
     {
-        return Init(material.SigmaA);
+        Medium medium;
+        medium.SigmaA = material.SigmaA;
+        medium.SigmaS = material.SigmaS;
+        medium.Anisotropy = material.PhaseAnisotropy;
+
+        return medium;
     }
 
     bool IsVolumetric()
     {
-        return SigmaA > 0.0f;
+        return SigmaA > 0.0f || SigmaS > 0.0f;
     }
 
     float SigmaT()
     {
-        return SigmaA;
+        return SigmaA + SigmaS;
     }
 };
 
@@ -206,22 +207,31 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float exitT = payload.HitT >= 0.0f ? payload.HitT : FP32Max;
             const float sigmaT = currentMedium.SigmaT();
 
-            float currentT = segmentRay.TMin;
-            // for (uint volPathLength = 1; volPathLength <= AppSettings.MaxVolumetricPathLength; ++volPathLength)
-            {
-                const float uStep = rng.SamplePoint().x;
-                const float nextT = currentT + SampleExponential(uStep, sigmaT);
+            const float uStep = rng.SamplePoint().x;
+            const float scatterEventT = segmentRay.TMin + SampleExponential(uStep, sigmaT);
 
-                if (nextT < exitT)
+            if (scatterEventT < exitT)
+            {
+                // const float transmittance *= exp(-(scatterEventT - currentT) * sigmaT);
+
+                const float absorbProbability = currentMedium.SigmaA / sigmaT;
+                const float scatterProbability = currentMedium.SigmaS / sigmaT;
+                const float uScatterMode = rng.SamplePoint().x;
+                if (uScatterMode < absorbProbability)
                     return float4(pathRadiance, primaryRayT);
 
-                // const float transmittance *= exp(-(nextT - currentT) * sigmaT);
+                // We can ignore the PDF, it's exact for sampling HG and cancels out
+                const float2 phaseU1U2 = rng.SamplePoint();
+                const float3 scatterDir = SampleHenyeyGreenstein(-segmentRay.Direction, currentMedium.Anisotropy, phaseU1U2);
 
-                // Callback stuff
-                // float uScatterMode = rng.SamplePoint().x;
-                // SampleDiscrete
+                RayDesc newRay;
+                newRay.Origin = segmentRay.Origin + (segmentRay.Direction * scatterEventT);
+                newRay.Direction = scatterDir;
+                newRay.TMin = 0.0f;
+                newRay.TMax = FP32Max;
 
-                currentT = nextT;
+                segmentRay = newRay;
+                continue;
             }
         }
 

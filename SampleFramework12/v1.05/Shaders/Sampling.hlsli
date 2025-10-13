@@ -296,6 +296,42 @@ float SampleExponential(float u, float a)
     return -log(1 - u) / a;
 }
 
+float3x3 CoordinateSystem(float3 v1)
+{
+    float zSign = v1.z >= 0.0f ? 1.0f : -1.0f;
+    float a = -1 / (zSign + v1.z);
+    float b = v1.x * v1.y * a;
+    float3 v2 = float3(1 + zSign * Square(v1.x) * a, zSign * b, -zSign * v1.x);
+    float3 v3 = float3(b, zSign + Square(v1.y) * a, -v1.y);
+
+    return float3x3(v2, v3, v1);
+}
+
+float3 SphericalDirection(float sinTheta, float cosTheta, float phi)
+{
+    return float3(clamp(sinTheta, -1, 1) * cos(phi), clamp(sinTheta, -1, 1) * sin(phi), clamp(cosTheta, -1, 1));
+}
+
+// PDF of this is equal to HenyeyGreenstein(cosTheta, g)
+float3 SampleHenyeyGreenstein(float3 wo, float g, float2 u1u2)
+{
+    g = clamp(g, -0.99f, 0.99f);
+
+    float cosTheta;
+    if (abs(g) < 1e-3f)
+        cosTheta = 1 - 2 * u1u2.x;
+    else
+        cosTheta = -1 / (2 * g) * (1 + Square(g) - Square((1 - Square(g)) / (1 + g - 2 * g * u1u2.x)));
+
+    // Compute direction _wi_ for Henyey--Greenstein sample
+    float sinTheta = sqrt(1.0f - saturate(Square(cosTheta)));
+    float phi = 2.0f * Pi * u1u2.y;
+
+    float3x3 toWorld = CoordinateSystem(wo);
+    return mul(SphericalDirection(sinTheta, cosTheta, phi), toWorld);
+}
+
+
 uint CMJPermute(uint i, uint l, uint p)
 {
     uint w = l - 1;

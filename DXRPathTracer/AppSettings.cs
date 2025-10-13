@@ -136,6 +136,8 @@ public class Settings
         [DisplayName("Max Any-Hit Path Length")]
         int MaxAnyHitPathLength = 1;
 
+        [MinValue(1)]
+        [MaxValue(256)]
         int MaxVolumetricPathLength = 16;
     }
 
