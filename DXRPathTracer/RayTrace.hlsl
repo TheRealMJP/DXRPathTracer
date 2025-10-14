@@ -69,7 +69,12 @@ struct RNG
         return rng;
     }
 
-    float2 SamplePoint()
+    float Sample1D()
+    {
+        return Sample2D().x;
+    }
+
+    float2 Sample2D()
     {
         const uint permutation = setIdx * RayTraceCB.TotalNumPixels + pixelIdx;
         setIdx += 1;
@@ -205,7 +210,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float exitT = payload.HitT >= 0.0f ? payload.HitT : FP32Max;
             const float sigmaT = currentMedium.SigmaT();
 
-            const float uStep = rng.SamplePoint().x;
+            const float uStep = rng.Sample1D();
             const float scatterEventT = segmentRay.TMin + SampleExponential(uStep, sigmaT);
 
             if (scatterEventT < exitT)
@@ -214,12 +219,12 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
                 const float absorbProbability = currentMedium.SigmaA / sigmaT;
                 const float scatterProbability = currentMedium.SigmaS / sigmaT;
-                const float uScatterMode = rng.SamplePoint().x;
+                const float uScatterMode = rng.Sample1D();
                 if (uScatterMode < absorbProbability)
-                    return float4(pathRadiance, primaryRayT);
+                    break;
 
                 // We can ignore the PDF, it's exact for sampling HG and cancels out
-                const float2 phaseU1U2 = rng.SamplePoint();
+                const float2 phaseU1U2 = rng.Sample2D();
                 const float3 scatterDir = SampleHenyeyGreenstein(-segmentRay.Direction, currentMedium.Anisotropy, phaseU1U2);
 
                 RayDesc newRay;
@@ -298,13 +303,15 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             Texture2D metallicMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Metallic)];
             const float metallic = saturate(metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x + material.MetallicOffset + AppSettings.MetallicOffset);
 
-            const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f);
+            const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && material.SpecularTransmission < 1.0f);
             const bool enableSpecular =  (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && isDiffusePath) : (pathLength == 1)));
+            if (enableDiffuse == false && enableSpecular == false)
+                break;
 
             Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
             const float sqrtRoughness = clamp(roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x * material.RoughnessScale * AppSettings.RoughnessScale, 0.01f, 1.0f);
 
-            const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
+            const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (1.0f - material.SpecularTransmission) * (enableDiffuse ? 1.0f : 0.0f);
             const float3 specularF0 = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
             float roughness = sqrtRoughness * sqrtRoughness;
             if(AppSettings.ClampRoughness)
@@ -396,30 +403,23 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             }
 
             // Choose our next path by importance sampling our BRDFs
-            float2 brdfSample = rng.SamplePoint();
+            const float selector = rng.Sample1D();
+            float diffuseProbability = enableDiffuse ? saturate((1.0f - metallic) * (1.0f - material.SpecularTransmission)) : 0.0f;
+            float specularProbability = enableSpecular ? 1.0f : 0.0f;
+            diffuseProbability /= (diffuseProbability + specularProbability);
+            specularProbability /= (diffuseProbability + specularProbability);
 
             float3 brdfThroughput = 0.0f;
-            float3 rayDirTS = 0.0f;
+            float3 nextRayDirTS = 0.0f;
 
-            const bool enableIndirectDiffuse = enableDiffuse;
-            const bool enableIndirectSpecular = enableSpecular;
-
-            float selector = brdfSample.x;
-            if(enableIndirectSpecular == false)
-                selector = 0.0f;
-            else if(enableIndirectDiffuse == false)
-                selector = 1.0f;
-
-            if(selector < 0.5f)
+            if(selector < diffuseProbability)
             {
                 // We're sampling the diffuse BRDF, so sample a cosine-weighted hemisphere
-                if(enableIndirectSpecular)
-                    brdfSample.x *= 2.0f;
-                rayDirTS = SampleDirectionCosineHemisphere(brdfSample);
+                nextRayDirTS = SampleDirectionCosineHemisphere(rng.Sample2D());
 
                 // The PDF of sampling a cosine hemisphere is NdotL / Pi, which cancels out those terms
                 // from the diffuse BRDF and the irradiance integral
-                brdfThroughput = diffuseAlbedo;
+                brdfThroughput = diffuseAlbedo / diffuseProbability;
 
                 isDiffusePath = true;
             }
@@ -428,11 +428,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 // We're sampling the GGX specular BRDF by sampling the distribution of visible normals. See this post
                 // for more info: https://schuttejoe.github.io/post/ggximportancesamplingpart2/.
                 // Also see: https://hal.inria.fr/hal-00996995v1/document and https://hal.archives-ouvertes.fr/hal-01509746/document
-                if(enableIndirectDiffuse)
-                    brdfSample.x = (brdfSample.x - 0.5f) * 2.0f;
-
                 float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
-                float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, brdfSample);
+                float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, rng.Sample2D());
                 float3 sampleDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
 
                 float3 normalTS = float3(0.0f, 0.0f, 1.0f);
@@ -441,36 +438,46 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 float G1 = SmithGGXMasking(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
                 float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
 
-                brdfThroughput = (F * (G2 / G1));
-                rayDirTS = sampleDirTS;
-
-                if(AppSettings.ApplyMultiscatteringEnergyCompensation)
-                {
-                    float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalTS, -incomingRayDirWS)), sqrtRoughness);
-
-                    // Improve energy preservation by applying a scaled version of the original
-                    // single scattering specular lobe. Based on "Practical multiple scattering
-                    // compensation for microfacet models" [Turquin19].
-                    //
-                    // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
-                    float Ess = DFG.x;
-                    brdfThroughput *= 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
-                }
+                brdfThroughput = specularProbability;
 
                 isDiffusePath = false;
+
+                const float refractProbability = saturate((1.0f - F.x) * material.SpecularTransmission);
+                if (rng.Sample1D() < refractProbability)
+                {
+                    // brdfThroughput *= saturate(1.0f - F.x);
+                    // brdfThroughput /= refractProbability;
+                    nextRayDirTS = refract(incomingRayDirTS, microfacetNormalTS, rcp(F0ToIOR(specularF0.x)));
+                }
+                else
+                {
+                    brdfThroughput *= (F * (G2 / G1));
+                    brdfThroughput /= (1.0f - refractProbability);
+                    nextRayDirTS = sampleDirTS;
+
+                    if(AppSettings.ApplyMultiscatteringEnergyCompensation)
+                    {
+                        float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalTS, -incomingRayDirWS)), sqrtRoughness);
+
+                        // Improve energy preservation by applying a scaled version of the original
+                        // single scattering specular lobe. Based on "Practical multiple scattering
+                        // compensation for microfacet models" [Turquin19].
+                        //
+                        // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
+                        float Ess = DFG.x;
+                        brdfThroughput *= 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
+                    }
+                }
             }
 
-            const float3 rayDirWS = normalize(mul(rayDirTS, tangentToWorld));
-
-            if(enableIndirectDiffuse && enableIndirectSpecular)
-                brdfThroughput *= 2.0f;
+            const float3 nextRayDirWS = normalize(mul(nextRayDirTS, tangentToWorld));
 
             pathThroughput *= brdfThroughput;
 
             // Shoot another ray to get the next path
             RayDesc newRay;
             newRay.Origin = positionWS;
-            newRay.Direction = rayDirWS;
+            newRay.Direction = nextRayDirWS;
             newRay.TMin = 0.00001f;
             newRay.TMax = FP32Max;
 
@@ -520,7 +527,7 @@ void RaygenShader()
     ShaderDebug::FilterIfCursorOnPos(pixelCoord);
 
     // Form a primary ray by un-projecting the pixel coordinate using the inverse view * projection matrix
-    float2 primaryRaySample = rng.SamplePoint();
+    float2 primaryRaySample = rng.Sample2D();
 
     float2 rayPixelPos = pixelCoord + primaryRaySample;
     float2 ncdXY = (rayPixelPos / (DispatchRaysDimensions().xy * 0.5f)) - 1.0f;

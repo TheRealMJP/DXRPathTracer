@@ -30,9 +30,10 @@ struct Material
     DescriptorIndex Emissive;
     ShaderHalf MetallicOffset;
     ShaderHalf3 EmissiveTint;
-    ShaderFloat SigmaA;
-    ShaderFloat SigmaS;
-    ShaderFloat PhaseAnisotropy;
+    ShaderHalf SpecularTransmission;
+    ShaderHalf SigmaA;
+    ShaderHalf SigmaS;
+    ShaderHalf PhaseAnisotropy;
 };
 
 struct SpotLight

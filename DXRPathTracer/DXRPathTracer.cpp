@@ -108,13 +108,27 @@ static const SceneParameters SceneParams[] =
 };
 StaticAssert_(ArraySize_(SceneParams) == uint64_t(Scenes::NumValues));
 
+enum class MaterialPreset : int32_t
+{
+    Default = 0,
+    Gold,
+    Fog,
+    Glass,
+
+    NumPresets
+};
+
 static const char* PresetNames[] =
 {
     "Default",
     "Gold",
     "Fog",
+    "Glass",
 };
 StaticAssert_(ArraySize_(PresetNames) == int32_t(MaterialPreset::NumPresets));
+
+static MaterialPreset materialPreset = MaterialPreset::Glass;
+static Material materialPresets[int32_t(MaterialPreset::NumPresets)];
 
 static bool SceneIsEditable(Scenes scene)
 {
@@ -201,7 +215,7 @@ void DXRPathTracer::Initialize()
     LoadTexture(goldNormalMap, "..\\Content\\Textures\\Gold\\Gold_Normal.png", false);
     LoadTexture(goldRoughness, "..\\Content\\Textures\\Gold\\Gold_Roughness.png", false);
 
-    presets[int32_t(MaterialPreset::Default)] =
+    materialPresets[int32_t(MaterialPreset::Default)] =
     {
         .BaseColor = checkerTexture.SRV,
         .BaseColorTint = Half3(1.0f, 1.0f, 1.0f),
@@ -215,11 +229,11 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
-        .SigmaA = 0.0f,
-        .SigmaS = 0.0f,
+        .SigmaA = Half(0.0f),
+        .SigmaS = Half(0.0f),
     };
 
-    presets[int32_t(MaterialPreset::Gold)] =
+    materialPresets[int32_t(MaterialPreset::Gold)] =
     {
         .BaseColor = goldBaseColor.SRV,
         .BaseColorTint = Half3(1.0f, 1.0f, 1.0f),
@@ -233,11 +247,11 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
-        .SigmaA = 0.0f,
-        .SigmaS = 0.0f,
+        .SigmaA = Half(0.0f),
+        .SigmaS = Half(0.0f),
     };
 
-    presets[int32_t(MaterialPreset::Fog)] =
+    materialPresets[int32_t(MaterialPreset::Fog)] =
     {
         .BaseColor = checkerTexture.SRV,
         .BaseColorTint = Half3(1.0f, 1.0f, 1.0f),
@@ -251,11 +265,32 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
-        .SigmaA = 5.0f,
-        .SigmaS = 10.0f,
+        .SigmaA = Half(5.0f),
+        .SigmaS = Half(10.0f),
+        .PhaseAnisotropy = Half(0.0f),
     };
 
-    editedMaterial = presets[int32_t(materialPreset)];
+    materialPresets[int32_t(MaterialPreset::Glass)] =
+    {
+        .BaseColor = checkerTexture.SRV,
+        .BaseColorTint = Half3(1.0f, 1.0f, 1.0f),
+        .BaseColorIntensity = Half(0.75f),
+        .Normal = flatNormalMap.SRV,
+        .Roughness = whiteTexture.SRV,
+        .NormalMapIntensity = Half(1.0f),
+        .RoughnessScale = Half(0.01f),
+        .Metallic = blackTexture.SRV,
+        .Opacity = whiteTexture.SRV,
+        .Emissive = whiteTexture.SRV,
+        .MetallicOffset = Half(0.0f),
+        .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
+        .SpecularTransmission = Half(1.0f),
+        .SigmaA = Half(0.0f),
+        .SigmaS = Half(0.0f),
+        .PhaseAnisotropy = Half(0.0f),
+    };
+
+    editedMaterial = materialPresets[int32_t(materialPreset)];
 }
 
 void DXRPathTracer::Shutdown()
@@ -971,8 +1006,8 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
             bool changed = ImGui::Combo("Preset", reinterpret_cast<int32_t*>(&materialPreset), PresetNames, int32_t(MaterialPreset::NumPresets));
             if(changed)
             {
-                Assert_(int32_t(materialPreset) >= 0 && int32_t(materialPreset) < ArraySize_(presets));
-                editedMaterial = presets[int32_t(materialPreset)];
+                Assert_(int32_t(materialPreset) >= 0 && int32_t(materialPreset) < ArraySize_(materialPresets));
+                editedMaterial = materialPresets[int32_t(materialPreset)];
             }
 
             ImGui::Separator();
@@ -1015,9 +1050,10 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
 
             changed |= ColorEditHalf3("Emissive Tint", &editedMaterial.EmissiveTint);
 
-            changed |= ImGui::SliderFloat("Absorption Coefficient", &editedMaterial.SigmaA.Value, 0.0f, 100.0f);
-            changed |= ImGui::SliderFloat("Scattering Coefficient", &editedMaterial.SigmaS.Value, 0.0f, 100.0f);
-            changed |= ImGui::SliderFloat("Phase Anisotropy", &editedMaterial.PhaseAnisotropy.Value, -1.0f, 1.0f);
+            changed |= SliderHalf("Specular Transmission", &editedMaterial.SpecularTransmission, 0.0f, 1.0f);
+            changed |= SliderHalf("Absorption Coefficient", &editedMaterial.SigmaA, 0.0f, 100.0f);
+            changed |= SliderHalf("Scattering Coefficient", &editedMaterial.SigmaS, 0.0f, 100.0f);
+            changed |= SliderHalf("Phase Anisotropy", &editedMaterial.PhaseAnisotropy, -1.0f, 1.0f);
 
             if (changed)
                 rtShouldRestartPathTrace = true;
