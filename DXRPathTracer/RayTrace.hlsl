@@ -43,6 +43,7 @@ struct [raypayload] PrimaryPayload
     uint HitGeometryIndex : read(caller) : write(closesthit);
     uint HitTriangleIndex : read(caller) : write(closesthit);
     float2 HitBarycentrics : read(caller) : write(closesthit);
+    bool HitFrontFace : read(caller) : write(closesthit);
 };
 
 struct [raypayload] ShadowPayload
@@ -84,16 +85,20 @@ struct RNG
 
 struct Medium
 {
-    float SigmaA;
-    float SigmaS;
-    float Anisotropy;
+    half SigmaA;
+    half SigmaS;
+    half Anisotropy;
+    half SpecularTransmission;
+    half IOR;
 
     static Medium Default()
     {
         Medium medium;
-        medium.SigmaA = 0.0f;
-        medium.SigmaS = 0.0f;
-        medium.Anisotropy = 0.0f;
+        medium.SigmaA = 0.0;
+        medium.SigmaS = 0.0;
+        medium.Anisotropy = 0.0;
+        medium.SpecularTransmission = 0.0;
+        medium.IOR = 1.0;
 
         return medium;
     }
@@ -104,23 +109,25 @@ struct Medium
         medium.SigmaA = material.SigmaA;
         medium.SigmaS = material.SigmaS;
         medium.Anisotropy = material.PhaseAnisotropy;
+        medium.SpecularTransmission = material.SpecularTransmission;
+        medium.IOR = 1.33h; // assuming fixed water-like IOR at the momeent
 
         return medium;
     }
 
     bool IsVolumetric()
     {
-        return SigmaA > 0.0f || SigmaS > 0.0f;
+        return SpecularTransmission > 0.0h;
     }
 
-    float SigmaT()
+    half SigmaT()
     {
         return SigmaA + SigmaS;
     }
 };
 
 // Loops up the vertex data for the hit triangle and interpolates its attributes
-MeshVertex GetHitSurface(in float2 hitBarycentrics, in uint geometryIdx, in uint primitiveIdx)
+MeshVertex GetHitSurface(in float2 hitBarycentrics, in uint geometryIdx, in uint primitiveIdx, bool frontFace)
 {
     float3 barycentrics = float3(1 - hitBarycentrics.x - hitBarycentrics.y, hitBarycentrics.x, hitBarycentrics.y);
 
@@ -138,7 +145,14 @@ MeshVertex GetHitSurface(in float2 hitBarycentrics, in uint geometryIdx, in uint
     const MeshVertex vtx1 = vtxBuffer[idx1 + geoInfo.VtxOffset];
     const MeshVertex vtx2 = vtxBuffer[idx2 + geoInfo.VtxOffset];
 
-    return BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
+    MeshVertex finalVertex = BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
+    if (frontFace == false)
+    {
+        finalVertex.Normal *= -1;
+        finalVertex.Tangent *= -1;
+        finalVertex.Bitangent *= -1;
+    }
+    return finalVertex;
 }
 
 // Gets the material assigned to a geometry in the acceleration structure
@@ -205,7 +219,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         if (pathLength == 1)
             primaryRayT = payload.HitT;
 
-        if (currentMedium.IsVolumetric())
+        if (currentMedium.IsVolumetric() && currentMedium.SigmaT() > 0.0h)
         {
             const float exitT = payload.HitT >= 0.0f ? payload.HitT : FP32Max;
             const float sigmaT = currentMedium.SigmaT();
@@ -240,11 +254,11 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
         if (payload.HitT >= 0.0f)
         {
-            const MeshVertex hitSurface = GetHitSurface(payload.HitBarycentrics, payload.HitGeometryIndex, payload.HitTriangleIndex);
+            const MeshVertex hitSurface = GetHitSurface(payload.HitBarycentrics, payload.HitGeometryIndex, payload.HitTriangleIndex, payload.HitFrontFace);
             const Material material = GetGeometryMaterial(payload.HitGeometryIndex);
 
             const Medium enteringMedium = Medium::Init(material);
-            if (enteringMedium.IsVolumetric())
+            /*if (enteringMedium.IsVolumetric())
             {
                 // For now not handling any surface interactions for volumetrics, just continue on and
                 // we'll handle scattering in the next iteration
@@ -262,7 +276,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 segmentRay = newRay;
 
                 continue;
-            }
+            }*/
 
             Texture2D emissiveMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Emissive)];
             pathRadiance += emissiveMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz * material.EmissiveTint * pathThroughput;
@@ -291,6 +305,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
                 tangentToWorld._31_32_33 = normalWS;
             }
+
+
 
             float3 baseColor = 1.0f;
             if(AppSettings.EnableBaseColorMaps)
@@ -435,6 +451,22 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 float3 normalTS = float3(0.0f, 0.0f, 1.0f);
 
                 float3 F = RayTraceCB.EnableWhiteFurnaceMode ? 1.0.xxx : Fresnel(specularF0, microfacetNormalTS, sampleDirTS);
+                if (currentMedium.IsVolumetric())
+                {
+                    // From "Extending the Disney BRDF to a BSDF with Integrated Subsurface Scattering", use cos(thetaT)
+                    // so that we get total internal reflection behavior
+                    const float cosThetaI = saturate(dot(-incomingRayDirTS, microfacetNormalTS));
+                    const float cosThetaT2 = 1.0f - ((1.0f - (cosThetaI * cosThetaI))  / Square(rcp(currentMedium.IOR)));
+                    if(cosThetaT2 > 0)
+                    {
+                        F = Fresnel(IORToF0Air(currentMedium.IOR), sqrt(cosThetaT2));
+                    }
+                    else
+                    {
+                        F = 1.0f;
+                    }
+                }
+
                 float G1 = SmithGGXMasking(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
                 float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
 
@@ -447,7 +479,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 {
                     // brdfThroughput *= saturate(1.0f - F.x);
                     // brdfThroughput /= refractProbability;
-                    nextRayDirTS = refract(incomingRayDirTS, microfacetNormalTS, rcp(F0ToIOR(specularF0.x)));
+                    float interfaceIOR = currentMedium.IOR / enteringMedium.IOR;
+                    nextRayDirTS = refract(incomingRayDirTS, microfacetNormalTS, interfaceIOR);
                 }
                 else
                 {
@@ -575,12 +608,13 @@ void ClosestHitShader(inout PrimaryPayload payload, in HitAttributes attr)
     payload.HitTriangleIndex = PrimitiveIndex();
     payload.HitT = RayTCurrent();
     payload.HitBarycentrics = attr.barycentrics;
+    payload.HitFrontFace = HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE;
 }
 
 [shader("anyhit")]
 void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr.barycentrics, GeometryIndex(), PrimitiveIndex());
+    const MeshVertex hitSurface = GetHitSurface(attr.barycentrics, GeometryIndex(), PrimitiveIndex(), true);
     const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing
@@ -592,7 +626,7 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
 [shader("anyhit")]
 void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
 {
-    const MeshVertex hitSurface = GetHitSurface(attr.barycentrics, GeometryIndex(), PrimitiveIndex());
+    const MeshVertex hitSurface = GetHitSurface(attr.barycentrics, GeometryIndex(), PrimitiveIndex(), true);
     const Material material = GetGeometryMaterial(GeometryIndex());
 
     // Standard alpha testing

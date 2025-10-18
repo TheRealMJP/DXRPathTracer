@@ -278,7 +278,7 @@ void DXRPathTracer::Initialize()
         .Normal = flatNormalMap.SRV,
         .Roughness = whiteTexture.SRV,
         .NormalMapIntensity = Half(1.0f),
-        .RoughnessScale = Half(0.01f),
+        .RoughnessScale = Half(0.1f),
         .Metallic = blackTexture.SRV,
         .Opacity = whiteTexture.SRV,
         .Emissive = whiteTexture.SRV,
@@ -506,7 +506,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     {
         D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = { };
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                           // float2 barycentrics;
-        shaderConfig.MaxPayloadSizeInBytes = 3 * sizeof(float) + 2 * sizeof(uint32_t);      // float HitT + uint HitGeometryIndex + uint HitTriangleIndex + float2 HitBarycentrics
+        shaderConfig.MaxPayloadSizeInBytes = 3 * sizeof(float) + 2 * sizeof(uint32_t) * 2;  // float HitT + uint HitGeometryIndex + uint HitTriangleIndex + float2 HitBarycentrics + bool IsFrontFace
         builder.AddSubObject(shaderConfig);
     }
 
