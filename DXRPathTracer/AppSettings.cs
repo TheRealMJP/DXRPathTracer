@@ -57,7 +57,7 @@ public class Settings
         [HelpText("Angular radius of the sun in degrees")]
         [MinValue(0.01f)]
         [StepSize(0.01f)]
-        float SunSize = 1.0f;
+        float SunSize = 5.0f;
 
         [HelpText("Direction of the sun")]
         [DisplayInViewSpaceAttribute(true)]

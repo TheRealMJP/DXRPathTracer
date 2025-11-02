@@ -127,7 +127,7 @@ static const char* PresetNames[] =
 };
 StaticAssert_(ArraySize_(PresetNames) == int32_t(MaterialPreset::NumPresets));
 
-static MaterialPreset materialPreset = MaterialPreset::Fog;
+static MaterialPreset materialPreset = MaterialPreset::Default;
 static Material materialPresets[int32_t(MaterialPreset::NumPresets)];
 
 static bool SceneIsEditable(Scenes scene)

@@ -352,74 +352,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 msEnergyCompensation = 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
             }
 
-            //Apply sun light
-            if(AppSettings.EnableSun && !RayTraceCB.EnableWhiteFurnaceMode)
-            {
-                float3 sunDirection = RayTraceCB.SunDirectionWS;
-
-                if(AppSettings.SunAreaLightApproximation)
-                {
-                    float3 D = RayTraceCB.SunDirectionWS;
-                    float3 R = reflect(incomingRayDirWS, normalWS);
-                    float r = RayTraceCB.SinSunAngularRadius;
-                    float d = RayTraceCB.CosSunAngularRadius;
-                    float DDotR = dot(D, R);
-                    float3 S = R - DDotR * D;
-                    sunDirection = DDotR < d ? normalize(d * D + normalize(S) * r) : R;
-                }
-
-                // Shoot a shadow ray to see if the sun is occluded
-                RayDesc ray;
-                ray.Origin = positionWS;
-                ray.Direction = RayTraceCB.SunDirectionWS;
-                ray.TMin = 0.00001f;
-                ray.TMax = FP32Max;
-
-                const float shadowVisibility = ShadowRayVisibility(ray, pathLength);
-
-                pathRadiance += CalcLighting(normalWS, sunDirection, RayTraceCB.SunIrradiance, diffuseAlbedo, specularF0,
-                                             roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * shadowVisibility * pathThroughput;
-            }
-
-            // Apply spot lights
-            if (AppSettings.RenderLights)
-            {
-                //iterate all lights
-                for (uint spotLightIdx = 0; spotLightIdx < RayTraceCB.NumLights; spotLightIdx++)
-                {
-                    SpotLight spotLight = LightCBuffer.Lights[spotLightIdx];
-
-                    float3 surfaceToLight = spotLight.Position - positionWS;
-                    float distanceToLight = length(surfaceToLight);
-                    surfaceToLight /= distanceToLight;
-                    float angleFactor = saturate(dot(surfaceToLight, spotLight.Direction));
-                    float angularAttenuation = smoothstep(spotLight.AngularAttenuationY, spotLight.AngularAttenuationX, angleFactor);
-
-                    float d = distanceToLight / spotLight.Range;
-                    float falloff = saturate(1.0f - (d * d * d * d));
-                    falloff = (falloff * falloff) / (distanceToLight * distanceToLight + 1.0f);
-
-                    angularAttenuation *= falloff;
-
-                    if (angularAttenuation > 0.0f)
-                    {
-                        // Shoot a shadow ray to see if the sun is occluded
-                        RayDesc ray;
-                        ray.Origin = positionWS + normalWS * 0.01f;
-                        ray.Direction = surfaceToLight;
-                        ray.TMin = SpotShadowNearClip;
-                        ray.TMax = distanceToLight - SpotShadowNearClip;
-
-                        const float shadowVisibility = ShadowRayVisibility(ray, pathLength);
-
-                        float3 intensity = spotLight.Intensity * angularAttenuation;
-
-                        pathRadiance += CalcLighting(normalWS, surfaceToLight, intensity, diffuseAlbedo, specularF0,
-                                                     roughness, positionWS, incomingRayOriginWS, msEnergyCompensation) * shadowVisibility * pathThroughput;
-                    }
-                }
-            }
-
             // Choose our next path by importance sampling our BRDFs
             const float selector = rng.Sample1D();
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) : 0.0f;
@@ -521,7 +453,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         }
         else
         {
-            // We didn't hit anything, sample the sky
+            // We didn't hit anything, sample the sun/sky
             float3 skyEmissive = 0.0f;
 
             if(RayTraceCB.EnableWhiteFurnaceMode)
@@ -535,12 +467,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 TextureCube skyTexture = ResourceDescriptorHeap[RayTraceCB.SkyTextureIdx];
                 skyEmissive = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz : 0.0.xxx;
 
-                if(pathLength == 1)
-                {
-                    float cosSunAngle = dot(rayDir, RayTraceCB.SunDirectionWS);
-                    if(cosSunAngle >= RayTraceCB.CosSunAngularRadius)
-                        skyEmissive = RayTraceCB.SunRenderColor;
-                }
+                float cosSunAngle = dot(rayDir, RayTraceCB.SunDirectionWS);
+                if(cosSunAngle >= RayTraceCB.CosSunAngularRadius)
+                    skyEmissive = RayTraceCB.SunRenderColor;
             }
 
             pathRadiance += skyEmissive * pathThroughput;
