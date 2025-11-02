@@ -88,17 +88,17 @@ struct Medium
     half SigmaA;
     half SigmaS;
     half Anisotropy;
-    half SpecularTransmission;
     half IOR;
+    uint16_t Flags;
 
     static Medium Default()
     {
         Medium medium;
-        medium.SigmaA = 0.0;
-        medium.SigmaS = 0.0;
-        medium.Anisotropy = 0.0;
-        medium.SpecularTransmission = 0.0;
-        medium.IOR = 1.0;
+        medium.SigmaA = MaxSigma;
+        medium.SigmaS = MaxSigma;
+        medium.Anisotropy = 0.0h;
+        medium.Flags = 0;
+        medium.IOR = 1.0h;
 
         return medium;
     }
@@ -109,20 +109,25 @@ struct Medium
         medium.SigmaA = material.SigmaA;
         medium.SigmaS = material.SigmaS;
         medium.Anisotropy = material.PhaseAnisotropy;
-        medium.SpecularTransmission = material.SpecularTransmission;
         medium.IOR = 1.33h; // assuming fixed water-like IOR at the momeent
+        medium.Flags = material.Flags;
 
         return medium;
     }
 
     bool IsVolumetric()
     {
-        return SpecularTransmission > 0.0h;
+        return SigmaT() < MaxSigma;
     }
 
     half SigmaT()
     {
         return SigmaA + SigmaS;
+    }
+
+    bool HasSpecular()
+    {
+        return (Flags & MaterialFlags_EnableSpecular) ? true : false;
     }
 };
 
@@ -219,7 +224,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         if (pathLength == 1)
             primaryRayT = payload.HitT;
 
-        if (currentMedium.IsVolumetric() && currentMedium.SigmaT() > 0.0h)
+        if (currentMedium.IsVolumetric())
         {
             const float exitT = payload.HitT >= 0.0f ? payload.HitT : FP32Max;
             const float sigmaT = currentMedium.SigmaT();
@@ -258,10 +263,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const Material material = GetGeometryMaterial(payload.HitGeometryIndex);
 
             const Medium enteringMedium = Medium::Init(material);
-            /*if (enteringMedium.IsVolumetric())
+            if (enteringMedium.IsVolumetric() && !enteringMedium.HasSpecular())
             {
-                // For now not handling any surface interactions for volumetrics, just continue on and
-                // we'll handle scattering in the next iteration
+                // Hust continue on and we'll handle scattering in the next iteration
                 if (currentMedium.IsVolumetric())
                     currentMedium = Medium::Default();
                 else
@@ -276,7 +280,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 segmentRay = newRay;
 
                 continue;
-            }*/
+            }
 
             Texture2D emissiveMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Emissive)];
             pathRadiance += emissiveMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz * material.EmissiveTint * pathThroughput;
@@ -306,8 +310,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 tangentToWorld._31_32_33 = normalWS;
             }
 
-
-
             float3 baseColor = 1.0f;
             if(AppSettings.EnableBaseColorMaps)
             {
@@ -319,15 +321,15 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             Texture2D metallicMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Metallic)];
             const float metallic = saturate(metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x + material.MetallicOffset + AppSettings.MetallicOffset);
 
-            const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && material.SpecularTransmission < 1.0f);
-            const bool enableSpecular =  (AppSettings.EnableSpecular && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && isDiffusePath) : (pathLength == 1)));
+            const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && !material.IsVolumetric());
+            const bool enableSpecular =  (AppSettings.EnableSpecular && material.HasSpecular() && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && isDiffusePath) : (pathLength == 1)));
             if (enableDiffuse == false && enableSpecular == false)
                 break;
 
             Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
             const float sqrtRoughness = clamp(roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x * material.RoughnessScale * AppSettings.RoughnessScale, 0.01f, 1.0f);
 
-            const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (1.0f - material.SpecularTransmission) * (enableDiffuse ? 1.0f : 0.0f);
+            const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
             const float3 specularF0 = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
             float roughness = sqrtRoughness * sqrtRoughness;
             if(AppSettings.ClampRoughness)
@@ -420,7 +422,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
             // Choose our next path by importance sampling our BRDFs
             const float selector = rng.Sample1D();
-            float diffuseProbability = enableDiffuse ? saturate((1.0f - metallic) * (1.0f - material.SpecularTransmission)) : 0.0f;
+            float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) : 0.0f;
             float specularProbability = enableSpecular ? 1.0f : 0.0f;
             diffuseProbability /= (diffuseProbability + specularProbability);
             specularProbability /= (diffuseProbability + specularProbability);
@@ -474,7 +476,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
                 isDiffusePath = false;
 
-                const float refractProbability = saturate((1.0f - F.x) * material.SpecularTransmission);
+                const float refractProbability = currentMedium.IsVolumetric() ? saturate(1.0f - F.x) : 0.0f;
                 if (rng.Sample1D() < refractProbability)
                 {
                     // brdfThroughput *= saturate(1.0f - F.x);

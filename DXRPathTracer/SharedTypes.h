@@ -16,6 +16,16 @@
     #include <ShaderShared.h>
 #endif
 
+static const ShaderHalf MinSigma = ShaderHalf(0.01f);
+static const ShaderHalf MaxSigma = ShaderHalf(65000.0f);
+
+enum MaterialFlags : uint16_t
+{
+    MaterialFlags_EnableSpecular = 1u << 0,
+
+    MaterialFlags_Default = MaterialFlags_EnableSpecular,
+};
+
 struct Material
 {
     DescriptorIndex BaseColor;
@@ -30,10 +40,20 @@ struct Material
     DescriptorIndex Emissive;
     ShaderHalf MetallicOffset;
     ShaderHalf3 EmissiveTint;
-    ShaderHalf SpecularTransmission;
     ShaderHalf SigmaA;
     ShaderHalf SigmaS;
     ShaderHalf PhaseAnisotropy;
+    ShaderUint16 Flags;
+
+    bool IsVolumetric()
+    {
+        return (SigmaA + SigmaS) < MaxSigma;
+    }
+
+    bool HasSpecular()
+    {
+        return (Flags & MaterialFlags_EnableSpecular) ? true : false;
+    }
 };
 
 struct SpotLight

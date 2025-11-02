@@ -127,7 +127,7 @@ static const char* PresetNames[] =
 };
 StaticAssert_(ArraySize_(PresetNames) == int32_t(MaterialPreset::NumPresets));
 
-static MaterialPreset materialPreset = MaterialPreset::Glass;
+static MaterialPreset materialPreset = MaterialPreset::Fog;
 static Material materialPresets[int32_t(MaterialPreset::NumPresets)];
 
 static bool SceneIsEditable(Scenes scene)
@@ -229,8 +229,9 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
-        .SigmaA = Half(0.0f),
-        .SigmaS = Half(0.0f),
+        .SigmaA = MaxSigma,
+        .SigmaS = MaxSigma,
+        .Flags = MaterialFlags_Default,
     };
 
     materialPresets[int32_t(MaterialPreset::Gold)] =
@@ -247,8 +248,9 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
-        .SigmaA = Half(0.0f),
-        .SigmaS = Half(0.0f),
+        .SigmaA = MaxSigma,
+        .SigmaS = MaxSigma,
+        .Flags = MaterialFlags_Default,
     };
 
     materialPresets[int32_t(MaterialPreset::Fog)] =
@@ -268,6 +270,7 @@ void DXRPathTracer::Initialize()
         .SigmaA = Half(5.0f),
         .SigmaS = Half(10.0f),
         .PhaseAnisotropy = Half(0.0f),
+        .Flags = 0,
     };
 
     materialPresets[int32_t(MaterialPreset::Glass)] =
@@ -284,10 +287,10 @@ void DXRPathTracer::Initialize()
         .Emissive = whiteTexture.SRV,
         .MetallicOffset = Half(0.0f),
         .EmissiveTint = Half3(0.0f, 0.0f, 0.0f),
-        .SpecularTransmission = Half(1.0f),
-        .SigmaA = Half(0.0f),
-        .SigmaS = Half(0.0f),
+        .SigmaA = Half(0.01f),
+        .SigmaS = Half(0.01f),
         .PhaseAnisotropy = Half(0.0f),
+        .Flags = MaterialFlags_Default,
     };
 
     editedMaterial = materialPresets[int32_t(materialPreset)];
@@ -735,6 +738,10 @@ void DXRPathTracer::Update(const Timer& timer)
             const Texture* opacity = meshMaterial.Textures[uint64_t(MaterialTextures::Opacity)];
             material.Opacity = opacity ? opacity->SRV : InvalidDescriptorIndex;
 
+            material.SigmaA = MaxSigma;
+            material.SigmaS = MaxSigma;
+            material.Flags = MaterialFlags_Default;
+
             if(AppSettings::CurrentScene == Scenes::WhiteFurnace)
             {
                 material.BaseColor = whiteTexture.SRV;
@@ -940,10 +947,10 @@ template<int32_t N> bool TextureCombo(const char* name, DescriptorIndex* descrip
     return false;
 }
 
-static bool SliderHalf(const char* name, Half* hv, float minVal, float maxVal)
+static bool SliderHalf(const char* name, Half* hv, float minVal, float maxVal, const char* format = "%.3f", ImGuiSliderFlags flags = ImGuiSliderFlags_None)
 {
     float fv = hv->ToFloat();
-    bool changed = ImGui::SliderFloat(name, &fv, minVal, maxVal);
+    bool changed = ImGui::SliderFloat(name, &fv, minVal, maxVal, format, flags);
     if (changed)
         *hv = Half(fv);
     return changed;
@@ -955,6 +962,14 @@ static bool ColorEditHalf3(const char* name, Half3* hc)
     bool changed = ImGui::ColorEdit3(name, &fc.x);
     if (changed)
         *hc = Half3(fc);
+    return changed;
+}
+
+static bool CheckboxFlagsUint16(const char* name, uint16_t* flags, uint16_t flagsValue)
+{
+    uint32_t flags32 = *flags;
+    bool changed = ImGui::CheckboxFlags(name, &flags32, uint32_t(flagsValue));
+    *flags = uint16_t(flags32);
     return changed;
 }
 
@@ -1050,10 +1065,11 @@ void DXRPathTracer::RenderHUD(const Timer& timer)
 
             changed |= ColorEditHalf3("Emissive Tint", &editedMaterial.EmissiveTint);
 
-            changed |= SliderHalf("Specular Transmission", &editedMaterial.SpecularTransmission, 0.0f, 1.0f);
-            changed |= SliderHalf("Absorption Coefficient", &editedMaterial.SigmaA, 0.0f, 100.0f);
-            changed |= SliderHalf("Scattering Coefficient", &editedMaterial.SigmaS, 0.0f, 100.0f);
+            changed |= SliderHalf("Absorption Coefficient", &editedMaterial.SigmaA, MinSigma.ToFloat(), MaxSigma.ToFloat(), "%.3f", ImGuiSliderFlags_Logarithmic);
+            changed |= SliderHalf("Scattering Coefficient", &editedMaterial.SigmaS, MinSigma.ToFloat(), MaxSigma.ToFloat(), "%.3f", ImGuiSliderFlags_Logarithmic);
             changed |= SliderHalf("Phase Anisotropy", &editedMaterial.PhaseAnisotropy, -1.0f, 1.0f);
+
+            changed |= CheckboxFlagsUint16("Enable Specular", &editedMaterial.Flags.Value, MaterialFlags_EnableSpecular);
 
             if (changed)
                 rtShouldRestartPathTrace = true;
