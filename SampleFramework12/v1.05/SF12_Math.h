@@ -383,6 +383,29 @@ struct Half
     {
         return DirectX::PackedVector::XMConvertHalfToFloat(x);
     }
+
+    Half& operator+=(const Half other);
+    Half operator+(const Half other) const;
+
+    Half& operator-=(const Half other);
+    Half operator-(const Half other) const;
+
+    Half& operator*=(const Half other);
+    Half operator*(const Half other) const;
+
+    Half& operator/=(const Half other);
+    Half operator/(const Half other) const;
+
+    bool operator==(const Half other) const;
+    bool operator!=(const Half other) const;
+
+    bool operator<(const Half other) const;
+    bool operator<=(const Half other) const;
+
+    bool operator>(const Half other) const;
+    bool operator>=(const Half other) const;
+
+    Half operator-() const;
 };
 
 struct Half2

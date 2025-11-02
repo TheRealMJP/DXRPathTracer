@@ -1289,6 +1289,91 @@ Int4::Int4(const Uint4& v) : x(int32_t(v.x)), y(int32_t(v.y)), z(int32_t(v.z)), 
 {
 }
 
+// == Half ======================================================================================
+
+Half& Half::operator+=(const Half other)
+{
+    *this = Half(ToFloat() + other.ToFloat());
+    return *this;
+}
+
+Half Half::operator+(const Half other) const
+{
+    Half result = Half(ToFloat() + other.ToFloat());
+    return result;
+}
+
+Half& Half::operator-=(const Half other)
+{
+    *this = Half(ToFloat() - other.ToFloat());
+    return *this;
+}
+
+Half Half::operator-(const Half other) const
+{
+    Half result = Half(ToFloat() - other.ToFloat());
+    return result;
+}
+
+Half& Half::operator*=(const Half other)
+{
+    *this = Half(ToFloat() * other.ToFloat());
+    return *this;
+}
+
+Half Half::operator*(const Half other) const
+{
+    Half result = Half(ToFloat() * other.ToFloat());
+    return result;
+}
+
+Half& Half::operator/=(const Half other)
+{
+    *this = Half(ToFloat() / other.ToFloat());
+    return *this;
+}
+
+Half Half::operator/(const Half other) const
+{
+    Half result = Half(ToFloat() / other.ToFloat());
+    return result;
+}
+
+bool Half::operator==(const Half other) const
+{
+    return x == other.x;
+}
+
+bool Half::operator!=(const Half other) const
+{
+    return x != other.x;
+}
+
+bool Half::operator>(const Half other) const
+{
+    return ToFloat() > other.ToFloat();
+}
+
+bool Half::operator>=(const Half other) const
+{
+    return ToFloat() >= other.ToFloat();
+}
+
+bool Half::operator<(const Half other) const
+{
+    return ToFloat() < other.ToFloat();
+}
+
+bool Half::operator<=(const Half other) const
+{
+    return ToFloat() <= other.ToFloat();
+}
+
+Half Half::operator-() const
+{
+    return Half(-ToFloat());
+}
+
 // == Random ======================================================================================
 
 void Random::Roll(uint32_t numRolls)
