@@ -126,7 +126,7 @@ static void TransformVertex(MeshVertex& v, const Float3& p, const Float3& s, con
     v.Bitangent = Float3::Transform(v.Bitangent, q);
 }
 
-static const uint64_t CacheVersion = 6;
+static const uint64_t CacheVersion = 7;
 static const char* CacheDir = "ModelCache";
 
 static string MakeModelCachePath(ModelLoadSettings settings)
@@ -197,7 +197,9 @@ void Mesh::InitFromAssimpMesh(const aiMesh& assimpMesh, const ModelLoadSettings&
         for(uint64_t i = 0; i < numVertices; ++i)
         {
             dstVertices[i].Tangent = Float3::TransformDirection(ConvertVector(assimpMesh.mTangents[i]), transform);
-            dstVertices[i].Bitangent = Float3::TransformDirection(ConvertVector(assimpMesh.mBitangents[i]) * -1.0f, transform);
+            Float3 assimpBitangent = Float3::TransformDirection(ConvertVector(assimpMesh.mBitangents[i]) * -1.0f, transform);
+            dstVertices[i].Bitangent = Float3::Normalize(Float3::Cross(dstVertices[i].Normal, dstVertices[i].Tangent));
+            dstVertices[i].Bitangent *= Float3::Dot(assimpBitangent, dstVertices[i].Bitangent) > 0.0f ? -1.0f : 1.0f;
         }
     }
 
