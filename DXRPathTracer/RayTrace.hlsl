@@ -170,29 +170,10 @@ Material GetGeometryMaterial(in uint geometryIdx)
     return materialBuffer[geoInfo.MaterialIdx];
 }
 
-float ShadowRayVisibility(RayDesc ray, uint pathLength)
-{
-    ShadowPayload payload;
-
-    uint traceRayFlags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
-
-    // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
-    if (pathLength > AppSettings.MaxAnyHitPathLength)
-        traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
-
-    const uint hitGroupOffset = RayTypeShadow;
-    const uint hitGroupGeoMultiplier = NumRayTypes;
-    const uint missShaderIdx = RayTypeShadow;
-    TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, ray, payload);
-
-    return payload.Visibility;
-}
-
 float4 PathTrace(RayDesc initialRay, inout RNG rng)
 {
     float3 pathRadiance = 0.0f;
     float3 pathThroughput = 1.0f;
-    bool isDiffusePath = false;
     float pathMaxRoughness = 0.0f;
     float primaryRayT = -1.0f;
     Medium currentMedium = Medium::Default();
@@ -219,7 +200,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, segmentRay, payload);
 
         if (AppSettings.DrawDebugPaths)
-            ShaderDebug::DrawArrow(segmentRay.Origin, segmentRay.Origin + segmentRay.Direction * payload.HitT, float4(0, 1, 0, 1.0f), 0.025f);
+            ShaderDebug::DrawArrow(segmentRay.Origin, segmentRay.Origin + segmentRay.Direction * (payload.HitT >= 0.0f ? payload.HitT : 1000.0f), float4(0, 1, 0, 1.0f), 0.025f);
 
         if (pathLength == 1)
             primaryRayT = payload.HitT;
@@ -265,7 +246,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const Medium enteringMedium = Medium::Init(material);
             if (enteringMedium.IsVolumetric() && !enteringMedium.HasSpecular())
             {
-                // Hust continue on and we'll handle scattering in the next iteration
+                // Just continue on and we'll handle scattering in the next iteration
                 if (currentMedium.IsVolumetric())
                     currentMedium = Medium::Default();
                 else
@@ -307,8 +288,10 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 normalTS.z = sqrt(1.0f - saturate(normalTS.x * normalTS.x + normalTS.y * normalTS.y));
                 normalWS = lerp(normalWS, normalize(mul(normalTS, tangentToWorld)), material.NormalMapIntensity);
 
-                tangentToWorld._31_32_33 = normalWS;
+                // tangentToWorld._31_32_33 = normalWS;
             }
+
+            tangentToWorld = CoordinateSystem(normalWS);
 
             float3 baseColor = 1.0f;
             if(AppSettings.EnableBaseColorMaps)
@@ -322,7 +305,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float metallic = saturate(metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x + material.MetallicOffset + AppSettings.MetallicOffset);
 
             const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && !material.IsVolumetric());
-            const bool enableSpecular =  (AppSettings.EnableSpecular && material.HasSpecular() && (AppSettings.EnableIndirectSpecular ? !(AppSettings.AvoidCausticPaths && isDiffusePath) : (pathLength == 1)));
+            const bool enableSpecular =  (AppSettings.EnableSpecular && material.HasSpecular() && (AppSettings.EnableIndirectSpecular || pathLength == 1));
+            const bool enableSun = AppSettings.EnableSun && dot(normalWS, RayTraceCB.SunDirectionWS) >= 0.0f;
             if (enableDiffuse == false && enableSpecular == false)
                 break;
 
@@ -338,48 +322,34 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 pathMaxRoughness = roughness;
             }
 
-            float3 msEnergyCompensation = 1.0.xxx;
-            if(AppSettings.ApplyMultiscatteringEnergyCompensation)
-            {
-                float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalWS, -incomingRayDirWS)), sqrtRoughness);
 
-                // Improve energy preservation by applying a scaled version of the original
-                // single scattering specular lobe. Based on "Practical multiple scattering
-                // compensation for microfacet models" [Turquin19].
-                //
-                // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
-                float Ess = DFG.x;
-                msEnergyCompensation = 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
-            }
-
-            // Choose our next path by importance sampling our BRDFs
+            // Choose our next path with multiple importance sampling
             const float selector = rng.Sample1D();
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) : 0.0f;
             float specularProbability = enableSpecular ? 1.0f : 0.0f;
-            diffuseProbability /= (diffuseProbability + specularProbability);
-            specularProbability /= (diffuseProbability + specularProbability);
+            float lightProbability = enableSun ? 1.0f : 0.0f;
 
-            float3 brdfThroughput = 0.0f;
+            const float numOptions = (enableDiffuse ? 1.0f : 0.0f) + (enableSpecular ? 1.0f : 0.0f) + (enableSun ? 1.0f : 0.0f);
+
+            const float probabilitySum = (diffuseProbability + specularProbability + lightProbability);
+            diffuseProbability /= probabilitySum;
+            specularProbability /= probabilitySum;
+            lightProbability /= probabilitySum;
+
             float3 nextRayDirTS = 0.0f;
+            const float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
+            const float3 viewDirTS = -incomingRayDirTS;
 
             if(selector < diffuseProbability)
             {
                 // We're sampling the diffuse BRDF, so sample a cosine-weighted hemisphere
                 nextRayDirTS = SampleDirectionCosineHemisphere(rng.Sample2D());
-
-                // The PDF of sampling a cosine hemisphere is NdotL / Pi, which cancels out those terms
-                // from the diffuse BRDF and the irradiance integral
-                brdfThroughput = diffuseAlbedo / diffuseProbability;
-
-                isDiffusePath = true;
             }
-            else
+            else if(selector < (diffuseProbability + specularProbability))
             {
-                // We're sampling the GGX specular BRDF by sampling the distribution of visible normals. See this post
-                // for more info: https://schuttejoe.github.io/post/ggximportancesamplingpart2/.
-                // Also see: https://hal.inria.fr/hal-00996995v1/document and https://hal.archives-ouvertes.fr/hal-01509746/document
-                float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
-                float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, rng.Sample2D());
+                nextRayDirTS = SampleGGXReflectionVNDF(viewDirTS, roughness, rng.Sample2D());
+
+                /*float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, rng.Sample2D());
                 float3 sampleDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
 
                 float3 normalTS = float3(0.0f, 0.0f, 1.0f);
@@ -405,8 +375,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
 
                 brdfThroughput = specularProbability;
-
-                isDiffusePath = false;
 
                 const float refractProbability = currentMedium.IsVolumetric() ? saturate(1.0f - F.x) : 0.0f;
                 if (rng.Sample1D() < refractProbability)
@@ -434,12 +402,39 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                         float Ess = DFG.x;
                         brdfThroughput *= 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
                     }
-                }
+                }*/
+            }
+            else
+            {
+                const float3x3 sunFrame = CoordinateSystem(RayTraceCB.SunDirectionWS);
+                const float3 nextRayDirWS = mul(SampleDirectionCone(rng.Sample2D(), RayTraceCB.CosSunAngularRadius), sunFrame);
+                nextRayDirTS = normalize(mul(nextRayDirWS, transpose(tangentToWorld)));
             }
 
             const float3 nextRayDirWS = normalize(mul(nextRayDirTS, tangentToWorld));
+            const float nDotL = saturate(nextRayDirTS.z);
 
-            pathThroughput *= brdfThroughput;
+            const float diffusePDF = enableDiffuse ? SampleDirectionCosineHemisphere_PDF(nDotL) : 0.0f;
+            const float specularPDF = enableSpecular ? SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness) : 0.0f;
+            const float lightPDF = (enableSun && dot(nextRayDirWS, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
+            const float invPDF = numOptions / (diffusePDF + specularPDF + lightPDF);
+            if(nDotL > 0.0f && invPDF > 0.0f)
+            {
+                float3 brdf = 0.0f;
+
+                if (enableDiffuse)
+                    brdf += diffuseAlbedo * InvPi;
+
+                if(enableSpecular)
+                {
+                    float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
+                    float3 normalTS = float3(0, 0, 1);
+                    float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
+                    brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec;
+                }
+
+                pathThroughput *= brdf * nDotL * invPDF;
+            }
 
             // Shoot another ray to get the next path
             RayDesc newRay;
@@ -467,9 +462,12 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 TextureCube skyTexture = ResourceDescriptorHeap[RayTraceCB.SkyTextureIdx];
                 skyEmissive = AppSettings.EnableSky ? skyTexture.SampleLevel(LinearSampler, rayDir, 0.0f).xyz : 0.0.xxx;
 
-                float cosSunAngle = dot(rayDir, RayTraceCB.SunDirectionWS);
-                if(cosSunAngle >= RayTraceCB.CosSunAngularRadius)
-                    skyEmissive = RayTraceCB.SunRenderColor;
+                if (AppSettings.EnableSun)
+                {
+                    float cosSunAngle = dot(rayDir, RayTraceCB.SunDirectionWS);
+                    if(cosSunAngle >= RayTraceCB.CosSunAngularRadius)
+                        skyEmissive = RayTraceCB.SunRenderColor;
+                }
             }
 
             pathRadiance += skyEmissive * pathThroughput;

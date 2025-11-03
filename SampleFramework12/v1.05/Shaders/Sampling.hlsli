@@ -160,6 +160,52 @@ float3 SampleGGXVisibleNormal(float3 wo, float ax, float ay, float2 u1u2)
     return normalize(float3(ax * n.x, ay * n.y, max(0.0f, n.z)));
 }
 
+// Bounded VNDF Sampling for Smith–GGX Reflections
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
+float3 SampleGGXReflectionVNDF(float3 i, float2 alpha, float2 u1u2)
+{
+    float3 i_std = normalize(float3(i.xy * alpha, i.z));
+
+    // Sample a spherical cap
+    float phi = 2.0f * Pi * u1u2.x;
+    float a = saturate(min(alpha.x , alpha.y)); // Eq . 6
+    float s = 1.0f + length(float2(i.x , i.y)); // Omit sgn for a <=1
+    float a2 = a * a;
+    float s2 = s * s;
+    float k = (1.0f - a2) * s2 / ( s2 + a2 * i.z * i.z); // Eq . 5
+    float b = i.z > 0 ? k * i_std.z : i_std.z;
+    float z = mad(1.0f - u1u2.y, 1.0f + b, -b);
+    float sinTheta = sqrt(saturate(1.0f - z * z));
+    float3 o_std = { sinTheta * cos(phi) , sinTheta * sin (phi) , z };
+
+    // Compute the microfacet normal m
+    float3 m_std = i_std + o_std;
+    float3 m = normalize(float3(m_std.xy * alpha , m_std.z));
+
+    // Return the reflection vector o
+    return 2.0f * dot (i , m) * m - i;
+}
+
+float SampleGGXReflectionVNDF_PDF(float3 i, float3 o, float2 alpha)
+{
+    float3 m = normalize(i + o);
+    float ndf = GGX_D(alpha, m.z, m.x, m.y);
+    float2 ai = alpha * i. xy ;
+    float len2 = dot(ai , ai);
+    float t = sqrt(len2 + i.z * i.z);
+    if (i.z >= 0.0f)
+    {
+        float a = saturate (min(alpha.x, alpha.y)); // Eq . 6
+        float s = 1.0f + length (float2(i.x , i.y)); // Omit sgn for a <=1
+        float a2 = a * a;
+        float s2 = s * s;
+        float k = (1.0f - a2) * s2 / (s2 + a2 * i.z * i.z); // Eq . 5
+        return ndf / (2.0f * (k * i.z + t)); // Eq . 8 * || dm / do ||
+    }
+    // Numerically stable form of the previous PDF for i.z < 0
+    return ndf * (t - i.z) / (2.0f * len2 ); // = Eq . 7 * || dm / do ||
+}
+
 // Returns a random direction on the unit sphere
 float3 SampleDirectionSphere(float2 u1u2)
 {

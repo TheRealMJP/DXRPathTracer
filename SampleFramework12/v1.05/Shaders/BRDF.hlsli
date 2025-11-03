@@ -187,6 +187,24 @@ float SmithGGXMaskingShadowing(float3 n, float3 l, float3 v, float a2)
     return 2.0f * dotNL * dotNV / (denomA + denomB);
 }
 
+float GGX_D(float alpha, float nDotH)
+{
+    float alpha2 = alpha * alpha;
+    float x = nDotH * nDotH * (alpha2 - 1) + 1;
+    return alpha2 / (Pi * x * x);
+}
+
+float GGX_D(float2 alpha, float nDotH, float xDotH, float yDotH)
+{
+    float2 alpha2 = alpha * alpha;
+    float xDotH2 = xDotH * xDotH;
+    float yDotH2 = yDotH * yDotH;
+    float nDotH2 = nDotH * nDotH;
+    float denom = (xDotH2 / alpha2.x) + (yDotH2 / alpha2.y) + nDotH2;
+    denom *= denom;
+    return (1.0f / (Pi * alpha.x * alpha.y)) * 1.0f / denom;
+}
+
 //-------------------------------------------------------------------------------------------------
 // Computes the specular term using a GGX microfacet distribution, with a matching
 // geometry factor and visibility term. Based on "Microfacet Models for Refraction Through
