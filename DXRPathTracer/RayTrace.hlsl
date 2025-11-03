@@ -311,7 +311,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 break;
 
             Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
-            const float sqrtRoughness = clamp(roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x * material.RoughnessScale * AppSettings.RoughnessScale, 0.01f, 1.0f);
+            const float sqrtRoughness = clamp(roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x * material.RoughnessScale * AppSettings.RoughnessScale, 0.025f, 1.0f);
 
             const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
             const float3 specularF0 = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
@@ -322,14 +322,11 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 pathMaxRoughness = roughness;
             }
 
-
             // Choose our next path with multiple importance sampling
             const float selector = rng.Sample1D();
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) : 0.0f;
             float specularProbability = enableSpecular ? 1.0f : 0.0f;
-            float lightProbability = enableSun ? 1.0f : 0.0f;
-
-            const float numOptions = (enableDiffuse ? 1.0f : 0.0f) + (enableSpecular ? 1.0f : 0.0f) + (enableSun ? 1.0f : 0.0f);
+            float lightProbability = enableSun ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
 
             const float probabilitySum = (diffuseProbability + specularProbability + lightProbability);
             diffuseProbability /= probabilitySum;
@@ -417,7 +414,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float diffusePDF = enableDiffuse ? SampleDirectionCosineHemisphere_PDF(nDotL) : 0.0f;
             const float specularPDF = enableSpecular ? SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness) : 0.0f;
             const float lightPDF = (enableSun && dot(nextRayDirWS, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
-            const float invPDF = numOptions / (diffusePDF + specularPDF + lightPDF);
+            const float invPDF = 1.0f / (diffuseProbability * diffusePDF + specularProbability * specularPDF + lightProbability * lightPDF);
             if(nDotL > 0.0f && invPDF > 0.0f)
             {
                 float3 brdf = 0.0f;

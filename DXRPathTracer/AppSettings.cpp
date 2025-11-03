@@ -93,7 +93,7 @@ namespace AppSettings
         SunAreaLightApproximation.Initialize("SunAreaLightApproximation", "Sun And Sky", "Sun Area Light Approximation", "Controls whether the sun is treated as a disc area light in the real-time shader", true);
         Settings.AddSetting(&SunAreaLightApproximation);
 
-        SunSize.Initialize("SunSize", "Sun And Sky", "Sun Size", "Angular radius of the sun in degrees", 5.0000f, 0.0100f, 340282300000000000000000000000000000000.0000f, 0.0100f, ConversionMode::None, 1.0000f);
+        SunSize.Initialize("SunSize", "Sun And Sky", "Sun Size", "Angular radius of the sun in degrees", 1.0000f, 0.0100f, 340282300000000000000000000000000000000.0000f, 0.0100f, ConversionMode::None, 1.0000f);
         Settings.AddSetting(&SunSize);
 
         SunDirection.Initialize("SunDirection", "Sun And Sky", "Sun Direction", "Direction of the sun", Float3(0.2600f, 0.9870f, -0.1600f), true);
