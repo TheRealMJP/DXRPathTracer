@@ -685,7 +685,8 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::MaxAnyHitPathLength,
         &AppSettings::AvoidCausticPaths,
         &AppSettings::ClampRoughness,
-        &AppSettings::ApplyMultiscatteringEnergyCompensation
+        &AppSettings::ApplyMultiscatteringEnergyCompensation,
+        &AppSettings::EnableDirectLightSampling,
     };
 
     for(const Setting* setting : settingsToCheck)

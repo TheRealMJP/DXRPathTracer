@@ -207,6 +207,8 @@ public class Settings
         [HelpText("Enables indirect specular reflections, it produces noisier output")]
         bool EnableIndirectSpecular = true;
 
+        bool EnableDirectLightSampling = true;
+
         [HelpText("Apply energy compensation to recover energy missing due to multiscattering. Based on 'Practical multiple scattering compensation for microfacet models' [Turquin19]")]
         bool ApplyMultiscatteringEnergyCompensation = true;
 

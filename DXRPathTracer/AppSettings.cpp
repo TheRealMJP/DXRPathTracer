@@ -57,6 +57,7 @@ namespace AppSettings
     BoolSetting EnableDirect;
     BoolSetting EnableIndirect;
     BoolSetting EnableIndirectSpecular;
+    BoolSetting EnableDirectLightSampling;
     BoolSetting ApplyMultiscatteringEnergyCompensation;
     FloatSetting RoughnessScale;
     FloatSetting MetallicOffset;
@@ -171,6 +172,9 @@ namespace AppSettings
         EnableIndirectSpecular.Initialize("EnableIndirectSpecular", "Debug", "Enable Indirect Specular", "Enables indirect specular reflections, it produces noisier output", true);
         Settings.AddSetting(&EnableIndirectSpecular);
 
+        EnableDirectLightSampling.Initialize("EnableDirectLightSampling", "Debug", "Enable Direct Light Sampling", "", true);
+        Settings.AddSetting(&EnableDirectLightSampling);
+
         ApplyMultiscatteringEnergyCompensation.Initialize("ApplyMultiscatteringEnergyCompensation", "Debug", "Apply Multiscattering Energy Compensation", "Apply energy compensation to recover energy missing due to multiscattering. Based on 'Practical multiple scattering compensation for microfacet models' [Turquin19]", true);
         Settings.AddSetting(&ApplyMultiscatteringEnergyCompensation);
 
@@ -228,6 +232,7 @@ namespace AppSettings
         cbData.EnableDirect = EnableDirect;
         cbData.EnableIndirect = EnableIndirect;
         cbData.EnableIndirectSpecular = EnableIndirectSpecular;
+        cbData.EnableDirectLightSampling = EnableDirectLightSampling;
         cbData.ApplyMultiscatteringEnergyCompensation = ApplyMultiscatteringEnergyCompensation;
         cbData.RoughnessScale = RoughnessScale;
         cbData.MetallicOffset = MetallicOffset;

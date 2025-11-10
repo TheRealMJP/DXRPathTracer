@@ -25,6 +25,7 @@ struct AppSettings_CBLayout
     bool EnableDirect;
     bool EnableIndirect;
     bool EnableIndirectSpecular;
+    bool EnableDirectLightSampling;
     bool ApplyMultiscatteringEnergyCompensation;
     float RoughnessScale;
     float MetallicOffset;
@@ -57,6 +58,7 @@ struct AppSettings_Values
     bool EnableDirect;
     bool EnableIndirect;
     bool EnableIndirectSpecular;
+    bool EnableDirectLightSampling;
     bool ApplyMultiscatteringEnergyCompensation;
     float RoughnessScale;
     float MetallicOffset;
@@ -88,6 +90,7 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.EnableDirect,
     AppSettingsCB.EnableIndirect,
     AppSettingsCB.EnableIndirectSpecular,
+    AppSettingsCB.EnableDirectLightSampling,
     AppSettingsCB.ApplyMultiscatteringEnergyCompensation,
     AppSettingsCB.RoughnessScale,
     AppSettingsCB.MetallicOffset,

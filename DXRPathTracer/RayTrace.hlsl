@@ -306,7 +306,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
             const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && !material.IsVolumetric());
             const bool enableSpecular =  (AppSettings.EnableSpecular && material.HasSpecular() && (AppSettings.EnableIndirectSpecular || pathLength == 1));
-            const bool enableSun = AppSettings.EnableSun && dot(normalWS, RayTraceCB.SunDirectionWS) >= 0.0f;
+            const bool enableSun = AppSettings.EnableSun; //  && dot(normalWS, RayTraceCB.SunDirectionWS) >= 0.0f;
             if (enableDiffuse == false && enableSpecular == false)
                 break;
 
@@ -326,7 +326,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float selector = rng.Sample1D();
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) : 0.0f;
             float specularProbability = enableSpecular ? 1.0f : 0.0f;
-            float lightProbability = enableSun ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
+            float lightProbability = (enableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
 
             const float probabilitySum = (diffuseProbability + specularProbability + lightProbability);
             diffuseProbability /= probabilitySum;
@@ -414,24 +414,23 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float diffusePDF = enableDiffuse ? SampleDirectionCosineHemisphere_PDF(nDotL) : 0.0f;
             const float specularPDF = enableSpecular ? SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness) : 0.0f;
             const float lightPDF = (enableSun && dot(nextRayDirWS, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
-            const float invPDF = 1.0f / (diffuseProbability * diffusePDF + specularProbability * specularPDF + lightProbability * lightPDF);
-            if(nDotL > 0.0f && invPDF > 0.0f)
+            const float totalPDF = diffuseProbability * diffusePDF + specularProbability * specularPDF + lightProbability * lightPDF;
+            const float invPDF = totalPDF > 0.0f ? (1.0f / totalPDF) : 0.0f;
+
+            float3 brdf = 0.0f;
+
+            if (enableDiffuse)
+                brdf += diffuseAlbedo * InvPi;
+
+            if(enableSpecular)
             {
-                float3 brdf = 0.0f;
-
-                if (enableDiffuse)
-                    brdf += diffuseAlbedo * InvPi;
-
-                if(enableSpecular)
-                {
-                    float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
-                    float3 normalTS = float3(0, 0, 1);
-                    float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
-                    brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec;
-                }
-
-                pathThroughput *= brdf * nDotL * invPDF;
+                float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
+                float3 normalTS = float3(0, 0, 1);
+                float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
+                brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec;
             }
+
+            pathThroughput *= brdf * nDotL * invPDF;
 
             // Shoot another ray to get the next path
             RayDesc newRay;

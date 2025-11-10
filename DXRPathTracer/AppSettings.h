@@ -65,6 +65,7 @@ namespace AppSettings
     extern BoolSetting EnableDirect;
     extern BoolSetting EnableIndirect;
     extern BoolSetting EnableIndirectSpecular;
+    extern BoolSetting EnableDirectLightSampling;
     extern BoolSetting ApplyMultiscatteringEnergyCompensation;
     extern FloatSetting RoughnessScale;
     extern FloatSetting MetallicOffset;
@@ -97,6 +98,7 @@ namespace AppSettings
         bool32 EnableDirect;
         bool32 EnableIndirect;
         bool32 EnableIndirectSpecular;
+        bool32 EnableDirectLightSampling;
         bool32 ApplyMultiscatteringEnergyCompensation;
         float RoughnessScale;
         float MetallicOffset;
