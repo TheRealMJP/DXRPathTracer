@@ -488,25 +488,6 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
-        // Shadow hit group
-        D3D12_HIT_GROUP_DESC hitDesc = { };
-        hitDesc.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
-        hitDesc.ClosestHitShaderImport = L"ShadowHitShader";
-        hitDesc.HitGroupExport = L"ShadowHitGroup";
-        builder.AddSubObject(hitDesc);
-    }
-
-    {
-        // Shadow alpha-test hit group
-        D3D12_HIT_GROUP_DESC hitDesc = { };
-        hitDesc.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
-        hitDesc.ClosestHitShaderImport = L"ShadowHitShader";
-        hitDesc.AnyHitShaderImport = L"ShadowAnyHitShader";
-        hitDesc.HitGroupExport = L"ShadowAlphaTestHitGroup";
-        builder.AddSubObject(hitDesc);
-    }
-
-    {
         D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = { };
         shaderConfig.MaxAttributeSizeInBytes = 2 * sizeof(float);                           // float2 barycentrics;
         shaderConfig.MaxPayloadSizeInBytes = 3 * sizeof(float) + 2 * sizeof(uint32_t) * 2;  // float HitT + uint HitGeometryIndex + uint HitTriangleIndex + float2 HitBarycentrics + bool IsFrontFace
@@ -536,10 +517,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     const void* rayGenID = psoProps->GetShaderIdentifier(L"RaygenShader");
     const void* hitGroupID = psoProps->GetShaderIdentifier(L"HitGroup");
     const void* alphaTestHitGroupID = psoProps->GetShaderIdentifier(L"AlphaTestHitGroup");
-    const void* shadowHitGroupID = psoProps->GetShaderIdentifier(L"ShadowHitGroup");
-    const void* shadowAlphaTestHitGroupID = psoProps->GetShaderIdentifier(L"ShadowAlphaTestHitGroup");
     const void* missID = psoProps->GetShaderIdentifier(L"MissShader");
-    const void* shadowMissID = psoProps->GetShaderIdentifier(L"ShadowMissShader");
 
     // Make our shader tables
     {
@@ -555,7 +533,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     }
 
     {
-        ShaderIdentifier missRecords[2] = { ShaderIdentifier(missID), ShaderIdentifier(shadowMissID) };
+        ShaderIdentifier missRecords[1] = { ShaderIdentifier(missID) };
 
         StructuredBufferInit sbInit;
         sbInit.Stride = sizeof(ShaderIdentifier);
@@ -569,7 +547,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
     {
         const uint32_t numMeshes = uint32_t(currentModel->NumMeshes());
 
-        Array<HitGroupRecord> hitGroupRecords(numMeshes * 2);
+        Array<HitGroupRecord> hitGroupRecords(numMeshes);
         for(uint64_t i = 0; i < numMeshes; ++i)
         {
             // Use the alpha test hit group (with an any hit shader) if the material has an opacity map
@@ -579,8 +557,7 @@ void DXRPathTracer::CreateRayTracingPSOs()
             const MeshMaterial& material = currentModel->Materials()[materialIdx];
             const bool alphaTest = material.Textures[uint32_t(MaterialTextures::Opacity)] != nullptr;
 
-            hitGroupRecords[i * 2 + 0].ID = alphaTest ? ShaderIdentifier(alphaTestHitGroupID) : ShaderIdentifier(hitGroupID);
-            hitGroupRecords[i * 2 + 1].ID = alphaTest ? ShaderIdentifier(shadowAlphaTestHitGroupID) : ShaderIdentifier(shadowHitGroupID);
+            hitGroupRecords[i].ID = alphaTest ? ShaderIdentifier(alphaTestHitGroupID) : ShaderIdentifier(hitGroupID);
         }
 
         rtHitTable.Initialize({

@@ -46,15 +46,9 @@ struct [raypayload] PrimaryPayload
     bool HitFrontFace : read(caller) : write(closesthit);
 };
 
-struct [raypayload] ShadowPayload
-{
-    float Visibility : read(caller) : write(closesthit, miss);
-};
-
 enum RayTypes
 {
-    RayTypeRadiance = 0,
-    RayTypeShadow = 1,
+    RayTypeHitInfo = 0,
 
     NumRayTypes
 };
@@ -192,9 +186,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         if(pathLength > AppSettings.MaxAnyHitPathLength)
             traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
-        const uint hitGroupOffset = RayTypeRadiance;
+        const uint hitGroupOffset = RayTypeHitInfo;
         const uint hitGroupGeoMultiplier = NumRayTypes;
-        const uint missShaderIdx = RayTypeRadiance;
+        const uint missShaderIdx = RayTypeHitInfo;
 
         PrimaryPayload payload;
         TraceRay(GetSceneAS(), traceRayFlags, 0xFFFFFFFF, hitGroupOffset, hitGroupGeoMultiplier, missShaderIdx, segmentRay, payload);
@@ -570,32 +564,8 @@ void AnyHitShader(inout PrimaryPayload payload, in HitAttributes attr)
         IgnoreHit();
 }
 
-[shader("anyhit")]
-void ShadowAnyHitShader(inout ShadowPayload payload, in HitAttributes attr)
-{
-    const MeshVertex hitSurface = GetHitSurface(attr.barycentrics, GeometryIndex(), PrimitiveIndex(), true);
-    const Material material = GetGeometryMaterial(GeometryIndex());
-
-    // Standard alpha testing
-    Texture2D opacityMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Opacity)];
-    if(opacityMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x < 0.35f)
-        IgnoreHit();
-}
-
 [shader("miss")]
 void MissShader(inout PrimaryPayload payload)
 {
     payload.HitT = -1.0f;
-}
-
-[shader("closesthit")]
-void ShadowHitShader(inout ShadowPayload payload, in HitAttributes attr)
-{
-    payload.Visibility = 0.0f;
-}
-
-[shader("miss")]
-void ShadowMissShader(inout ShadowPayload payload)
-{
-    payload.Visibility = 1.0f;
 }
