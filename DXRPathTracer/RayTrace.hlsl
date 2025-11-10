@@ -219,13 +219,36 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
                 const float absorbProbability = currentMedium.SigmaA / sigmaT;
                 const float scatterProbability = currentMedium.SigmaS / sigmaT;
+
                 const float uScatterMode = rng.Sample1D();
                 if (uScatterMode < absorbProbability)
                     break;
 
-                // We can ignore the PDF, it's exact for sampling HG and cancels out
-                const float2 phaseU1U2 = rng.Sample2D();
-                const float3 scatterDir = SampleHenyeyGreenstein(-segmentRay.Direction, currentMedium.Anisotropy, phaseU1U2);
+                float phaseProbility = 1.0f;
+                float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? 1.0f : 0.0f;
+                const float probabilitySum = phaseProbility + lightProbability;
+                phaseProbility /= probabilitySum;
+                lightProbability /= probabilitySum;
+
+                const float phaseSelector = rng.Sample1D();
+                float3 scatterDir = 0.0f;
+                if (phaseSelector < phaseProbility)
+                {
+                    scatterDir = SampleHenyeyGreenstein(-segmentRay.Direction, currentMedium.Anisotropy, rng.Sample2D());
+                }
+                else
+                {
+                    const float3x3 sunFrame = CoordinateSystem(RayTraceCB.SunDirectionWS);
+                    scatterDir = mul(SampleDirectionCone(rng.Sample2D(), RayTraceCB.CosSunAngularRadius), sunFrame);
+                }
+
+                const float phaseFunction = HenyeyGreenstein(dot(scatterDir, segmentRay.Direction), currentMedium.Anisotropy);
+                const float phasePDF = phaseFunction;
+                const float lightPDF = (AppSettings.EnableSun && dot(scatterDir, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
+                const float totalPDF = phaseProbility * phasePDF + lightProbability * lightPDF;
+                const float invPDF = totalPDF > 0.0f ? (1.0f / totalPDF) : 0.0f;
+
+                pathThroughput *= phaseFunction * invPDF;
 
                 RayDesc newRay;
                 newRay.Origin = segmentRay.Origin + (segmentRay.Direction * scatterEventT);
@@ -306,7 +329,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
             const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && !material.IsVolumetric());
             const bool enableSpecular =  (AppSettings.EnableSpecular && material.HasSpecular() && (AppSettings.EnableIndirectSpecular || pathLength == 1));
-            const bool enableSun = AppSettings.EnableSun; //  && dot(normalWS, RayTraceCB.SunDirectionWS) >= 0.0f;
             if (enableDiffuse == false && enableSpecular == false)
                 break;
 
@@ -326,7 +348,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float selector = rng.Sample1D();
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) : 0.0f;
             float specularProbability = enableSpecular ? 1.0f : 0.0f;
-            float lightProbability = (enableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
+            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
 
             const float probabilitySum = (diffuseProbability + specularProbability + lightProbability);
             diffuseProbability /= probabilitySum;
@@ -413,7 +435,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
             const float diffusePDF = enableDiffuse ? SampleDirectionCosineHemisphere_PDF(nDotL) : 0.0f;
             const float specularPDF = enableSpecular ? SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness) : 0.0f;
-            const float lightPDF = (enableSun && dot(nextRayDirWS, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
+            const float lightPDF = (AppSettings.EnableSun && dot(nextRayDirWS, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
             const float totalPDF = diffuseProbability * diffusePDF + specularProbability * specularPDF + lightProbability * lightPDF;
             const float invPDF = totalPDF > 0.0f ? (1.0f / totalPDF) : 0.0f;
 
