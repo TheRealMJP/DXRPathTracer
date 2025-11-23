@@ -164,6 +164,28 @@ Material GetGeometryMaterial(in uint geometryIdx)
     return materialBuffer[geoInfo.MaterialIdx];
 }
 
+float DielectricFresnel(Medium currentMedium, Medium enteringMedium, float3 microfacetNormal, float3 viewDir)
+{
+    float F = 1.0f;
+    const float cosThetaI = saturate(dot(viewDir, microfacetNormal));
+    if (currentMedium.IsVolumetric())
+    {
+        // From "Extending the Disney BRDF to a BSDF with Integrated Subsurface Scattering", use cos(thetaT)
+        // so that we get total internal reflection behavior
+        const float cosThetaT2 = 1.0f - ((1.0f - (cosThetaI * cosThetaI))  / Square(rcp(currentMedium.IOR)));
+        if(cosThetaT2 > 0)
+            F = Fresnel(IORToF0Air(currentMedium.IOR), sqrt(cosThetaT2));
+        else
+            F = 1.0f;   // Total internal reflection
+    }
+    else
+    {
+        F = Fresnel(IORToF0Air(enteringMedium.IOR), cosThetaI);
+    }
+
+    return F;
+}
+
 float4 PathTrace(RayDesc initialRay, inout RNG rng)
 {
     float3 pathRadiance = 0.0f;
@@ -185,6 +207,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
         // Stop using the any-hit shader once we've hit the max path length, since it's *really* expensive
         if(pathLength > AppSettings.MaxAnyHitPathLength)
             traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
+
+        // ##########################################################################
+        traceRayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
 
         const uint hitGroupOffset = RayTypeHitInfo;
         const uint hitGroupGeoMultiplier = NumRayTypes;
@@ -353,6 +378,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
             const float3 viewDirTS = -incomingRayDirTS;
 
+            bool refracted = false;
+            float refractPDF = 0.0f;
+
             if(selector < diffuseProbability)
             {
                 // We're sampling the diffuse BRDF, so sample a cosine-weighted hemisphere
@@ -360,62 +388,31 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             }
             else if(selector < (diffuseProbability + specularProbability))
             {
-                nextRayDirTS = SampleGGXReflectionVNDF(viewDirTS, roughness, rng.Sample2D());
-
-                /*float3 microfacetNormalTS = SampleGGXVisibleNormal(-incomingRayDirTS, roughness, roughness, rng.Sample2D());
-                float3 sampleDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
-
-                float3 normalTS = float3(0.0f, 0.0f, 1.0f);
-
-                float3 F = RayTraceCB.EnableWhiteFurnaceMode ? 1.0.xxx : Fresnel(specularF0, microfacetNormalTS, sampleDirTS);
-                if (currentMedium.IsVolumetric())
+                if (enteringMedium.IsVolumetric() || currentMedium.IsVolumetric())
                 {
-                    // From "Extending the Disney BRDF to a BSDF with Integrated Subsurface Scattering", use cos(thetaT)
-                    // so that we get total internal reflection behavior
-                    const float cosThetaI = saturate(dot(-incomingRayDirTS, microfacetNormalTS));
-                    const float cosThetaT2 = 1.0f - ((1.0f - (cosThetaI * cosThetaI))  / Square(rcp(currentMedium.IOR)));
-                    if(cosThetaT2 > 0)
+                    const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS, roughness, rng.Sample2D());
+                    const float F = DielectricFresnel(currentMedium, enteringMedium, microfacetNormalTS, viewDirTS);
+                    const float refractProbability = 1.0f; // saturate(1.0f - F);
+                    refracted = rng.Sample1D() <  refractProbability;
+                    if (refracted)
                     {
-                        F = Fresnel(IORToF0Air(currentMedium.IOR), sqrt(cosThetaT2));
+                        const float interfaceIOR = currentMedium.IOR / enteringMedium.IOR;
+                        nextRayDirTS = refract(incomingRayDirTS, microfacetNormalTS, interfaceIOR);
+                        // ##########################################################################
+                        refractPDF = 1; // SampleGGXRefractionVNDF_PDF(viewDirTS, nextRayDirTS, microfacetNormalTS, roughness, interfaceIOR);
+                        pathThroughput /= refractProbability;
+                        pathThroughput *= saturate(1.0f - F);
                     }
                     else
                     {
-                        F = 1.0f;
+                        nextRayDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
+                        pathThroughput /= saturate(1.0f - refractProbability);
                     }
-                }
-
-                float G1 = SmithGGXMasking(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
-                float G2 = SmithGGXMaskingShadowing(normalTS, sampleDirTS, -incomingRayDirTS, roughness * roughness);
-
-                brdfThroughput = specularProbability;
-
-                const float refractProbability = currentMedium.IsVolumetric() ? saturate(1.0f - F.x) : 0.0f;
-                if (rng.Sample1D() < refractProbability)
-                {
-                    // brdfThroughput *= saturate(1.0f - F.x);
-                    // brdfThroughput /= refractProbability;
-                    float interfaceIOR = currentMedium.IOR / enteringMedium.IOR;
-                    nextRayDirTS = refract(incomingRayDirTS, microfacetNormalTS, interfaceIOR);
                 }
                 else
                 {
-                    brdfThroughput *= (F * (G2 / G1));
-                    brdfThroughput /= (1.0f - refractProbability);
-                    nextRayDirTS = sampleDirTS;
-
-                    if(AppSettings.ApplyMultiscatteringEnergyCompensation)
-                    {
-                        float2 DFG = GGXEnvironmentBRDFScaleBias(saturate(dot(normalTS, -incomingRayDirWS)), sqrtRoughness);
-
-                        // Improve energy preservation by applying a scaled version of the original
-                        // single scattering specular lobe. Based on "Practical multiple scattering
-                        // compensation for microfacet models" [Turquin19].
-                        //
-                        // See: https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf
-                        float Ess = DFG.x;
-                        brdfThroughput *= 1.0.xxx + specularF0 * (1.0f / Ess - 1.0f);
-                    }
-                }*/
+                    nextRayDirTS = SampleGGXReflectionVNDF(viewDirTS, roughness, rng.Sample2D());
+                }
             }
             else
             {
@@ -427,8 +424,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float3 nextRayDirWS = normalize(mul(nextRayDirTS, tangentToWorld));
             const float nDotL = saturate(nextRayDirTS.z);
 
+
             const float diffusePDF = enableDiffuse ? SampleDirectionCosineHemisphere_PDF(nDotL) : 0.0f;
-            const float specularPDF = enableSpecular ? SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness) : 0.0f;
+            const float specularPDF = enableSpecular ? (refracted ? refractPDF : SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness)) : 0.0f;
             const float lightPDF = (AppSettings.EnableSun && dot(nextRayDirWS, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
             const float totalPDF = diffuseProbability * diffusePDF + specularProbability * specularPDF + lightProbability * lightPDF;
             const float invPDF = totalPDF > 0.0f ? (1.0f / totalPDF) : 0.0f;
@@ -436,17 +434,24 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             float3 brdf = 0.0f;
 
             if (enableDiffuse)
-                brdf += diffuseAlbedo * InvPi;
+                brdf += diffuseAlbedo * InvPi * nDotL;
 
             if(enableSpecular)
             {
-                float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
-                float3 normalTS = float3(0, 0, 1);
-                float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
-                brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec;
+                if (refracted)
+                {
+                    brdf = 1.0f;
+                }
+                else
+                {
+                    float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
+                    float3 normalTS = float3(0, 0, 1);
+                    float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
+                    brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec * nDotL;
+                }
             }
 
-            pathThroughput *= brdf * nDotL * invPDF;
+            pathThroughput *= brdf * invPDF;
 
             // Shoot another ray to get the next path
             RayDesc newRay;

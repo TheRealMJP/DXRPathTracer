@@ -162,7 +162,7 @@ float3 SampleGGXVisibleNormal(float3 wo, float ax, float ay, float2 u1u2)
 
 // Bounded VNDF Sampling for Smith–GGX Reflections
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
-float3 SampleGGXReflectionVNDF(float3 i, float2 alpha, float2 u1u2)
+float3 SampleGGXMicrofacetVNDF(float3 i, float2 alpha, float2 u1u2)
 {
     float3 i_std = normalize(float3(i.xy * alpha, i.z));
 
@@ -182,16 +182,26 @@ float3 SampleGGXReflectionVNDF(float3 i, float2 alpha, float2 u1u2)
     float3 m_std = i_std + o_std;
     float3 m = normalize(float3(m_std.xy * alpha , m_std.z));
 
+    return m;
+
     // Return the reflection vector o
     return 2.0f * dot (i , m) * m - i;
+}
+
+float3 SampleGGXReflectionVNDF(float3 i, float2 alpha, float2 u1u2)
+{
+    float3 m = SampleGGXMicrofacetVNDF(i, alpha, u1u2);
+
+    // Return the reflection vector o
+    return 2.0f * dot (i, m) * m - i;
 }
 
 float SampleGGXReflectionVNDF_PDF(float3 i, float3 o, float2 alpha)
 {
     float3 m = normalize(i + o);
     float ndf = GGX_D(alpha, m.z, m.x, m.y);
-    float2 ai = alpha * i. xy ;
-    float len2 = dot(ai , ai);
+    float2 ai = alpha * i.xy ;
+    float len2 = dot(ai, ai);
     float t = sqrt(len2 + i.z * i.z);
     if (i.z >= 0.0f)
     {
@@ -204,6 +214,21 @@ float SampleGGXReflectionVNDF_PDF(float3 i, float3 o, float2 alpha)
     }
     // Numerically stable form of the previous PDF for i.z < 0
     return ndf * (t - i.z) / (2.0f * len2 ); // = Eq . 7 * || dm / do ||
+}
+
+float SampleGGXMicrofacetVNDF_PDF(float3 i, float3 m, float2 alpha)
+{
+    float3 reflectO = 2.0f * dot (i, m) * m - i;
+    float reflectPDF = SampleGGXReflectionVNDF_PDF(i, reflectO, alpha);
+    return reflectPDF * 4.0f * abs(dot(i, m));
+}
+
+float SampleGGXRefractionVNDF_PDF(float3 i, float3 o, float3 m, float2 alpha, float eta)
+{
+    float microfacetPDF = SampleGGXMicrofacetVNDF_PDF(i, m, alpha);
+    float denom = Square(dot(o, m) + dot(i, m) / eta);
+    float dwm_dwi = abs(dot(o, m)) / denom;
+    return microfacetPDF * dwm_dwi;
 }
 
 // Returns a random direction on the unit sphere
