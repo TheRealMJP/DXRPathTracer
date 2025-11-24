@@ -225,6 +225,13 @@ float SampleGGXMicrofacetVNDF_PDF(float3 i, float3 m, float2 alpha)
 
 float SampleGGXRefractionVNDF_PDF(float3 i, float3 o, float3 m, float2 alpha, float eta)
 {
+    if (m.z < 0.0f)
+    {
+        i *= -1;
+        o *= -1;
+        m *= -1;
+    }
+
     float microfacetPDF = SampleGGXMicrofacetVNDF_PDF(i, m, alpha);
     float denom = Square(dot(o, m) + dot(i, m) / eta);
     float dwm_dwi = abs(dot(o, m)) / denom;

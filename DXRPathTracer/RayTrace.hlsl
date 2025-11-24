@@ -145,12 +145,12 @@ MeshVertex GetHitSurface(in float2 hitBarycentrics, in uint geometryIdx, in uint
     const MeshVertex vtx2 = vtxBuffer[idx2 + geoInfo.VtxOffset];
 
     MeshVertex finalVertex = BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
-    if (frontFace == false)
+    /*if (frontFace == false)
     {
         finalVertex.Normal *= -1;
         finalVertex.Tangent *= -1;
         finalVertex.Bitangent *= -1;
-    }
+    }*/
     return finalVertex;
 }
 
@@ -164,23 +164,23 @@ Material GetGeometryMaterial(in uint geometryIdx)
     return materialBuffer[geoInfo.MaterialIdx];
 }
 
-float DielectricFresnel(Medium currentMedium, Medium enteringMedium, float3 microfacetNormal, float3 viewDir)
+float DielectricFresnel(float currentIOR, float enteringIOR, float3 microfacetNormal, float3 viewDir)
 {
     float F = 1.0f;
     const float cosThetaI = saturate(dot(viewDir, microfacetNormal));
-    if (currentMedium.IsVolumetric())
+    if (currentIOR > enteringIOR)
     {
         // From "Extending the Disney BRDF to a BSDF with Integrated Subsurface Scattering", use cos(thetaT)
         // so that we get total internal reflection behavior
-        const float cosThetaT2 = 1.0f - ((1.0f - (cosThetaI * cosThetaI))  / Square(rcp(currentMedium.IOR)));
+        const float cosThetaT2 = 1.0f - ((1.0f - (cosThetaI * cosThetaI))  / Square(rcp(currentIOR)));
         if(cosThetaT2 > 0)
-            F = Fresnel(IORToF0Air(currentMedium.IOR), sqrt(cosThetaT2));
+            F = Fresnel(IORToF0(currentIOR, enteringIOR), sqrt(cosThetaT2));
         else
             F = 1.0f;   // Total internal reflection
     }
     else
     {
-        F = Fresnel(IORToF0Air(enteringMedium.IOR), cosThetaI);
+        F = Fresnel(IORToF0(currentIOR, enteringIOR), cosThetaI);
     }
 
     return F;
@@ -260,7 +260,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
         // ##########################################################################
-        // traceRayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+        traceRayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+        // traceRayFlags |= RAY_FLAG_CULL_FRONT_FACING_TRIANGLES;
 
         const uint hitGroupOffset = RayTypeHitInfo;
         const uint hitGroupGeoMultiplier = NumRayTypes;
@@ -274,6 +275,10 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
         if (pathLength == 1)
             primaryRayT = payload.HitT;
+
+        // ##########################################################################
+        if (currentMedium.IsVolumetric())
+            currentMedium = Medium::Default();
 
         if (currentMedium.IsVolumetric())
         {
@@ -336,7 +341,14 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const MeshVertex hitSurface = GetHitSurface(payload.HitBarycentrics, payload.HitGeometryIndex, payload.HitTriangleIndex, payload.HitFrontFace);
             const Material material = GetGeometryMaterial(payload.HitGeometryIndex);
 
-            const Medium enteringMedium = Medium::Init(material);
+            Medium enteringMedium = Medium::Init(material);
+            /*if (payload.HitFrontFace == false)
+            {
+                Medium temp = enteringMedium;
+                enteringMedium = currentMedium;
+                currentMedium = temp;
+            }*/
+
             if (enteringMedium.IsVolumetric() && !enteringMedium.HasSpecular())
             {
                 // Just continue on and we'll handle scattering in the next iteration
@@ -441,10 +453,18 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             {
                 if (enteringMedium.IsVolumetric() || currentMedium.IsVolumetric())
                 {
-                    const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS, roughness, rng.Sample2D());
-                    const float F = DielectricFresnel(currentMedium, enteringMedium, microfacetNormalTS, viewDirTS);
+                    const float interiorFlip = payload.HitFrontFace ? 1.0f : -1.0f;
+                    const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS * interiorFlip, roughness, rng.Sample2D()) * interiorFlip;
+                    const float F = DielectricFresnel(currentMedium.IOR, enteringMedium.IOR, microfacetNormalTS, viewDirTS);
+                    // const float F = DielectricFresnel(enteringMedium.IOR, currentMedium.IOR, microfacetNormalTS, viewDirTS);
                     const float T = saturate(1.0f - F);
                     const float refractProbability = T;
+
+                    // DebugPrintVar_(microfacetNormalTS);
+                    // DebugPrintVar_(viewDirTS);
+                    // DebugPrintVar_(incomingRayDirTS);
+                    // DebugPrintVar_(F);
+
                     refracted = rng.Sample1D() <  refractProbability;
                     if (refracted)
                     {
@@ -457,16 +477,23 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                         // pathThroughput /= refractProbability;
                         // pathThroughput *= T;
 
-                        /*DebugPrintVar_(denom);
-                        DebugPrintVar_(brdf);
-                        DebugPrintVar_(refractPDF);
+                        // DebugPrintVar_(nextRayDirTS);
+                        // DebugPrintVar_(denom);
+                        // DebugPrintVar_(brdf);
+                        // DebugPrintVar_(refractPDF);
+                        // DebugPrintVar_(brdf / refractPDF);
 
-                        float G = GGX_G(viewDirTS, nextRayDirTS, roughness);
-                        float mPDF = SampleGGXMicrofacetVNDF_PDF(viewDirTS, microfacetNormalTS, roughness);
-                        DebugPrintVar_(microfacetNormalTS);
-                        DebugPrintVar_(G);
-                        DebugPrintVar_(mPDF);
-                        DebugPrintVar_(T);*/
+                        // float G = GGX_G(viewDirTS, nextRayDirTS, roughness);
+                        // DebugPrintVar_(microfacetNormalTS);
+                        // DebugPrintVar_(G);
+                        // DebugPrintVar_(T);
+
+                        // const float3 nextRayDirWS = normalize(mul(nextRayDirTS, tangentToWorld));
+                        // DebugPrintVar_(nextRayDirWS);
+
+                        // DebugPrintVar_(interfaceIOR);
+                        // DebugPrintVar_(currentMedium.IOR);
+                        // DebugPrintVar_(enteringMedium.IOR);
                     }
                     else
                     {
@@ -488,7 +515,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
             const float3 nextRayDirWS = normalize(mul(nextRayDirTS, tangentToWorld));
             const float nDotL = saturate(nextRayDirTS.z);
-
 
             const float diffusePDF = enableDiffuse ? SampleDirectionCosineHemisphere_PDF(nDotL) : 0.0f;
             const float specularPDF = enableSpecular ? (refracted ? refractPDF : SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness)) : 0.0f;
