@@ -186,6 +186,57 @@ float DielectricFresnel(Medium currentMedium, Medium enteringMedium, float3 micr
     return F;
 }
 
+float CosTheta(float3 w) {
+    return w.z;
+}
+float Cos2Theta(float3 w) {
+    return Square(w.z);
+}
+float AbsCosTheta(float3 w) {
+    return abs(w.z);
+}
+
+float Sin2Theta(float3 w) {
+    return max(0, 1 - Cos2Theta(w));
+}
+float SinTheta(float3 w) {
+    return sqrt(Sin2Theta(w));
+}
+
+float TanTheta(float3 w) {
+    return SinTheta(w) / CosTheta(w);
+}
+float Tan2Theta(float3 w) {
+    return Sin2Theta(w) / Cos2Theta(w);
+}
+
+float CosPhi(float3 w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 1 : clamp(w.x / sinTheta, -1, 1);
+}
+float SinPhi(float3 w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 0 : clamp(w.y / sinTheta, -1, 1);
+}
+
+float Lambda(float3 w, float2 alpha) {
+    float tan2Theta = Tan2Theta(w);
+    if (isinf(tan2Theta))
+        return 0;
+    float alpha2 = Square(CosPhi(w) * alpha.x) + Square(SinPhi(w) * alpha.y);
+    return (sqrt(1 + alpha2 * tan2Theta) - 1) / 2;
+}
+
+float GGX_G1(float3 w, float2 alpha)
+{
+    return 1 / (1 + Lambda(w, alpha));
+}
+
+float GGX_G(float3 wo, float3 wi, float2 alpha)
+{
+    return 1 / (1 + Lambda(wo, alpha) + Lambda(wi, alpha));
+}
+
 float4 PathTrace(RayDesc initialRay, inout RNG rng)
 {
     float3 pathRadiance = 0.0f;
@@ -209,7 +260,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
         // ##########################################################################
-        traceRayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+        // traceRayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
 
         const uint hitGroupOffset = RayTypeHitInfo;
         const uint hitGroupGeoMultiplier = NumRayTypes;
@@ -392,16 +443,30 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 {
                     const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS, roughness, rng.Sample2D());
                     const float F = DielectricFresnel(currentMedium, enteringMedium, microfacetNormalTS, viewDirTS);
-                    const float refractProbability = 1.0f; // saturate(1.0f - F);
+                    const float T = saturate(1.0f - F);
+                    const float refractProbability = T;
                     refracted = rng.Sample1D() <  refractProbability;
                     if (refracted)
                     {
                         const float interfaceIOR = currentMedium.IOR / enteringMedium.IOR;
                         nextRayDirTS = refract(incomingRayDirTS, microfacetNormalTS, interfaceIOR);
-                        // ##########################################################################
-                        refractPDF = 1; // SampleGGXRefractionVNDF_PDF(viewDirTS, nextRayDirTS, microfacetNormalTS, roughness, interfaceIOR);
-                        pathThroughput /= refractProbability;
-                        pathThroughput *= saturate(1.0f - F);
+                        refractPDF = SampleGGXRefractionVNDF_PDF(viewDirTS, nextRayDirTS, microfacetNormalTS, roughness, interfaceIOR);
+                        float denom = Square(dot(nextRayDirTS, microfacetNormalTS) + dot(viewDirTS, microfacetNormalTS) / interfaceIOR);
+                        float brdf = GGX_D(roughness, microfacetNormalTS.z) * GGX_G(viewDirTS, nextRayDirTS, roughness) * abs(dot(nextRayDirTS, microfacetNormalTS) * dot(viewDirTS, microfacetNormalTS) / (nextRayDirTS.z * viewDirTS.z * denom));
+                        pathThroughput *= brdf;
+                        // pathThroughput /= refractProbability;
+                        // pathThroughput *= T;
+
+                        /*DebugPrintVar_(denom);
+                        DebugPrintVar_(brdf);
+                        DebugPrintVar_(refractPDF);
+
+                        float G = GGX_G(viewDirTS, nextRayDirTS, roughness);
+                        float mPDF = SampleGGXMicrofacetVNDF_PDF(viewDirTS, microfacetNormalTS, roughness);
+                        DebugPrintVar_(microfacetNormalTS);
+                        DebugPrintVar_(G);
+                        DebugPrintVar_(mPDF);
+                        DebugPrintVar_(T);*/
                     }
                     else
                     {
