@@ -237,6 +237,13 @@ float GGX_G(float3 wo, float3 wi, float2 alpha)
     return 1 / (1 + Lambda(wo, alpha) + Lambda(wi, alpha));
 }
 
+float GGX_Refract(float3 viewDirTS, float3 microfacetNormalTS, float3 refractDirTS, float roughness, float interfaceIOR)
+{
+    float denom = Square(dot(refractDirTS, microfacetNormalTS) + dot(viewDirTS, microfacetNormalTS) / interfaceIOR);
+    float refractBRDF = GGX_D(roughness, microfacetNormalTS.z) * GGX_G(viewDirTS, refractDirTS, roughness) * abs(dot(refractDirTS, microfacetNormalTS) * dot(viewDirTS, microfacetNormalTS) / (refractDirTS.z * viewDirTS.z * denom));
+    return refractBRDF;
+}
+
 float4 PathTrace(RayDesc initialRay, inout RNG rng)
 {
     float3 pathRadiance = 0.0f;
@@ -409,8 +416,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             Texture2D metallicMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Metallic)];
             const float metallic = saturate(metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x + material.MetallicOffset + AppSettings.MetallicOffset);
 
-            const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && !material.IsVolumetric());
             const bool enableSpecular =  (AppSettings.EnableSpecular && material.HasSpecular() && (AppSettings.EnableIndirectSpecular || pathLength == 1));
+            const bool enableRefraction = enableSpecular && (enteringMedium.IsVolumetric() || currentMedium.IsVolumetric());
+            const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && !enableRefraction);
             if (enableDiffuse == false && enableSpecular == false)
                 break;
 
@@ -426,100 +434,60 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 pathMaxRoughness = roughness;
             }
 
-            // Choose our next path with multiple importance sampling
-            const float selector = rng.Sample1D();
-            float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) : 0.0f;
-            float specularProbability = enableSpecular ? 1.0f : 0.0f;
-            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
-
-            const float probabilitySum = (diffuseProbability + specularProbability + lightProbability);
-            diffuseProbability /= probabilitySum;
-            specularProbability /= probabilitySum;
-            lightProbability /= probabilitySum;
-
-            float3 nextRayDirTS = 0.0f;
             const float3 incomingRayDirTS = normalize(mul(incomingRayDirWS, transpose(tangentToWorld)));
             const float3 viewDirTS = -incomingRayDirTS;
 
-            bool refracted = false;
-            float refractPDF = 0.0f;
+            // Diffuse sampling, cosine-weighted hemisphere
+            const float3 diffuseDirTS = SampleDirectionCosineHemisphere(rng.Sample2D());
 
+            // Specular sampling, VNDF reflection
+            const float interiorFlip = payload.HitFrontFace ? 1.0f : -1.0f;
+            const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS * interiorFlip, roughness, rng.Sample2D()) * interiorFlip;
+            const float F = DielectricFresnel(currentMedium.IOR, enteringMedium.IOR, microfacetNormalTS, viewDirTS);
+            const float T = saturate(1.0f - F);
+            const float3 reflectDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
+
+            // Refraction sampling, VNDF refraction
+            const float interfaceIOR = currentMedium.IOR / enteringMedium.IOR;
+            const float3 refractDirTS = refract(incomingRayDirTS, microfacetNormalTS, interfaceIOR);
+
+            // Light sampling, cone around the sun
+            const float3x3 sunFrame = CoordinateSystem(RayTraceCB.SunDirectionWS);
+            const float3 sunDirWS = mul(SampleDirectionCone(rng.Sample2D(), RayTraceCB.CosSunAngularRadius), sunFrame);
+            const float3 sunDirTS = normalize(mul(sunDirWS, transpose(tangentToWorld)));
+
+            // Choose our next path with multiple importance sampling
+            const float selector = rng.Sample1D();
+            float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) * T : 0.0f;
+            float reflectProbability = enableSpecular ? (enableRefraction ? F : 1.0f) : 0.0f;
+            float refractProbability = enableRefraction ? T : 0.0f;
+            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
+
+            const float probabilitySum = (diffuseProbability + reflectProbability + refractProbability + lightProbability);
+            diffuseProbability /= probabilitySum;
+            reflectProbability /= probabilitySum;
+            refractProbability /= probabilitySum;
+            lightProbability /= probabilitySum;
+
+            float3 nextRayDirTS = 0.0f;
             if(selector < diffuseProbability)
-            {
-                // We're sampling the diffuse BRDF, so sample a cosine-weighted hemisphere
-                nextRayDirTS = SampleDirectionCosineHemisphere(rng.Sample2D());
-            }
-            else if(selector < (diffuseProbability + specularProbability))
-            {
-                if (enteringMedium.IsVolumetric() || currentMedium.IsVolumetric())
-                {
-                    const float interiorFlip = payload.HitFrontFace ? 1.0f : -1.0f;
-                    const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS * interiorFlip, roughness, rng.Sample2D()) * interiorFlip;
-                    const float F = DielectricFresnel(currentMedium.IOR, enteringMedium.IOR, microfacetNormalTS, viewDirTS);
-                    // const float F = DielectricFresnel(enteringMedium.IOR, currentMedium.IOR, microfacetNormalTS, viewDirTS);
-                    const float T = saturate(1.0f - F);
-                    const float refractProbability = T;
-
-                    // DebugPrintVar_(microfacetNormalTS);
-                    // DebugPrintVar_(viewDirTS);
-                    // DebugPrintVar_(incomingRayDirTS);
-                    // DebugPrintVar_(F);
-
-                    refracted = rng.Sample1D() <  refractProbability;
-                    if (refracted)
-                    {
-                        const float interfaceIOR = currentMedium.IOR / enteringMedium.IOR;
-                        nextRayDirTS = refract(incomingRayDirTS, microfacetNormalTS, interfaceIOR);
-                        refractPDF = SampleGGXRefractionVNDF_PDF(viewDirTS, nextRayDirTS, microfacetNormalTS, roughness, interfaceIOR);
-                        float denom = Square(dot(nextRayDirTS, microfacetNormalTS) + dot(viewDirTS, microfacetNormalTS) / interfaceIOR);
-                        float brdf = GGX_D(roughness, microfacetNormalTS.z) * GGX_G(viewDirTS, nextRayDirTS, roughness) * abs(dot(nextRayDirTS, microfacetNormalTS) * dot(viewDirTS, microfacetNormalTS) / (nextRayDirTS.z * viewDirTS.z * denom));
-                        pathThroughput *= brdf;
-                        // pathThroughput /= refractProbability;
-                        // pathThroughput *= T;
-
-                        // DebugPrintVar_(nextRayDirTS);
-                        // DebugPrintVar_(denom);
-                        // DebugPrintVar_(brdf);
-                        // DebugPrintVar_(refractPDF);
-                        // DebugPrintVar_(brdf / refractPDF);
-
-                        // float G = GGX_G(viewDirTS, nextRayDirTS, roughness);
-                        // DebugPrintVar_(microfacetNormalTS);
-                        // DebugPrintVar_(G);
-                        // DebugPrintVar_(T);
-
-                        // const float3 nextRayDirWS = normalize(mul(nextRayDirTS, tangentToWorld));
-                        // DebugPrintVar_(nextRayDirWS);
-
-                        // DebugPrintVar_(interfaceIOR);
-                        // DebugPrintVar_(currentMedium.IOR);
-                        // DebugPrintVar_(enteringMedium.IOR);
-                    }
-                    else
-                    {
-                        nextRayDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
-                        pathThroughput /= saturate(1.0f - refractProbability);
-                    }
-                }
-                else
-                {
-                    nextRayDirTS = SampleGGXReflectionVNDF(viewDirTS, roughness, rng.Sample2D());
-                }
-            }
+                nextRayDirTS = diffuseDirTS;
+            else if(selector < (diffuseProbability + reflectProbability))
+                nextRayDirTS = reflectDirTS;
+            else if(selector < (diffuseProbability + reflectProbability + refractProbability))
+                nextRayDirTS = refractDirTS;
             else
-            {
-                const float3x3 sunFrame = CoordinateSystem(RayTraceCB.SunDirectionWS);
-                const float3 nextRayDirWS = mul(SampleDirectionCone(rng.Sample2D(), RayTraceCB.CosSunAngularRadius), sunFrame);
-                nextRayDirTS = normalize(mul(nextRayDirWS, transpose(tangentToWorld)));
-            }
+                nextRayDirTS = sunDirTS;
 
             const float3 nextRayDirWS = normalize(mul(nextRayDirTS, tangentToWorld));
+            const bool refracted = enableRefraction && dot(nextRayDirTS, microfacetNormalTS) < 0.0f;
             const float nDotL = saturate(nextRayDirTS.z);
 
             const float diffusePDF = enableDiffuse ? SampleDirectionCosineHemisphere_PDF(nDotL) : 0.0f;
-            const float specularPDF = enableSpecular ? (refracted ? refractPDF : SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness)) : 0.0f;
+            const float reflectPDF = (enableSpecular && !refracted) ? SampleGGXReflectionVNDF_PDF(viewDirTS, nextRayDirTS, roughness) : 0.0f;
+            const float refractPDF = (enableRefraction && refracted) ? SampleGGXRefractionVNDF_PDF(viewDirTS, nextRayDirTS, microfacetNormalTS, roughness, interfaceIOR) : 0.0f;
             const float lightPDF = (AppSettings.EnableSun && dot(nextRayDirWS, RayTraceCB.SunDirectionWS) >= RayTraceCB.CosSunAngularRadius) ? SampleDirectionCone_PDF(RayTraceCB.CosSunAngularRadius) : 0.0f;
-            const float totalPDF = diffuseProbability * diffusePDF + specularProbability * specularPDF + lightProbability * lightPDF;
+            const float totalPDF = (diffuseProbability * diffusePDF) + (reflectProbability * reflectPDF) + (refractProbability * refractPDF) + (lightProbability * lightPDF);
             const float invPDF = totalPDF > 0.0f ? (1.0f / totalPDF) : 0.0f;
 
             float3 brdf = 0.0f;
@@ -531,12 +499,13 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             {
                 if (refracted)
                 {
-                    brdf = 1.0f;
+                    float refractBRDF = GGX_Refract(viewDirTS, microfacetNormalTS, nextRayDirTS, roughness, interfaceIOR);
+                    brdf += refractBRDF * T; // * saturate(nextRayDirTS.z);
                 }
                 else
                 {
                     float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
-                    float3 normalTS = float3(0, 0, 1);
+                    float3 normalTS = float3(0, 0, interiorFlip);
                     float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
                     brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec * nDotL;
                 }
