@@ -145,12 +145,12 @@ MeshVertex GetHitSurface(in float2 hitBarycentrics, in uint geometryIdx, in uint
     const MeshVertex vtx2 = vtxBuffer[idx2 + geoInfo.VtxOffset];
 
     MeshVertex finalVertex = BarycentricLerp(vtx0, vtx1, vtx2, barycentrics);
-    /*if (frontFace == false)
+    if (frontFace == false)
     {
         finalVertex.Normal *= -1;
         finalVertex.Tangent *= -1;
         finalVertex.Bitangent *= -1;
-    }*/
+    }
     return finalVertex;
 }
 
@@ -267,7 +267,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             traceRayFlags = RAY_FLAG_FORCE_OPAQUE;
 
         // ##########################################################################
-        traceRayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+        // traceRayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
         // traceRayFlags |= RAY_FLAG_CULL_FRONT_FACING_TRIANGLES;
 
         const uint hitGroupOffset = RayTypeHitInfo;
@@ -284,7 +284,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             primaryRayT = payload.HitT;
 
         // ##########################################################################
-        if (currentMedium.IsVolumetric())
+        if (currentMedium.IsVolumetric() && 0)
             currentMedium = Medium::Default();
 
         if (currentMedium.IsVolumetric())
@@ -349,12 +349,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const Material material = GetGeometryMaterial(payload.HitGeometryIndex);
 
             Medium enteringMedium = Medium::Init(material);
-            /*if (payload.HitFrontFace == false)
-            {
-                Medium temp = enteringMedium;
-                enteringMedium = currentMedium;
-                currentMedium = temp;
-            }*/
+            if (payload.HitFrontFace == false)
+                enteringMedium = Medium::Default();
 
             if (enteringMedium.IsVolumetric() && !enteringMedium.HasSpecular())
             {
@@ -441,8 +437,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float3 diffuseDirTS = SampleDirectionCosineHemisphere(rng.Sample2D());
 
             // Specular sampling, VNDF reflection
-            const float interiorFlip = payload.HitFrontFace ? 1.0f : -1.0f;
-            const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS * interiorFlip, roughness, rng.Sample2D()) * interiorFlip;
+            const float interiorFlip = payload.HitFrontFace;
+            const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS, roughness, rng.Sample2D());
             const float F = DielectricFresnel(currentMedium.IOR, enteringMedium.IOR, microfacetNormalTS, viewDirTS);
             const float T = saturate(1.0f - F);
             const float3 reflectDirTS = reflect(incomingRayDirTS, microfacetNormalTS);
@@ -461,7 +457,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) * T : 0.0f;
             float reflectProbability = enableSpecular ? (enableRefraction ? F : 1.0f) : 0.0f;
             float refractProbability = enableRefraction ? T : 0.0f;
-            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
+            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? (enableRefraction ? abs(dot(normalWS, RayTraceCB.SunDirectionWS)) : saturate(dot(normalWS, RayTraceCB.SunDirectionWS))) : 0.0f;
 
             const float probabilitySum = (diffuseProbability + reflectProbability + refractProbability + lightProbability);
             diffuseProbability /= probabilitySum;
@@ -501,6 +497,24 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 {
                     float refractBRDF = GGX_Refract(viewDirTS, microfacetNormalTS, nextRayDirTS, roughness, interfaceIOR);
                     brdf += refractBRDF * T; // * saturate(nextRayDirTS.z);
+
+                    if (pathLength == 2 && 0)
+                    {
+                        float denom = Square(dot(nextRayDirTS, microfacetNormalTS) + dot(viewDirTS, microfacetNormalTS) / interfaceIOR);
+                        float d = GGX_D(roughness, microfacetNormalTS.z);
+                        float g = GGX_G(viewDirTS, nextRayDirTS, roughness);
+                        float x = dot(nextRayDirTS, microfacetNormalTS) * dot(viewDirTS, microfacetNormalTS);
+                        float d2 = (nextRayDirTS.z * viewDirTS.z * denom);
+
+                        DebugPrintVar_(currentMedium.IOR);
+                        DebugPrintVar_(enteringMedium.IOR);
+                        // DebugPrintVar_(interfaceIOR);
+                        // DebugPrintVar_(denom);
+                        // DebugPrintVar_(d);
+                        // DebugPrintVar_(g);
+                        // DebugPrintVar_(x);
+                        // DebugPrintVar_(d2);
+                    }
                 }
                 else
                 {
@@ -509,6 +523,18 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                     float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
                     brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec * nDotL;
                 }
+            }
+
+            if (pathLength == 2 && 0)
+            {
+                DebugPrintVar_(refracted);
+                DebugPrintVar_(brdf);
+                DebugPrintVar_(nextRayDirWS);
+                DebugPrintVar_(refractPDF);
+                DebugPrintVar_(totalPDF);
+                DebugPrintVar_(microfacetNormalTS);
+                DebugPrintVar_(reflectDirTS);
+                DebugPrintVar_(refractDirTS);
             }
 
             pathThroughput *= brdf * invPDF;

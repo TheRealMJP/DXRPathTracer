@@ -161,6 +161,12 @@ struct DebugPrinter
         AppendArgWithCode(DebugPrint_Float4, a);
     }
 
+    void AppendArg(bool x)
+    {
+        uint a[1] = { x ? 1 : 0 };
+        AppendArgWithCode(DebugPrint_Uint, a);
+    }
+
     void AppendArgs()
     {
     }
