@@ -437,7 +437,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float3 diffuseDirTS = SampleDirectionCosineHemisphere(rng.Sample2D());
 
             // Specular sampling, VNDF reflection
-            const float interiorFlip = payload.HitFrontFace;
             const float3 microfacetNormalTS = SampleGGXMicrofacetVNDF(viewDirTS, roughness, rng.Sample2D());
             const float F = DielectricFresnel(currentMedium.IOR, enteringMedium.IOR, microfacetNormalTS, viewDirTS);
             const float T = saturate(1.0f - F);
@@ -457,7 +456,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) * T : 0.0f;
             float reflectProbability = enableSpecular ? (enableRefraction ? F : 1.0f) : 0.0f;
             float refractProbability = enableRefraction ? T : 0.0f;
-            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? (enableRefraction ? abs(dot(normalWS, RayTraceCB.SunDirectionWS)) : saturate(dot(normalWS, RayTraceCB.SunDirectionWS))) : 0.0f;
+            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
 
             const float probabilitySum = (diffuseProbability + reflectProbability + refractProbability + lightProbability);
             diffuseProbability /= probabilitySum;
@@ -486,6 +485,8 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float totalPDF = (diffuseProbability * diffusePDF) + (reflectProbability * reflectPDF) + (refractProbability * refractPDF) + (lightProbability * lightPDF);
             const float invPDF = totalPDF > 0.0f ? (1.0f / totalPDF) : 0.0f;
 
+            const bool internalReflection = enableRefraction && !refracted;
+
             float3 brdf = 0.0f;
 
             if (enableDiffuse)
@@ -497,44 +498,14 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
                 {
                     float refractBRDF = GGX_Refract(viewDirTS, microfacetNormalTS, nextRayDirTS, roughness, interfaceIOR);
                     brdf += refractBRDF * T; // * saturate(nextRayDirTS.z);
-
-                    if (pathLength == 2 && 0)
-                    {
-                        float denom = Square(dot(nextRayDirTS, microfacetNormalTS) + dot(viewDirTS, microfacetNormalTS) / interfaceIOR);
-                        float d = GGX_D(roughness, microfacetNormalTS.z);
-                        float g = GGX_G(viewDirTS, nextRayDirTS, roughness);
-                        float x = dot(nextRayDirTS, microfacetNormalTS) * dot(viewDirTS, microfacetNormalTS);
-                        float d2 = (nextRayDirTS.z * viewDirTS.z * denom);
-
-                        DebugPrintVar_(currentMedium.IOR);
-                        DebugPrintVar_(enteringMedium.IOR);
-                        // DebugPrintVar_(interfaceIOR);
-                        // DebugPrintVar_(denom);
-                        // DebugPrintVar_(d);
-                        // DebugPrintVar_(g);
-                        // DebugPrintVar_(x);
-                        // DebugPrintVar_(d2);
-                    }
                 }
                 else
                 {
                     float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
-                    float3 normalTS = float3(0, 0, interiorFlip);
+                    float3 normalTS = float3(0, 0, 1);
                     float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
                     brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec * nDotL;
                 }
-            }
-
-            if (pathLength == 2 && 0)
-            {
-                DebugPrintVar_(refracted);
-                DebugPrintVar_(brdf);
-                DebugPrintVar_(nextRayDirWS);
-                DebugPrintVar_(refractPDF);
-                DebugPrintVar_(totalPDF);
-                DebugPrintVar_(microfacetNormalTS);
-                DebugPrintVar_(reflectDirTS);
-                DebugPrintVar_(refractDirTS);
             }
 
             pathThroughput *= brdf * invPDF;
@@ -547,7 +518,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             newRay.TMax = FP32Max;
 
             segmentRay = newRay;
-            currentMedium = enteringMedium;
+
+            if (internalReflection == false)
+                currentMedium = enteringMedium;
         }
         else
         {
