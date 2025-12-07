@@ -75,6 +75,15 @@ static const SceneParameters SceneParams[] =
         .SunDirection = Float3(0.579f, 0.574f, -0.579f),
     },
 
+    // Cube
+    {
+        .Path = "..\\Content\\Models\\CubeScene\\CubeScene.fbx",
+        .TextureDir = nullptr,
+        .Scale = 1.0f,
+        .CameraPosition = Float3(0.125f, 0.125f, -2.75f),
+        .CameraRotation = Float2(0.0f, 0.0f),
+        .SunDirection = Float3(0.579f, 0.574f, -0.579f),
+    },
 
     // Sponza
     {
@@ -132,7 +141,7 @@ static Material materialPresets[int32_t(MaterialPreset::NumPresets)];
 
 static bool SceneIsEditable(Scenes scene)
 {
-    return scene == Scenes::Knob || scene == Scenes::Dragon;
+    return scene == Scenes::Knob || scene == Scenes::Dragon || scene == Scenes::Cube;
 }
 
 static const uint64_t NumConeSides = 16;

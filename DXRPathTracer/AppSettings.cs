@@ -8,6 +8,9 @@ enum Scenes
     [EnumLabel("Dragon (Editable)")]
     Dragon,
 
+    [EnumLabel("Cube (Editable)")]
+    Cube,
+
     Sponza,
     SunTemple,
     WhiteFurnace,
@@ -79,7 +82,7 @@ public class Settings
     public class Scene
     {
         [UseAsShaderConstant(false)]
-        Scenes CurrentScene = Scenes.Dragon;
+        Scenes CurrentScene = Scenes.Cube;
 
         [HelpText("Enable or disable spot light rendering")]
         bool RenderLights = true;

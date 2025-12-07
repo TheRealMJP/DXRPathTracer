@@ -9,6 +9,7 @@ const char* ScenesLabels[uint32_t(Scenes::NumValues)] =
     "BoxTest",
     "Knob (Editable)",
     "Dragon (Editable)",
+    "Cube (Editable)",
     "Sponza",
     "SunTemple",
     "WhiteFurnace",
@@ -19,6 +20,7 @@ const Scenes ScenesValues[uint32_t(Scenes::NumValues)] =
     Scenes::BoxTest,
     Scenes::Knob,
     Scenes::Dragon,
+    Scenes::Cube,
     Scenes::Sponza,
     Scenes::SunTemple,
     Scenes::WhiteFurnace,
@@ -106,7 +108,7 @@ namespace AppSettings
         GroundAlbedo.Initialize("GroundAlbedo", "Sun And Sky", "Ground Albedo", "Ground albedo color used for procedural sun and sky model", Float3(0.2500f, 0.2500f, 0.2500f), false, -340282300000000000000000000000000000000.0000f, 340282300000000000000000000000000000000.0000f, 0.0100f, ColorUnit::None);
         Settings.AddSetting(&GroundAlbedo);
 
-        CurrentScene.Initialize("CurrentScene", "Scene", "Current Scene", "", Scenes::Dragon, 6, ScenesLabels);
+        CurrentScene.Initialize("CurrentScene", "Scene", "Current Scene", "", Scenes::Cube, 7, ScenesLabels);
         Settings.AddSetting(&CurrentScene);
 
         RenderLights.Initialize("RenderLights", "Scene", "Render Lights", "Enable or disable spot light rendering", true);

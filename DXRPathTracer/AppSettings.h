@@ -11,9 +11,10 @@ enum class Scenes
     BoxTest = 0,
     Knob = 1,
     Dragon = 2,
-    Sponza = 3,
-    SunTemple = 4,
-    WhiteFurnace = 5,
+    Cube = 3,
+    Sponza = 4,
+    SunTemple = 5,
+    WhiteFurnace = 6,
 
     NumValues
 };
