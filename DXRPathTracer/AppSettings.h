@@ -63,6 +63,7 @@ namespace AppSettings
     extern BoolSetting EnableNormalMaps;
     extern BoolSetting EnableDiffuse;
     extern BoolSetting EnableSpecular;
+    extern BoolSetting EnableRefraction;
     extern BoolSetting EnableDirect;
     extern BoolSetting EnableIndirect;
     extern BoolSetting EnableIndirectSpecular;
@@ -96,6 +97,7 @@ namespace AppSettings
         bool32 EnableNormalMaps;
         bool32 EnableDiffuse;
         bool32 EnableSpecular;
+        bool32 EnableRefraction;
         bool32 EnableDirect;
         bool32 EnableIndirect;
         bool32 EnableIndirectSpecular;

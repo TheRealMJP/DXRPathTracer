@@ -201,6 +201,9 @@ public class Settings
         [HelpText("Enables specular reflections")]
         bool EnableSpecular = true;
 
+        [HelpText("Enables specular refractions")]
+        bool EnableRefraction = true;
+
         [HelpText("Enables direct lighting")]
         bool EnableDirect = true;
 

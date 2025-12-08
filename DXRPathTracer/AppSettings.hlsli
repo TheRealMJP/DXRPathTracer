@@ -22,6 +22,7 @@ struct AppSettings_CBLayout
     bool EnableNormalMaps;
     bool EnableDiffuse;
     bool EnableSpecular;
+    bool EnableRefraction;
     bool EnableDirect;
     bool EnableIndirect;
     bool EnableIndirectSpecular;
@@ -55,6 +56,7 @@ struct AppSettings_Values
     bool EnableNormalMaps;
     bool EnableDiffuse;
     bool EnableSpecular;
+    bool EnableRefraction;
     bool EnableDirect;
     bool EnableIndirect;
     bool EnableIndirectSpecular;
@@ -87,6 +89,7 @@ static const AppSettings_Values AppSettings =
     AppSettingsCB.EnableNormalMaps,
     AppSettingsCB.EnableDiffuse,
     AppSettingsCB.EnableSpecular,
+    AppSettingsCB.EnableRefraction,
     AppSettingsCB.EnableDirect,
     AppSettingsCB.EnableIndirect,
     AppSettingsCB.EnableIndirectSpecular,

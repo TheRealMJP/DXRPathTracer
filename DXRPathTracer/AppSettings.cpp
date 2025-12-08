@@ -56,6 +56,7 @@ namespace AppSettings
     BoolSetting EnableNormalMaps;
     BoolSetting EnableDiffuse;
     BoolSetting EnableSpecular;
+    BoolSetting EnableRefraction;
     BoolSetting EnableDirect;
     BoolSetting EnableIndirect;
     BoolSetting EnableIndirectSpecular;
@@ -165,6 +166,9 @@ namespace AppSettings
         EnableSpecular.Initialize("EnableSpecular", "Debug", "Enable Specular", "Enables specular reflections", true);
         Settings.AddSetting(&EnableSpecular);
 
+        EnableRefraction.Initialize("EnableRefraction", "Debug", "Enable Refraction", "Enables specular refractions", true);
+        Settings.AddSetting(&EnableRefraction);
+
         EnableDirect.Initialize("EnableDirect", "Debug", "Enable Direct", "Enables direct lighting", true);
         Settings.AddSetting(&EnableDirect);
 
@@ -231,6 +235,7 @@ namespace AppSettings
         cbData.EnableNormalMaps = EnableNormalMaps;
         cbData.EnableDiffuse = EnableDiffuse;
         cbData.EnableSpecular = EnableSpecular;
+        cbData.EnableRefraction = EnableRefraction;
         cbData.EnableDirect = EnableDirect;
         cbData.EnableIndirect = EnableIndirect;
         cbData.EnableIndirectSpecular = EnableIndirectSpecular;

@@ -349,9 +349,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const Material material = GetGeometryMaterial(payload.HitGeometryIndex);
 
             Medium enteringMedium = Medium::Init(material);
-            if (payload.HitFrontFace == false)
-                enteringMedium = Medium::Default();
-
             if (enteringMedium.IsVolumetric() && !enteringMedium.HasSpecular())
             {
                 // Just continue on and we'll handle scattering in the next iteration
@@ -370,6 +367,9 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
                 continue;
             }
+
+            if (payload.HitFrontFace == false)
+                enteringMedium = Medium::Default();
 
             Texture2D emissiveMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Emissive)];
             pathRadiance += emissiveMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).xyz * material.EmissiveTint * pathThroughput;
@@ -413,7 +413,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float metallic = saturate(metallicMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x + material.MetallicOffset + AppSettings.MetallicOffset);
 
             const bool enableSpecular =  (AppSettings.EnableSpecular && material.HasSpecular() && (AppSettings.EnableIndirectSpecular || pathLength == 1));
-            const bool enableRefraction = enableSpecular && (enteringMedium.IsVolumetric() || currentMedium.IsVolumetric());
+            const bool enableRefraction = enableSpecular && AppSettings.EnableRefraction && (enteringMedium.IsVolumetric() || currentMedium.IsVolumetric());
             const bool enableDiffuse = (AppSettings.EnableDiffuse && metallic < 1.0f && !enableRefraction);
             if (enableDiffuse == false && enableSpecular == false)
                 break;
@@ -421,8 +421,6 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             Texture2D roughnessMap = ResourceDescriptorHeap[NonUniformResourceIndex(material.Roughness)];
             const float sqrtRoughness = clamp(roughnessMap.SampleLevel(LinearSampler, hitSurface.UV, 0.0f).x * material.RoughnessScale * AppSettings.RoughnessScale, 0.025f, 1.0f);
 
-            const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic) * (enableDiffuse ? 1.0f : 0.0f);
-            const float3 specularF0 = lerp(0.03f, baseColor, metallic) * (enableSpecular ? 1.0f : 0.0f);
             float roughness = sqrtRoughness * sqrtRoughness;
             if(AppSettings.ClampRoughness)
             {
@@ -450,13 +448,14 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float3x3 sunFrame = CoordinateSystem(RayTraceCB.SunDirectionWS);
             const float3 sunDirWS = mul(SampleDirectionCone(rng.Sample2D(), RayTraceCB.CosSunAngularRadius), sunFrame);
             const float3 sunDirTS = normalize(mul(sunDirWS, transpose(tangentToWorld)));
+            const bool enableSunSampling = AppSettings.EnableSun && AppSettings.EnableDirectLightSampling; // && currentMedium.IOR == 1.0h;
 
             // Choose our next path with multiple importance sampling
             const float selector = rng.Sample1D();
             float diffuseProbability = enableDiffuse ? saturate(1.0f - metallic) * T : 0.0f;
             float reflectProbability = enableSpecular ? (enableRefraction ? F : 1.0f) : 0.0f;
             float refractProbability = enableRefraction ? T : 0.0f;
-            float lightProbability = (AppSettings.EnableSun && AppSettings.EnableDirectLightSampling) ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
+            float lightProbability = enableSunSampling ? saturate(dot(normalWS, RayTraceCB.SunDirectionWS)) : 0.0f;
 
             const float probabilitySum = (diffuseProbability + reflectProbability + refractProbability + lightProbability);
             diffuseProbability /= probabilitySum;
@@ -485,26 +484,32 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
             const float totalPDF = (diffuseProbability * diffusePDF) + (reflectProbability * reflectPDF) + (refractProbability * refractPDF) + (lightProbability * lightPDF);
             const float invPDF = totalPDF > 0.0f ? (1.0f / totalPDF) : 0.0f;
 
-            const bool internalReflection = enableRefraction && !refracted;
-
             float3 brdf = 0.0f;
 
             if (enableDiffuse)
+            {
+                const float3 diffuseAlbedo = lerp(baseColor, 0.0f, metallic);
                 brdf += diffuseAlbedo * InvPi * nDotL;
+            }
 
             if(enableSpecular)
             {
                 if (refracted)
                 {
                     float refractBRDF = GGX_Refract(viewDirTS, microfacetNormalTS, nextRayDirTS, roughness, interfaceIOR);
-                    brdf += refractBRDF * T; // * saturate(nextRayDirTS.z);
+                    brdf += refractBRDF * T * saturate(-nextRayDirTS.z);
                 }
                 else
                 {
                     float3 halfDirTS = normalize(nextRayDirTS + viewDirTS);
                     float3 normalTS = float3(0, 0, 1);
                     float spec = GGXSpecular(roughness, normalTS, halfDirTS, viewDirTS, nextRayDirTS);
-                    brdf += Fresnel(specularF0, halfDirTS, nextRayDirTS) * spec * nDotL;
+
+                    const float3 metallicFresnel = Fresnel(baseColor, halfDirTS, nextRayDirTS);
+                    const float dielectricFresnel = DielectricFresnel(currentMedium.IOR, enteringMedium.IOR, halfDirTS, viewDirTS);
+                    const float3 fresnel = lerp(dielectricFresnel, metallicFresnel, metallic);
+
+                    brdf += fresnel * spec * nDotL;
                 }
             }
 
@@ -519,7 +524,7 @@ float4 PathTrace(RayDesc initialRay, inout RNG rng)
 
             segmentRay = newRay;
 
-            if (internalReflection == false)
+            if (refracted)
                 currentMedium = enteringMedium;
         }
         else

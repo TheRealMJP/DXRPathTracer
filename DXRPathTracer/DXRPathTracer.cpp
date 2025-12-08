@@ -656,6 +656,7 @@ void DXRPathTracer::Update(const Timer& timer)
         &AppSettings::EnableNormalMaps,
         &AppSettings::EnableDiffuse,
         &AppSettings::EnableSpecular,
+        &AppSettings::EnableRefraction,
         &AppSettings::EnableDirect,
         &AppSettings::EnableIndirect,
         &AppSettings::EnableIndirectSpecular,
